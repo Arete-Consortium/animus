@@ -7,7 +7,6 @@ and optional MCP server tools.
 
 from __future__ import annotations
 
-import json
 import logging
 import shlex
 import subprocess
