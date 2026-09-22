@@ -58,6 +58,7 @@ def test_special_encounter_warns_when_timeline_is_incomplete() -> None:
     assert isinstance(record, SpecialEncounterRecord)
     report = audit_record(record)
     assert report.publishable
+    assert not report.auto_publishable
     assert any(
         finding.severity == AuditSeverity.WARN and finding.code == "special.timeline"
         for finding in report.findings
