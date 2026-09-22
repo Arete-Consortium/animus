@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .models import (
+    WILDS_GAME_ID,
     AuditFinding,
     AuditReport,
     AuditSeverity,
@@ -11,7 +12,6 @@ from .models import (
     MonsterRecord,
     RecordStatus,
     SpecialEncounterRecord,
-    WILDS_GAME_ID,
     WeaponTypeRecord,
 )
 
