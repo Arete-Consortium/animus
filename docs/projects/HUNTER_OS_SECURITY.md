@@ -54,6 +54,9 @@ HUNTER_OS_GUILD_IDS=987654321098765432
 HUNTER_OS_REQUIRE_MENTION=true
 HUNTER_OS_ALLOW_DMS=false
 HUNTER_OS_ADMIN_USER_IDS=111111111111111111
+ANIMUS_DISCORD_ADMIN_USER_IDS=111111111111111111
+HUNTER_OS_FORUM_CHANNEL_IDS=222222222222222222
+HUNTER_OS_FORUM_THREAD_IDS=333333333333333333,444444444444444444,555555555555555555
 ```
 
 Multiple IDs are comma-separated.
@@ -79,29 +82,50 @@ The Hunter chat system prompt requires:
 
 The code-level protection is stronger than the prompt-level protection because general memory is not supplied to this path at all.
 
-## Forums
+## Forum display boundary
 
-The three Hunter OS forums are display/reference surfaces only:
+Hunter OS uses one existing Discord Forum Channel with three information threads:
 
 - Weapons
 - Monsters
 - Hunter Guide
 
-They contain generated cards and searchable summaries. They do not need access to Animus memory and should not be configured as generic chat channels.
+They contain generated cards and searchable summaries only.
+
+Configure:
+- `HUNTER_OS_FORUM_CHANNEL_IDS` with the Forum parent ID;
+- `HUNTER_OS_FORUM_THREAD_IDS` with the three information thread IDs.
+
+The bot checks this display boundary before Hunter chat or generic Animus routing. Messages inside the Forum parent/threads never trigger conversational replies, even if another chat setting is accidentally pointed at the same channel.
+
+## General Animus privacy hardening
+
+The existing Animus Discord bot exposes commands that can read/write private system state, including memory-oriented commands such as `/recall`, `/remember`, `/ask`, and `/brief`, plus operational harvest/watchlist commands.
+
+Code-level policy now restricts those commands to:
+- the Discord guild owner; or
+- user IDs explicitly listed in `ANIMUS_DISCORD_ADMIN_USER_IDS`.
+
+The same owner/operator rule protects generic mention/chat routing that can call `MemoryLayer.recall()`. Non-admin friends can use the isolated Hunter OS chat channel, but cannot reach the general memory-backed Animus conversation path.
+
+This protection remains in code even if Discord's Integration UI accidentally leaves a command visible to `@everyone`.
+
+For defense in depth, Discord command permissions should also hide/restrict private commands from non-admin roles.
 
 ## Publishing permissions
 
 Future forum publishing should use least privilege.
 
-Current desired bot permissions:
+Current desired bot permissions for the existing three-thread layout:
 - View Channels
 - Send Messages
 - Send Messages in Threads
-- Create Public Threads
 - Embed Links
 - Attach Files
 - Read Message History
 - Use Application Commands
+
+Because the Weapons/Monsters/Hunter Guide threads already exist, Hunter OS does not require Create Public Threads for normal publishing.
 
 Do not grant Administrator.
 
