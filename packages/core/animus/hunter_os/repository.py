@@ -17,6 +17,7 @@ from .models import (
     WeaponTypeRecord,
     tupleize,
 )
+from .search import score_record
 
 
 class HunterOSDataError(ValueError):
@@ -49,24 +50,16 @@ class HunterOSRepository:
         raise KeyError(record_id)
 
     def search(self, query: str, limit: int = 20) -> tuple[HunterRecord, ...]:
-        needle = query.casefold().strip()
-        if not needle:
+        if not query.strip():
             return ()
 
-        scored: list[tuple[int, HunterRecord]] = []
-        for record in self.all():
-            haystacks = [
-                record.id.casefold(),
-                record.name.casefold(),
-                " ".join(record.tags).casefold(),
-                record.record_type.casefold(),
-            ]
-            score = sum(1 for text in haystacks if needle in text)
-            if score:
-                scored.append((score, record))
-
-        scored.sort(key=lambda pair: (-pair[0], pair[1].name.casefold()))
-        return tuple(record for _, record in scored[:limit])
+        scored = [
+            (score_record(record, query), record)
+            for record in self.all()
+        ]
+        matched = [(score, record) for score, record in scored if score > 0]
+        matched.sort(key=lambda pair: (-pair[0], pair[1].name.casefold()))
+        return tuple(record for _, record in matched[:limit])
 
     def _load_file(self, path: Path) -> HunterRecord:
         raw = yaml.safe_load(path.read_text(encoding="utf-8"))
