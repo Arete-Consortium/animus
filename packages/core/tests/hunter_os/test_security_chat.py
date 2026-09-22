@@ -28,6 +28,17 @@ def test_policy_is_channel_and_guild_allowlisted() -> None:
     assert not policy.permits_chat(guild_id=10, channel_id=20, is_mention=False)
 
 
+def test_forum_surfaces_are_display_only() -> None:
+    policy = HunterOSChatPolicy(
+        forum_parent_ids=frozenset({30}),
+        forum_thread_ids=frozenset({31, 32, 33}),
+    )
+    assert policy.is_display_surface(channel_id=30)
+    assert policy.is_display_surface(channel_id=31, parent_id=30)
+    assert policy.is_display_surface(channel_id=99, parent_id=30)
+    assert not policy.is_display_surface(channel_id=40, parent_id=41)
+
+
 def test_policy_admin_is_explicit_allowlist() -> None:
     policy = HunterOSChatPolicy(admin_user_ids=frozenset({99}))
     assert policy.permits_admin(99)
@@ -40,12 +51,15 @@ def test_env_policy_defaults_to_mentions_and_denies_dms() -> None:
             "HUNTER_OS_CHAT_CHANNEL_IDS": "20,21",
             "HUNTER_OS_GUILD_IDS": "10",
             "HUNTER_OS_ADMIN_USER_IDS": "99",
+            "HUNTER_OS_FORUM_CHANNEL_IDS": "30",
+            "HUNTER_OS_FORUM_THREAD_IDS": "31,32,33",
         }
     )
     assert policy.require_mention
     assert not policy.allow_dms
     assert policy.permits_chat(guild_id=10, channel_id=20, is_mention=True)
     assert not policy.permits_chat(guild_id=None, channel_id=20, is_mention=True)
+    assert policy.is_display_surface(channel_id=31, parent_id=30)
 
 
 def test_natural_search_finds_controls_and_guide_content() -> None:
