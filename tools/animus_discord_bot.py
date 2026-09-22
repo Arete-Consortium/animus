@@ -16,6 +16,10 @@ Environment:
     ANIMUS_DISCORD_CHANNEL  — Channel ID for auto-push intel (required for auto-push)
     ANIMUS_CHAT_CHANNEL     — Channel ID where Animus responds to all messages (optional)
     ANIMUS_CHAT_COOLDOWN    — Per-user cooldown in seconds (default: 10)
+    HUNTER_OS_CHAT_CHANNEL_IDS — Comma-separated shared MH chat channel IDs
+    HUNTER_OS_GUILD_IDS      — Optional comma-separated guild allowlist
+    HUNTER_OS_REQUIRE_MENTION — Require @Animus in MH chat (default: true)
+    HUNTER_OS_ALLOW_DMS      — Allow Hunter OS in DMs (default: false)
     DISCORD_BOT_TOKEN       — Fallback token if ANIMUS_DISCORD_TOKEN not set
 """
 
@@ -41,6 +45,7 @@ import discord
 from animus.cognitive import CognitiveLayer, ModelProvider
 from animus.cognitive import ModelConfig as CogModelConfig
 from animus.config import AnimusConfig
+from animus.hunter_os import HunterOSChatPolicy, HunterOSChatService
 from animus.infrastructure import AlreadyRunningError, LockedPidFile
 from animus.memory import MemoryLayer, MemoryType
 from discord import app_commands
@@ -110,6 +115,29 @@ def _get_memory() -> MemoryLayer:
 # ---------------------------------------------------------------------------
 
 _cognitive: CognitiveLayer | None = None
+_hunter_chat_policy: HunterOSChatPolicy | None = None
+_hunter_chat_service: HunterOSChatService | None = None
+
+
+def _get_hunter_chat_policy() -> HunterOSChatPolicy:
+    """Load the least-privilege Hunter OS chat policy once."""
+
+    global _hunter_chat_policy
+    if _hunter_chat_policy is None:
+        _hunter_chat_policy = HunterOSChatPolicy.from_env()
+    return _hunter_chat_policy
+
+
+def _get_hunter_chat_service() -> HunterOSChatService:
+    """Get the isolated Hunter OS chat service.
+
+    This service never reads the general Animus memory store.
+    """
+
+    global _hunter_chat_service
+    if _hunter_chat_service is None:
+        _hunter_chat_service = HunterOSChatService()
+    return _hunter_chat_service
 
 
 def _get_cognitive() -> CognitiveLayer:
@@ -224,12 +252,12 @@ class AnimusBot(discord.Client):
         # Debug: log all incoming messages
         parent_id = getattr(message.channel, "parent_id", None)
         logger.info(
-            "on_message: channel=%s (type=%s, parent=%s) author=%s content=%s",
+            "on_message: channel=%s (type=%s, parent=%s) author=%s content_len=%s",
             message.channel.id,
             type(message.channel).__name__,
             parent_id,
             message.author,
-            message.content[:50] if message.content else "<empty>",
+            len(message.content or ""),
         )
 
         # Ignore own messages and other bots
@@ -237,10 +265,23 @@ class AnimusBot(discord.Client):
             return
 
         # Determine if we should respond:
-        # 1. @mention in any channel
-        # 2. Any message in the designated chat channel
+        # 1. Hunter OS chat channels are an isolated, share-safe domain.
+        # 2. Outside Hunter OS, preserve the existing mention/designated-chat behavior.
         is_mention = self.user is not None and self.user.mentioned_in(message)
-        # Check if message is in the chat channel or any thread within it (forum posts)
+        hunter_policy = _get_hunter_chat_policy()
+        guild_id = message.guild.id if message.guild is not None else None
+        is_hunter_channel = message.channel.id in hunter_policy.allowed_channel_ids
+
+        # A configured Hunter OS channel is a hard privacy boundary. Never fall
+        # through from it into the generic Animus memory path.
+        if is_hunter_channel and not hunter_policy.permits_chat(
+            guild_id=guild_id,
+            channel_id=message.channel.id,
+            is_mention=is_mention,
+        ):
+            return
+
+        # Check if message is in the generic chat channel or any thread within it.
         is_chat_channel = False
         if self.chat_channel_id is not None:
             if message.channel.id == self.chat_channel_id:
@@ -251,7 +292,7 @@ class AnimusBot(discord.Client):
             ):
                 is_chat_channel = True
 
-        if not is_mention and not is_chat_channel:
+        if not is_hunter_channel and not is_mention and not is_chat_channel:
             return
 
         # Rate limit per user
@@ -274,15 +315,57 @@ class AnimusBot(discord.Client):
             )
 
         if not content:
-            await message.reply(
-                "Ask me anything — I have memory of ARETE's projects, patterns, and tools.",
-                mention_author=False,
-            )
+            if is_hunter_channel:
+                await message.reply(
+                    "Ask me a Monster Hunter Wilds question. Hunter OS is isolated from "
+                    "general Animus memory in this channel.",
+                    mention_author=False,
+                )
+            else:
+                await message.reply(
+                    "Ask me anything — I have memory of ARETE's projects, patterns, and tools.",
+                    mention_author=False,
+                )
             return
+
+        # Shared Monster Hunter chat gets an isolated factual path. The branch
+        # returns before generic MemoryLayer.recall() can run.
+        if is_hunter_channel:
+            async with message.channel.typing():
+                try:
+                    hunter = _get_hunter_chat_service()
+                    context = hunter.context_for(content)
+                    if not context.found:
+                        await message.reply(
+                            "Hunter OS does not currently have a verified record that answers "
+                            "that question. I will not fill the gap from private/general Animus "
+                            "memory.",
+                            mention_author=False,
+                        )
+                        return
+
+                    full_prompt = f"{context.text}\n\nQUESTION:\n{content}"
+                    cognitive = _get_cognitive()
+                    response = await asyncio.to_thread(
+                        cognitive.primary.generate,
+                        full_prompt,
+                        hunter.prompt_for(content)[1],
+                    )
+                    if len(response) > 1900:
+                        response = response[:1897] + "..."
+                    await message.reply(response, mention_author=False)
+                    return
+                except Exception:
+                    logger.exception("Error generating Hunter OS chat response")
+                    await message.reply(
+                        "Hunter OS could not answer that safely right now.",
+                        mention_author=False,
+                    )
+                    return
 
         async with message.channel.typing():
             try:
-                # Recall relevant context from memory
+                # Generic Animus path: recall relevant context from memory.
                 memory = _get_memory()
                 memories = memory.recall(query=content, limit=5)
                 context_parts = []
