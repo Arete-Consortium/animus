@@ -48,6 +48,8 @@ class HunterOSChatPolicy:
     allowed_channel_ids: frozenset[int] = frozenset()
     allowed_guild_ids: frozenset[int] = frozenset()
     admin_user_ids: frozenset[int] = frozenset()
+    forum_parent_ids: frozenset[int] = frozenset()
+    forum_thread_ids: frozenset[int] = frozenset()
     require_mention: bool = True
     allow_dms: bool = False
 
@@ -58,6 +60,8 @@ class HunterOSChatPolicy:
             allowed_channel_ids=_parse_ids(values.get("HUNTER_OS_CHAT_CHANNEL_IDS")),
             allowed_guild_ids=_parse_ids(values.get("HUNTER_OS_GUILD_IDS")),
             admin_user_ids=_parse_ids(values.get("HUNTER_OS_ADMIN_USER_IDS")),
+            forum_parent_ids=_parse_ids(values.get("HUNTER_OS_FORUM_CHANNEL_IDS")),
+            forum_thread_ids=_parse_ids(values.get("HUNTER_OS_FORUM_THREAD_IDS")),
             require_mention=_parse_bool(
                 values.get("HUNTER_OS_REQUIRE_MENTION"),
                 default=True,
@@ -91,6 +95,13 @@ class HunterOSChatPolicy:
             return False
 
         return True
+
+    def is_display_surface(self, *, channel_id: int, parent_id: int | None = None) -> bool:
+        """Return True for the display-only Hunter OS Forum or its information threads."""
+
+        if channel_id in self.forum_parent_ids or channel_id in self.forum_thread_ids:
+            return True
+        return parent_id is not None and parent_id in self.forum_parent_ids
 
     def permits_admin(self, user_id: int) -> bool:
         """Future publishing/admin commands require an explicit user allowlist."""
