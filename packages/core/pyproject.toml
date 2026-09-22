@@ -98,6 +98,9 @@ Documentation = "https://github.com/AreteDriver/animus#readme"
 where = ["."]
 include = ["animus*"]
 
+[tool.setuptools.package-data]
+"animus.hunter_os" = ["forum/*.md"]
+
 [tool.ruff]
 target-version = "py310"
 line-length = 100
