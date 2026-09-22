@@ -281,11 +281,15 @@ def _record_panels(record: HunterRecord) -> tuple[CardPanel, ...]:
             xbox = bindings.get("xbox", "")
             ps5 = bindings.get("ps5", "")
             pc = bindings.get("pc", "")
-            controls.append(f"{label}: Xbox {xbox} | PS5 {ps5} | PC {pc}")
+            controls.append(f"{label}: {xbox} / {ps5} / {pc}")
         midpoint = max(1, (len(controls) + 1) // 2)
         return (
-            CardPanel("Controls I", tuple(controls[:midpoint]), _BLUE),
-            CardPanel("Controls II", tuple(controls[midpoint:]) or ("See Controls I.",), _BLUE),
+            CardPanel("Controls I • Xbox / PS5 / PC", tuple(controls[:midpoint]), _BLUE),
+            CardPanel(
+                "Controls II • Xbox / PS5 / PC",
+                tuple(controls[midpoint:]) or ("See Controls I.",),
+                _BLUE,
+            ),
             CardPanel("Core Loop", record.core_loop or ("No core loop recorded.",)),
             CardPanel("Critical Rules", record.rules or ("No special rules recorded.",), _GREEN),
             CardPanel("Avoid", record.failure_modes or ("No failure modes recorded.",), _RED),
