@@ -16,10 +16,13 @@ Environment:
     ANIMUS_DISCORD_CHANNEL  — Channel ID for auto-push intel (required for auto-push)
     ANIMUS_CHAT_CHANNEL     — Channel ID where Animus responds to all messages (optional)
     ANIMUS_CHAT_COOLDOWN    — Per-user cooldown in seconds (default: 10)
+    ANIMUS_DISCORD_ADMIN_USER_IDS — Explicit user IDs allowed to access private Animus commands/chat
     HUNTER_OS_CHAT_CHANNEL_IDS — Comma-separated shared MH chat channel IDs
     HUNTER_OS_GUILD_IDS      — Optional comma-separated guild allowlist
     HUNTER_OS_REQUIRE_MENTION — Require @Animus in MH chat (default: true)
     HUNTER_OS_ALLOW_DMS      — Allow Hunter OS in DMs (default: false)
+    HUNTER_OS_FORUM_CHANNEL_IDS — Display-only Forum parent channel IDs
+    HUNTER_OS_FORUM_THREAD_IDS — Display-only Weapons/Monsters/Hunter Guide thread IDs
     DISCORD_BOT_TOKEN       — Fallback token if ANIMUS_DISCORD_TOKEN not set
 """
 
@@ -84,6 +87,45 @@ def _trunc(text: str, limit: int = FIELD_MAX) -> str:
     if len(text) <= limit:
         return text
     return text[: limit - 3] + "..."
+
+
+def _env_id_set(name: str) -> frozenset[int]:
+    """Parse a comma-separated Discord ID allowlist from the environment."""
+
+    raw = os.environ.get(name, "")
+    values: set[int] = set()
+    for item in raw.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        try:
+            values.add(int(item))
+        except ValueError:
+            logger.warning("Ignoring invalid Discord ID in %s", name)
+    return frozenset(values)
+
+
+def _is_animus_admin_user(user_id: int, guild_owner_id: int | None = None) -> bool:
+    """Private/general Animus surfaces are restricted to the owner/admin allowlist."""
+
+    if guild_owner_id is not None and user_id == guild_owner_id:
+        return True
+    return user_id in _env_id_set("ANIMUS_DISCORD_ADMIN_USER_IDS")
+
+
+async def _require_animus_admin(interaction: discord.Interaction) -> bool:
+    """Enforce private Animus command access even if Discord UI permissions are broad."""
+
+    owner_id = interaction.guild.owner_id if interaction.guild is not None else None
+    if _is_animus_admin_user(interaction.user.id, owner_id):
+        return True
+
+    message = "This Animus command is restricted to the server owner/approved operators."
+    if interaction.response.is_done():
+        await interaction.followup.send(message, ephemeral=True)
+    else:
+        await interaction.response.send_message(message, ephemeral=True)
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -270,6 +312,17 @@ class AnimusBot(discord.Client):
         is_mention = self.user is not None and self.user.mentioned_in(message)
         hunter_policy = _get_hunter_chat_policy()
         guild_id = message.guild.id if message.guild is not None else None
+        guild_owner_id = message.guild.owner_id if message.guild is not None else None
+        user_id = message.author.id
+
+        # The Hunter OS Forum and its three information threads are display-only.
+        # This is checked before any generic Animus chat routing.
+        if hunter_policy.is_display_surface(
+            channel_id=message.channel.id,
+            parent_id=parent_id,
+        ):
+            return
+
         is_hunter_channel = message.channel.id in hunter_policy.allowed_channel_ids
 
         # A configured Hunter OS channel is a hard privacy boundary. Never fall
@@ -292,11 +345,14 @@ class AnimusBot(discord.Client):
             ):
                 is_chat_channel = True
 
-        if not is_hunter_channel and not is_mention and not is_chat_channel:
-            return
+        if not is_hunter_channel:
+            # General Animus chat can reach private memory. Keep it owner/operator-only.
+            if not _is_animus_admin_user(user_id, guild_owner_id):
+                return
+            if not is_mention and not is_chat_channel:
+                return
 
         # Rate limit per user
-        user_id = message.author.id
         now = time.monotonic()
         if now - _user_cooldowns[user_id] < CHAT_COOLDOWN:
             remaining = int(CHAT_COOLDOWN - (now - _user_cooldowns[user_id]))
@@ -453,6 +509,8 @@ class AnimusBot(discord.Client):
         @tree.command(name="harvest", description="Scan a GitHub repo and extract patterns")
         @app_commands.describe(repo="GitHub repo (user/repo or full URL)")
         async def harvest_cmd(interaction: discord.Interaction, repo: str) -> None:
+            if not await _require_animus_admin(interaction):
+                return
             await interaction.response.defer(thinking=True)
             try:
                 from animus.lugh.repos import harvest_repo
@@ -477,6 +535,8 @@ class AnimusBot(discord.Client):
         # /watchlist
         @tree.command(name="watchlist", description="Show the current harvest watchlist")
         async def watchlist_cmd(interaction: discord.Interaction) -> None:
+            if not await _require_animus_admin(interaction):
+                return
             from animus.lugh.watchlist import get_watchlist
 
             repos = get_watchlist()
@@ -515,6 +575,8 @@ class AnimusBot(discord.Client):
             tags: str = "",
             notes: str = "",
         ) -> None:
+            if not await _require_animus_admin(interaction):
+                return
             from animus.lugh.watchlist import add_to_watchlist
 
             tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else None
@@ -540,6 +602,8 @@ class AnimusBot(discord.Client):
             description="Run harvest scan on all due watchlist repos",
         )
         async def watchlist_scan_cmd(interaction: discord.Interaction) -> None:
+            if not await _require_animus_admin(interaction):
+                return
             await interaction.response.defer(thinking=True)
             try:
                 from animus.lugh.watchlist import run_watchlist_scan
@@ -563,6 +627,8 @@ class AnimusBot(discord.Client):
         @tree.command(name="recall", description="Search Animus memory")
         @app_commands.describe(query="What to search for", limit="Max results (default 5)")
         async def recall_cmd(interaction: discord.Interaction, query: str, limit: int = 5) -> None:
+            if not await _require_animus_admin(interaction):
+                return
             memory = _get_memory()
             results = memory.recall(query=query, limit=limit)
 
@@ -597,6 +663,8 @@ class AnimusBot(discord.Client):
             tags: str = "",
             memory_type: str = "semantic",
         ) -> None:
+            if not await _require_animus_admin(interaction):
+                return
             memory = _get_memory()
             tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
             try:
@@ -625,6 +693,8 @@ class AnimusBot(discord.Client):
         )
         @app_commands.describe(question="Your question")
         async def ask_cmd(interaction: discord.Interaction, question: str) -> None:
+            if not await _require_animus_admin(interaction):
+                return
             memory = _get_memory()
             results = memory.recall(query=question, limit=8)
 
@@ -654,6 +724,8 @@ class AnimusBot(discord.Client):
         # /brief
         @tree.command(name="brief", description="Get a daily brief from Animus")
         async def brief_cmd(interaction: discord.Interaction) -> None:
+            if not await _require_animus_admin(interaction):
+                return
             await interaction.response.defer(thinking=True)
             embed = await _build_brief_embed()
             await interaction.followup.send(embed=embed)
