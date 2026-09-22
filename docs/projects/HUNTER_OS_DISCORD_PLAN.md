@@ -3,7 +3,7 @@
 **Status:** Planning / implementation branch created  
 **Branch:** `feat/hunter-os-discord-v1`  
 **Scope:** Monster Hunter Wilds only  
-**Display surface:** three read-oriented forums — Weapons, Monsters, Hunter Guide  
+**Display surface:** one read-oriented Discord Forum with three existing information posts/threads — Weapons, Monsters, Hunter Guide  
 **Conversation surface:** separate Monster Hunter chat channel with Animus Q&A  
 **Primary automation:** Hunter OS data/card compiler + forum publisher + grounded chat retrieval
 
@@ -28,19 +28,21 @@ The system must optimize for:
 
 ### 2.1 Discord structure and interaction boundary
 
-Keep the user's existing three Forum Channels:
+Keep the user's existing **single Discord Forum Channel** and its three information posts/threads:
 
 1. **Weapons**
 2. **Monsters**
 3. **Hunter Guide**
 
-These forums are a **display/reference library**, not the conversational interface.
+The live Discord logs confirm these three threads share one Forum parent. Preserve that structure.
+
+This forum is a **display/reference library**, not the conversational interface.
 
 Rules:
-- Animus does not answer ordinary questions inside the forums.
-- Forum posts contain curated cards + concise searchable text.
-- Replies inside forum posts are additional reference cards/updates, not chat.
-- Friends browse/tap/search the forums when they want a quick reference.
+- Animus does not answer ordinary questions in the Forum parent or any of the three information threads.
+- Each information thread contains curated cards + concise searchable companion text.
+- The bot publishes/updates messages inside the existing threads; it does not need to create one forum post per monster/weapon.
+- Friends browse/tap/search the three threads when they want a quick reference.
 
 The user's existing **Monster Hunter chat channel** is the conversational surface:
 - friends ask normal Monster Hunter Wilds questions there;
@@ -452,17 +454,17 @@ Build records should distinguish:
 
 No friend-facing command is required to use the forums.
 
-**Weapons**
-- one forum post per weapon type;
-- first post = quick-reference/controls card + concise searchable summary;
-- exact weapon/build/song cards appear as curated replies where useful.
+**Weapons thread**
+- one curated message/card set per weapon type;
+- quick-reference/controls card + concise searchable summary;
+- exact weapon/build/song cards follow where useful.
 
-**Monsters**
-- one forum post per monster/variant;
-- first post = quick hunt card + concise searchable summary;
-- advanced mechanics/material/special cards appear as curated replies.
+**Monsters thread**
+- one curated message/card set per monster/variant;
+- quick hunt card + concise searchable summary;
+- advanced mechanics/material/special cards follow where useful.
 
-**Hunter Guide**
+**Hunter Guide thread**
 - Quick Reference / Start Here;
 - Combat Healer;
 - Palico;
@@ -755,16 +757,16 @@ Tasks:
 - support/Palico.
 
 ### Phase 5 — Forum publisher
-**Goal:** automate the three display-only Forum Channels.
+**Goal:** automate the existing display-only Hunter OS Forum without changing its structure.
 
 Tasks:
-- map forums by configured ID;
-- create/update curated posts;
-- upload cards;
-- apply tags;
-- idempotency;
-- publication registry;
-- republish changed records only.
+- configure the Forum parent ID plus the three existing thread IDs;
+- publish/update curated messages inside Weapons, Monsters, and Hunter Guide;
+- upload cards + searchable companion text;
+- maintain an index message in each information thread;
+- idempotency via stored Discord message IDs and record/card hashes;
+- republish changed records only;
+- do not create conversational threads or require Manage Threads.
 
 ### Phase 6 — Patch maintenance
 **Goal:** sustainable updates.
@@ -828,7 +830,7 @@ V1 is complete when:
 - Rathian, Hunting Horn, Combat Healer, and Omega vertical-slice records are modeled;
 - audit engine returns PASS/WARN/BLOCK;
 - mobile card renderer produces deterministic PNGs;
-- the three forums function as clean display/reference surfaces;
+- the single Hunter OS Forum and its Weapons/Monsters/Hunter Guide threads function as clean display/reference surfaces;
 - Animus can answer Monster Hunter Wilds questions in the existing MH chat channel using Hunter OS grounding;
 - Hunter OS factual answers do not silently use generic/personal Animus memory;
 - existing Animus commands still work;
