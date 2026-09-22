@@ -57,9 +57,13 @@ class MemoryLayer:
         if backend == "chroma":
             try:
                 self.store = _memory.ChromaMemoryStore(data_dir)
-            except ImportError:
-                logger.warning("ChromaDB not available, falling back to JSON storage")
-                self.store = _memory.LocalMemoryStore(data_dir)
+            except ImportError as exc:
+                raise RuntimeError(
+                    "The configured Chroma memory backend is unavailable. "
+                    "Install animus-core[chroma] for an existing Chroma deployment, "
+                    "or explicitly configure a different backend for a new installation. "
+                    "Existing memories have not been migrated; no fallback store was opened."
+                ) from exc
         elif backend == "durable":
             if _memory.DurableMemoryStore is None:
                 raise RuntimeError(

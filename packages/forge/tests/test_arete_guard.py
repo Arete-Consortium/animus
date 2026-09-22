@@ -1,6 +1,5 @@
 """Tests for AreteGuard and eval baseline regression detection."""
 
-
 import pytest
 
 from animus_forge.evaluation.base import EvalCase, EvalResult, EvalStatus, EvalSuite
@@ -68,12 +67,19 @@ def _make_suite_result(pass_rate: float) -> SuiteResult:
     failed = total - passed
     results = []
     for _ in range(passed):
-        results.append(EvalResult(case=EvalCase(input="x"), status=EvalStatus.PASSED, score=1.0, output="ok"))
+        results.append(
+            EvalResult(case=EvalCase(input="x"), status=EvalStatus.PASSED, score=1.0, output="ok")
+        )
     for _ in range(failed):
-        results.append(EvalResult(case=EvalCase(input="x"), status=EvalStatus.FAILED, score=0.0, output="bad"))
+        results.append(
+            EvalResult(case=EvalCase(input="x"), status=EvalStatus.FAILED, score=0.0, output="bad")
+        )
     return SuiteResult(
-        suite=suite, results=results,
-        passed=passed, failed=failed, errors=0,
+        suite=suite,
+        results=results,
+        passed=passed,
+        failed=failed,
+        errors=0,
         total_score=pass_rate,
     )
 
@@ -86,7 +92,7 @@ class TestAreteGuard:
         assert guard.check("wf-1") is True
 
     def test_passing_evidence_allows_execution(self, eval_store):
-        run_id = eval_store.record_run(
+        eval_store.record_run(
             "suite_a",
             _make_suite_result(0.8),
             agent_role="research_citizen",

@@ -2,13 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, "codex/hunter-os-*"]
     paths-ignore:
       - 'LICENSE'
       - '.gitignore'
       - '.github/dependabot.yml'
   pull_request:
-    branches: [main]
+    branches: [main, "codex/hunter-os-*"]
     paths-ignore:
       - 'LICENSE'
       - '.gitignore'
@@ -74,7 +74,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install ruff
-        run: pip install ruff
+        run: pip install ruff==0.15.1
 
       - name: Lint all packages
         run: ruff check packages/ --exclude packages/_archive/
@@ -175,37 +175,8 @@ jobs:
           pip install -e "packages/bootstrap/[dev]"
           pip install mypy
 
-      - name: Run mypy on core
-        run: |
-          mypy packages/core/animus/ \
-            --ignore-missing-imports \
-            --warn-return-any \
-            --warn-unused-configs \
-            --pretty
-
-      - name: Run mypy on kernel
-        run: |
-          mypy packages/kernel/src/animus_kernel/ \
-            --ignore-missing-imports \
-            --warn-return-any \
-            --warn-unused-configs \
-            --pretty
-
-      - name: Run mypy on forge
-        run: |
-          mypy packages/forge/src/animus_forge/ \
-            --ignore-missing-imports \
-            --warn-return-any \
-            --warn-unused-configs \
-            --pretty
-
-      - name: Run mypy on bootstrap
-        run: |
-          mypy packages/bootstrap/src/animus_bootstrap/ \
-            --ignore-missing-imports \
-            --warn-return-any \
-            --warn-unused-configs \
-            --pretty
+      - name: Verify type gate failure handling
+        run: pytest tests/test_mypy_ratchet.py -q
 
       - name: Mypy ratchet
         run: python3 scripts/mypy-ratchet.py core kernel forge bootstrap
@@ -289,6 +260,9 @@ jobs:
         # published to PyPI — pip resolves it from the local path when
         # both -e targets are part of the same install transaction.
         run: pip install -e packages/types/ -e packages/contracts/ -e packages/kernel/ -e "packages/core/[dev,api,postgres,mcp]"
+
+      - name: Verify MCP SDK compatibility
+        run: python -c "from mcp.server.fastmcp import FastMCP; from animus.mcp_server import GatedFastMCP; assert issubclass(GatedFastMCP, FastMCP)"
 
       - name: Test with coverage
         run: pytest packages/core/tests/ -v --tb=short --cov=animus --cov-report=term-missing
@@ -536,18 +510,23 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Install dependencies
         run: |
-          pip install -e packages/types/
-          pip install -e "packages/kernel/[dev]"
-          pip install -e "packages/contracts/[dev]"
+          pip install -e packages/types/ -e packages/quorum/ -e "packages/kernel/[dev]" -e "packages/contracts/[dev]" -e "packages/forge/[dev]"
 
       - name: Run integration tests
         run: pytest tests/integration/ -v --tb=short
 
   docker:
-    name: Docker Build (Kernel)
+    name: Docker Build (Kernel, ${{ matrix.arch }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
 
@@ -557,22 +536,23 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build multi-arch kernel image
+      - name: Build and load kernel image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: packages/kernel/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/${{ matrix.arch }}
+          load: true
           push: false
           tags: animus-kernel:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=kernel-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=kernel-${{ matrix.arch }}
 
-      - name: Test import inside container (amd64)
-        run: docker run --rm --platform linux/amd64 animus-kernel:ci python -c "import animus_kernel; print('OK amd64')"
+      - name: Test import inside container (${{ matrix.arch }})
+        run: docker run --rm --platform linux/${{ matrix.arch }} animus-kernel:ci python -c "import animus_kernel; print('OK')"
 
-      - name: Test CLI inside container (amd64)
-        run: docker run --rm --platform linux/amd64 animus-kernel:ci python -m animus_kernel --help
+      - name: Test CLI inside container (${{ matrix.arch }})
+        run: docker run --rm --platform linux/${{ matrix.arch }} animus-kernel:ci python -m animus_kernel --help
 
   sbom:
     name: Generate SBOMs
@@ -626,21 +606,23 @@ jobs:
   security:
     name: Security
     runs-on: ubuntu-latest
-    # gitleaks-action@v2 calls /repos/:owner/:repo/pulls/:id/commits on PR
-    # events, which requires pull-requests: read. Without this, the action
-    # fails with 403 "Resource not accessible by integration".
-    permissions:
-      contents: read
-      pull-requests: read
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
           fetch-depth: 0
 
-      - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v3
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install pinned Gitleaks CLI
+        working-directory: ${{ runner.temp }}
+        run: |
+          curl --fail --silent --show-error --location --retry 3 \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz \
+            -o gitleaks.tar.gz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks.tar.gz" | sha256sum --check --strict
+          tar -xzf gitleaks.tar.gz gitleaks
+
+      - name: Scan full Git history
+        run: '"${{ runner.temp }}/gitleaks" git --redact --exit-code 1 --log-opts="--all" .'
+
 
   benchmarks:
     name: Benchmarks

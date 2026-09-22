@@ -23,7 +23,11 @@ from animus.tasks import TaskStatus, TaskTracker
 from animus.tools import ToolRegistry
 
 if TYPE_CHECKING:
-    pass
+    from animus.autonomous import AutonomousExecutor
+    from animus.entities import EntityMemory
+    from animus.integrations.manager import IntegrationManager
+    from animus.learning import LearningLayer
+    from animus.proactive import ProactiveEngine
 
 logger = get_logger("api")
 
@@ -241,11 +245,11 @@ class AppState:
     tasks: TaskTracker
     decisions: DecisionFramework
     conversations: dict[str, Conversation]
-    integrations: object | None = None  # IntegrationManager (optional)
-    learning: object | None = None  # LearningLayer (optional)
-    entity_memory: object | None = None  # EntityMemory (optional)
-    proactive: object | None = None  # ProactiveEngine (optional)
-    executor: object | None = None  # AutonomousExecutor (optional)
+    integrations: IntegrationManager | None = None  # IntegrationManager (optional)
+    learning: LearningLayer | None = None  # LearningLayer (optional)
+    entity_memory: EntityMemory | None = None  # EntityMemory (optional)
+    proactive: ProactiveEngine | None = None  # ProactiveEngine (optional)
+    executor: AutonomousExecutor | None = None  # AutonomousExecutor (optional)
 
 
 _state: AppState | None = None
@@ -274,11 +278,11 @@ class APIServer:
         host: str = "127.0.0.1",
         port: int = 8420,
         api_key: str | None = None,
-        integrations: object | None = None,
-        learning: object | None = None,
-        entity_memory: object | None = None,
-        proactive: object | None = None,
-        executor: object | None = None,
+        integrations: IntegrationManager | None = None,
+        learning: LearningLayer | None = None,
+        entity_memory: EntityMemory | None = None,
+        proactive: ProactiveEngine | None = None,
+        executor: AutonomousExecutor | None = None,
     ):
         """
         Initialize API server.
@@ -702,6 +706,8 @@ def create_app() -> FastAPI:
                 raise HTTPException(status_code=400, detail=f"Invalid status: {request.status}")
 
         task = state.tasks.get(task_id)
+        if task is None:
+            raise HTTPException(status_code=404, detail="Task not found")
 
         return TaskResponse(
             id=task.id,

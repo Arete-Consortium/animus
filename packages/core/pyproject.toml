@@ -23,7 +23,6 @@ classifiers = [
 
 dependencies = [
     "ollama>=0.1.0,<1",
-    "chromadb>=0.4.22",
     "pyyaml>=6.0,<7",
     "pydantic>=2.6.0,<3",
     "rich>=13.7.0,<15",
@@ -45,6 +44,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Legacy memory backend; audited separately while upstream advisories remain open.
+chroma = ["chromadb>=0.4.22"]
 anthropic = ["anthropic>=0.18.0"]
 openai = ["openai>=1.12.0"]
 hybrid-search = ["rank-bm25>=0.2.2"]
@@ -69,12 +70,13 @@ sync = [
     "websockets>=12.0",
     "zeroconf>=0.131.0",
 ]
-mcp = ["mcp>=1.0.0"]
+mcp = ["mcp>=1.30.0,<2"]
 postgres = [
     "sqlalchemy>=2.0",
     "psycopg[binary]>=3.1",
 ]
 dev = [
+    "numpy>=1.26,<3",
     "alembic>=1.13,<2",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
@@ -85,7 +87,7 @@ dev = [
     "pre-commit>=3.6.0",
     "httpx>=0.26.0",
 ]
-all = ["animus-core[anthropic,openai,api,voice,integrations,sync,mcp,dev]"]
+all = ["animus-core[anthropic,openai,api,voice,integrations,sync,mcp,chroma,dev]"]
 
 [project.scripts]
 animus = "animus.__main__:main"

@@ -5,6 +5,13 @@ from __future__ import annotations
 import json
 import logging
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from animus_bootstrap.gateway.cognitive import CognitiveBackend
+    from animus_bootstrap.intelligence.tools.builtin.improvement_store import ImprovementStore
+    from animus_bootstrap.intelligence.tools.builtin.sandbox import ImprovementSandbox
+    from animus_bootstrap.intelligence.tools.executor import ToolExecutor
 
 from animus_bootstrap.intelligence.tools.executor import ToolDefinition
 
@@ -14,22 +21,22 @@ logger = logging.getLogger(__name__)
 _improvement_log: list[dict] = []
 
 # Persistent store (set at runtime)
-_improvement_store = None
+_improvement_store: ImprovementStore | None = None
 
 # Sandbox executor (set at runtime)
-_sandbox = None
+_sandbox: ImprovementSandbox | None = None
 
 # Identity manager (set at runtime)
 _identity_manager = None
 
 
-def set_improvement_store(store: object | None) -> None:
+def set_improvement_store(store: ImprovementStore | None) -> None:
     """Wire the persistent improvement store."""
     global _improvement_store  # noqa: PLW0603
     _improvement_store = store
 
 
-def set_sandbox(sandbox: object | None) -> None:
+def set_sandbox(sandbox: ImprovementSandbox | None) -> None:
     """Wire the improvement sandbox."""
     global _sandbox  # noqa: PLW0603
     _sandbox = sandbox
@@ -54,11 +61,13 @@ def clear_improvement_log() -> None:
 
 
 # References set at runtime
-_tool_executor = None
-_cognitive_backend = None
+_tool_executor: ToolExecutor | None = None
+_cognitive_backend: CognitiveBackend | None = None
 
 
-def set_self_improve_deps(tool_executor: object, cognitive_backend: object) -> None:
+def set_self_improve_deps(
+    tool_executor: ToolExecutor, cognitive_backend: CognitiveBackend | None
+) -> None:
     """Wire live dependencies for self-improvement tools."""
     global _tool_executor, _cognitive_backend  # noqa: PLW0603
     _tool_executor = tool_executor

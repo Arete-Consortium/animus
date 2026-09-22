@@ -615,7 +615,8 @@ class TestYouTubePlaylistSupport:
     def test_probe_playlist_invalid_url(self):
         from animus.lugh.sources.youtube import probe_playlist
 
-        result = probe_playlist("not-a-url")
+        with patch("animus.lugh.sources.youtube._yt_dlp_available", return_value=True):
+            result = probe_playlist("not-a-url")
         assert result["ok"] is False
         assert "not a valid playlist URL" in result["error"]
 

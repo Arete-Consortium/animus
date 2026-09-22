@@ -6,6 +6,10 @@ Mixin class providing handlers for Claude and OpenAI API steps.
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from animus_kernel.state.agent_context import WorkflowMemoryManager
 
 from .executor_clients import _get_claude_client, _get_ollama_provider, _get_openai_client
 from .loader import StepConfig
@@ -40,6 +44,9 @@ class AIHandlersMixin:
     - dry_run: bool
     - memory_manager: WorkflowMemoryManager | None
     """
+
+    dry_run: bool
+    memory_manager: WorkflowMemoryManager | None
 
     def _execute_claude_code(self, step: StepConfig, context: dict) -> dict:
         """Execute a Claude Code step using the Anthropic API.

@@ -2,9 +2,10 @@ name: Security
 
 on:
   push:
-    branches: [main]
+    branches: [main, "codex/hunter-os-*"]
   pull_request:
-    branches: [main]
+    branches: [main, "codex/hunter-os-*"]
+  workflow_dispatch:
   schedule:
     - cron: '0 6 * * 1'
 
@@ -13,12 +14,16 @@ permissions:
 
 jobs:
   pip-audit:
-    name: Dependency Audit
+    name: Dependency Audit (${{ matrix.package }}${{ matrix.extra && format('[ {0} ]', matrix.extra) || '' }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         package: [core, forge, kernel, contracts, quorum, bootstrap]
+        extra: [""]
+        include:
+          - package: core
+            extra: chroma
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v6
@@ -36,6 +41,9 @@ jobs:
             pip install -e "packages/kernel/[dev]"
           fi
           pip install -e "packages/${{ matrix.package }}/" pip-audit
+          if [[ "${{ matrix.extra }}" == "chroma" ]]; then
+            pip install -e "packages/core/[chroma]"
+          fi
       - name: Upgrade vulnerable transitive deps to fix versions
         # These are pulled in transitively (via pip-audit and dev tooling);
         # forcing the fix versions here cleans the audit without touching
@@ -50,13 +58,7 @@ jobs:
       - name: Run pip-audit
         # CVE-2026-3219 has no fix version available in pip itself.
         # Re-evaluate when upstream ships a fix.
-        #
-        # CVE-2026-45829 ("ChromaToast") — pre-auth RCE in ChromaDB's exposed
-        # FastAPI server (auth-before-config-parsing + HuggingFace model load).
-        # No patched version exists (affects 1.0.0–1.5.8; 1.5.9 unconfirmed).
-        # Not exploitable here: Animus uses chromadb ONLY as an embedded
-        # PersistentClient (core/animus/memory/stores/chroma.py) — it never
-        # runs the ChromaDB network server, so the vulnerable path is never
-        # instantiated. Re-evaluate when upstream ships a fix; if Animus ever
-        # exposes a ChromaDB HttpClient/server, REMOVE this ignore.
-        run: pip-audit --ignore-vuln CVE-2026-3219 --ignore-vuln CVE-2026-45829
+        # Chroma is an optional legacy profile. Audit it explicitly: the
+        # HttpClient path means an embedded-only exception is not valid.
+        # This profile remains blocked until upstream supplies a verified fix.
+        run: pip-audit --ignore-vuln CVE-2026-3219

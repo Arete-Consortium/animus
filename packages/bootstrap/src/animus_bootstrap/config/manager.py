@@ -7,6 +7,7 @@ import os
 import platform
 import stat
 import tomllib
+from collections.abc import Mapping
 from pathlib import Path
 
 import tomli_w
@@ -54,7 +55,7 @@ class ConfigManager:
             return AnimusConfig()
 
         merged = _deep_merge(DEFAULT_CONFIG, raw)
-        return AnimusConfig(**merged)
+        return AnimusConfig.model_validate(merged)
 
     def save(self, config: AnimusConfig) -> None:
         """Persist configuration to disk as TOML.
@@ -101,7 +102,7 @@ class ConfigManager:
 # ------------------------------------------------------------------
 
 
-def _deep_merge(base: dict[str, object], override: dict[str, object]) -> dict[str, object]:
+def _deep_merge(base: Mapping[str, object], override: Mapping[str, object]) -> dict[str, object]:
     """Recursively merge *override* into a copy of *base*.
 
     Keys in *override* take precedence.  Nested dicts are merged rather

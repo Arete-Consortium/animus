@@ -1809,7 +1809,9 @@ class TestHarvesterCli:
 
 class TestHarvesterMcpTools:
     @pytest.fixture
-    def mcp_server(self):
+    def mcp_server(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("ANIMUS_DATA_DIR", str(tmp_path / "mcp-data"))
+        monkeypatch.setenv("ANIMUS_MEMORY_BACKEND", "json")
         pytest.importorskip("mcp")
         from animus.mcp_server import create_mcp_server
 
@@ -2039,7 +2041,9 @@ class TestAbstractionCli:
 
 class TestAbstractionMcpTools:
     @pytest.fixture
-    def mcp_server(self):
+    def mcp_server(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("ANIMUS_DATA_DIR", str(tmp_path / "mcp-data"))
+        monkeypatch.setenv("ANIMUS_MEMORY_BACKEND", "json")
         pytest.importorskip("mcp")
         from animus.mcp_server import create_mcp_server
 
@@ -2467,7 +2471,9 @@ class TestPatternCli:
 
 class TestPatternMcpTools:
     @pytest.fixture
-    def mcp_server(self):
+    def mcp_server(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("ANIMUS_DATA_DIR", str(tmp_path / "mcp-data"))
+        monkeypatch.setenv("ANIMUS_MEMORY_BACKEND", "json")
         pytest.importorskip("mcp")
         from animus.mcp_server import create_mcp_server
 
@@ -2842,7 +2848,9 @@ class TestFirstPrinciplesCli:
 
 class TestFirstPrinciplesMcpTools:
     @pytest.fixture
-    def mcp_server(self):
+    def mcp_server(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("ANIMUS_DATA_DIR", str(tmp_path / "mcp-data"))
+        monkeypatch.setenv("ANIMUS_MEMORY_BACKEND", "json")
         pytest.importorskip("mcp")
         from animus.mcp_server import create_mcp_server
 
@@ -3141,7 +3149,9 @@ class TestArchitectureCitizenCli:
 
 class TestArchitectureCitizenMcpTools:
     @pytest.fixture
-    def mcp_server(self):
+    def mcp_server(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("ANIMUS_DATA_DIR", str(tmp_path / "mcp-data"))
+        monkeypatch.setenv("ANIMUS_MEMORY_BACKEND", "json")
         pytest.importorskip("mcp")
         from animus.mcp_server import create_mcp_server
 
@@ -3409,7 +3419,9 @@ class TestResearchGuildCli:
 
 class TestResearchGuildMcpTools:
     @pytest.fixture
-    def mcp_server(self):
+    def mcp_server(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("ANIMUS_DATA_DIR", str(tmp_path / "mcp-data"))
+        monkeypatch.setenv("ANIMUS_MEMORY_BACKEND", "json")
         pytest.importorskip("mcp")
         from animus.mcp_server import create_mcp_server
 

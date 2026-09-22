@@ -359,3 +359,14 @@ class TestE9SystemdUnitIntegrity:
         with pytest.raises(IntegrityMismatchError) as exc:
             verify_or_raise(data_dir, root=pkg_root)
         assert "systemd/animus-autonomous.service" in str(exc.value)
+
+
+def test_repo_root_accepts_worktree_git_file(tmp_path, monkeypatch):
+    """Worktree installs must retain repo service files in integrity checks."""
+    import animus.integrity.checker as checker
+
+    pkg = tmp_path / "packages" / "core" / "animus"
+    pkg.mkdir(parents=True)
+    (tmp_path / ".git").write_text("gitdir: /unused/worktrees/repair\n")
+    monkeypatch.setattr(checker, "_animus_pkg_root", lambda: pkg)
+    assert checker._repo_root() == tmp_path

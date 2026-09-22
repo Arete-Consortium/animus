@@ -98,7 +98,9 @@ class ChromaMemoryStore(MemoryStore):
                 f"ChromaDB ready at {self.chroma_dir} with {self.collection.count()} documents"
             )
         except ImportError as e:
-            raise ImportError("ChromaDB not installed. Install with: pip install chromadb") from e
+            raise ImportError(
+                "ChromaDB not installed. Install with: pip install 'animus-core[chroma]'"
+            ) from e
         except Exception as e:
             logger.error(f"Failed to initialize ChromaDB: {e}")
             raise

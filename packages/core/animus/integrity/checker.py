@@ -64,12 +64,12 @@ _TRACKED_REPO_PATHS: tuple[str, ...] = (
 def _repo_root() -> Path | None:
     """Walk up from the animus package root to find the git repo root.
 
-    Returns None if no .git directory is found (e.g., in a shallow
+    Returns None if no .git directory or worktree pointer is found (e.g., in a shallow
     deployment without version control).
     """
     pkg = _animus_pkg_root()
     for parent in (pkg, *pkg.parents):
-        if (parent / ".git").is_dir():
+        if (parent / ".git").is_dir() or (parent / ".git").is_file():
             return parent
     return None
 
