@@ -133,9 +133,7 @@ class CitizenWorkerPool:
             return
 
         logger.info("Draining %d active worker(s) with %.1fs timeout", len(active_slots), timeout)
-        pending_tasks: list[asyncio.Task] = [
-            t for t in self._background_tasks if not t.done()
-        ]
+        pending_tasks: list[asyncio.Task] = [t for t in self._background_tasks if not t.done()]
         if pending_tasks:
             await asyncio.wait(pending_tasks, timeout=timeout)
 
@@ -425,7 +423,9 @@ class CitizenWorkerPool:
                     "summary": result.error or "Worker failed",
                     "changed_files": [],
                     "evidence": [{"type": "worker_error", "detail": result.error}],
-                    "risks": [{"severity": "critical", "description": result.error or "Worker failed"}],
+                    "risks": [
+                        {"severity": "critical", "description": result.error or "Worker failed"}
+                    ],
                     "confidence": 0.0,
                 }
             result_dict["_killed"] = result.killed
@@ -439,7 +439,12 @@ class CitizenWorkerPool:
             "summary": f"Unexpected worker result type: {type(result)}",
             "changed_files": [],
             "evidence": [],
-            "risks": [{"severity": "critical", "description": f"Unexpected worker result type: {type(result)}"}],
+            "risks": [
+                {
+                    "severity": "critical",
+                    "description": f"Unexpected worker result type: {type(result)}",
+                }
+            ],
             "confidence": 0.0,
         }
 
@@ -449,7 +454,9 @@ class CitizenWorkerPool:
 
         # Guard against double completion (timeout + natural finish).
         if slot.handled:
-            logger.debug("Task %s already handled in slot %s; ignoring duplicate finish", task_id, slot_id)
+            logger.debug(
+                "Task %s already handled in slot %s; ignoring duplicate finish", task_id, slot_id
+            )
             return
         slot.handled = True
 

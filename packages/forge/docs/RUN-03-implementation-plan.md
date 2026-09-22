@@ -1,9 +1,9 @@
 # RUN-03 Implementation Plan — Real Worker Lifecycle and Termination
 
-**Repository:** `AreteDriver/animus`  
-**Depends on:** RUN-00 (baseline tests), RUN-01 (supervised lifecycle), RUN-02 (atomic lease redesign)  
-**Primary invariant:** A killed or timed-out worker's entire process tree is terminated; shutdown leaves no orphan process or container.  
-**Date:** 2026-07-31  
+**Repository:** `AreteDriver/animus`
+**Depends on:** RUN-00 (baseline tests), RUN-01 (supervised lifecycle), RUN-02 (atomic lease redesign)
+**Primary invariant:** A killed or timed-out worker's entire process tree is terminated; shutdown leaves no orphan process or container.
+**Date:** 2026-07-31
 **Status:** Awaiting approval
 
 ---

@@ -67,14 +67,16 @@ class TestContainerModeSilentFallback:
             process_submits.append((fn.__name__ if hasattr(fn, "__name__") else fn, args, kwargs))
             # Return a real completed future so asyncio.wrap_future accepts it.
             fut = concurrent.futures.Future()
-            fut.set_result({
-                "status": "success",
-                "summary": "mock process",
-                "changed_files": [],
-                "evidence": [],
-                "risks": [],
-                "confidence": 0.9,
-            })
+            fut.set_result(
+                {
+                    "status": "success",
+                    "summary": "mock process",
+                    "changed_files": [],
+                    "evidence": [],
+                    "risks": [],
+                    "confidence": 0.9,
+                }
+            )
             return fut
 
         with patch.object(pool._executor, "submit", side_effect=_capture_submit):
@@ -102,7 +104,9 @@ class TestContainerModeSilentFallback:
 class TestContainerCommandSecurity:
     def test_default_workspace_mount_is_read_write(self, monkeypatch):
         """ContainerManager._build_command mounts the workspace without ':ro'."""
-        monkeypatch.setattr("shutil.which", lambda cmd: "/usr/bin/docker" if cmd == "docker" else None)
+        monkeypatch.setattr(
+            "shutil.which", lambda cmd: "/usr/bin/docker" if cmd == "docker" else None
+        )
         cm = ContainerManager(ContainerConfig(workspace_mount="/host/ws"))
         cmd = cm._build_command("/tmp/payload.json")
 
@@ -130,7 +134,9 @@ class TestContainerRuntimeLimitsMissing:
     def test_build_command_lacks_resource_limits(self, monkeypatch):
         """Generated 'docker run' command does not include --memory, --cpus, or
         pids-limit."""
-        monkeypatch.setattr("shutil.which", lambda cmd: "/usr/bin/docker" if cmd == "docker" else None)
+        monkeypatch.setattr(
+            "shutil.which", lambda cmd: "/usr/bin/docker" if cmd == "docker" else None
+        )
         cm = ContainerManager(ContainerConfig())
         cmd = cm._build_command("/tmp/payload.json")
 
@@ -151,16 +157,16 @@ class TestContainerEnvLogging:
         """ContainerManager._run_container logs the full command including
         '-e FAKE_API_KEY=secret123'."""
         fake_secret = "secret123-not-real"
-        monkeypatch.setattr("shutil.which", lambda cmd: "/usr/bin/docker" if cmd == "docker" else None)
+        monkeypatch.setattr(
+            "shutil.which", lambda cmd: "/usr/bin/docker" if cmd == "docker" else None
+        )
 
         def _fake_subprocess_run(cmd, **kwargs):
             return MagicMock(returncode=0, stdout="{}")
 
         with caplog.at_level(logging.INFO, logger="animus_forge.scheduler.containers"):
             with patch("subprocess.run", side_effect=_fake_subprocess_run):
-                cm = ContainerManager(
-                    ContainerConfig(env={"FAKE_API_KEY": fake_secret})
-                )
+                cm = ContainerManager(ContainerConfig(env={"FAKE_API_KEY": fake_secret}))
                 cm._run_container("/tmp/payload.json")
 
         logged = "\n".join(record.message for record in caplog.records)

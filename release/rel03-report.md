@@ -1,8 +1,8 @@
 # REL-03 Report — Move Forge Runtime State to Platform Directories
 
-**Repository:** `AreteDriver/animus`  
-**Date:** 2026-08-01  
-**Commit:** TBD  
+**Repository:** `AreteDriver/animus`
+**Date:** 2026-08-01
+**Commit:** TBD
 **Scope:** `packages/forge` runtime state directories.
 
 ---

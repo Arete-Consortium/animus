@@ -238,7 +238,9 @@ def test_atomic_dispatch_success(dispatcher, ledger, lease_manager, sample_missi
     assert attempt["generation"] == 1
 
 
-def test_atomic_dispatch_rejects_already_leased(dispatcher, ledger, lease_manager, sample_mission, sample_task):
+def test_atomic_dispatch_rejects_already_leased(
+    dispatcher, ledger, lease_manager, sample_mission, sample_task
+):
     ledger.create_mission(sample_mission)
     ledger.create_task(sample_task)
     ledger.transition_mission(sample_mission.mission_id, MissionStatus.READY)
@@ -269,7 +271,9 @@ def test_atomic_dispatch_rejects_already_leased(dispatcher, ledger, lease_manage
     assert "already_leased" in second.error
 
 
-def test_atomic_dispatch_rejects_exhausted_budget(dispatcher, ledger, lease_manager, cost_enforcer, sample_mission, sample_task):
+def test_atomic_dispatch_rejects_exhausted_budget(
+    dispatcher, ledger, lease_manager, cost_enforcer, sample_mission, sample_task
+):
     ledger.create_mission(sample_mission)
     ledger.create_task(sample_task)
     ledger.transition_mission(sample_mission.mission_id, MissionStatus.READY)
@@ -298,7 +302,9 @@ def test_atomic_dispatch_rejects_exhausted_budget(dispatcher, ledger, lease_mana
     assert lease_manager.get_lease_for_task(str(sample_task.task_id)) is None
 
 
-def test_atomic_dispatch_rollback_on_transition_failure(dispatcher, ledger, sample_mission, sample_task):
+def test_atomic_dispatch_rollback_on_transition_failure(
+    dispatcher, ledger, sample_mission, sample_task
+):
     ledger.create_mission(sample_mission)
     ledger.create_task(sample_task)
     ledger.transition_mission(sample_mission.mission_id, MissionStatus.READY)
@@ -324,14 +330,20 @@ def test_atomic_dispatch_rollback_on_transition_failure(dispatcher, ledger, samp
     assert not result.ok
     task = ledger.get_task(sample_task.task_id)
     assert task.status == TaskStatus.READY
-    assert dispatcher._backend.fetchone(
-        "SELECT 1 FROM task_lease_current WHERE task_id = ?",
-        (str(sample_task.task_id),),
-    ) is None
-    assert dispatcher._backend.fetchone(
-        "SELECT 1 FROM task_attempts WHERE task_id = ?",
-        (str(sample_task.task_id),),
-    ) is None
+    assert (
+        dispatcher._backend.fetchone(
+            "SELECT 1 FROM task_lease_current WHERE task_id = ?",
+            (str(sample_task.task_id),),
+        )
+        is None
+    )
+    assert (
+        dispatcher._backend.fetchone(
+            "SELECT 1 FROM task_attempts WHERE task_id = ?",
+            (str(sample_task.task_id),),
+        )
+        is None
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -340,7 +352,9 @@ def test_atomic_dispatch_rollback_on_transition_failure(dispatcher, ledger, samp
 
 
 @pytest.mark.asyncio()
-async def test_pool_submit_uses_preacquired_lease(dispatcher, ledger, lease_manager, worker_pool, sample_mission, sample_task):
+async def test_pool_submit_uses_preacquired_lease(
+    dispatcher, ledger, lease_manager, worker_pool, sample_mission, sample_task
+):
     ledger.create_mission(sample_mission)
     ledger.create_task(sample_task)
     ledger.transition_mission(sample_mission.mission_id, MissionStatus.READY)
@@ -381,7 +395,9 @@ async def test_pool_submit_uses_preacquired_lease(dispatcher, ledger, lease_mana
 
 
 @pytest.mark.asyncio()
-async def test_scheduler_tick_atomically_dispatches(ledger, lease_manager, worker_pool, cost_enforcer, metrics, sample_mission, sample_task):
+async def test_scheduler_tick_atomically_dispatches(
+    ledger, lease_manager, worker_pool, cost_enforcer, metrics, sample_mission, sample_task
+):
     ledger.create_mission(sample_mission)
     ledger.create_task(sample_task)
     ledger.transition_mission(sample_mission.mission_id, MissionStatus.READY)
@@ -481,7 +497,10 @@ async def test_scheduler_stale_result_is_fenced(
             summary="stale result",
             confidence=0.9,
         ).model_dump(mode="json")
-        stale_result["_scheduler_meta"] = {"lease_id": lease.lease_id, "generation": lease.generation}
+        stale_result["_scheduler_meta"] = {
+            "lease_id": lease.lease_id,
+            "generation": lease.generation,
+        }
         await scheduler._process_result(str(sample_task.task_id), stale_result)
 
         # The stale result must not overwrite the new active lease or transition the task.

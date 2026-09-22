@@ -47,16 +47,27 @@ def test_client(memory_backend):
     # Wire up a minimal citizen commissioner using the test backend
     mission_store = MissionStore(memory_backend)
     mock_engine = MagicMock()
-    mock_engine.load_workflow.return_value = MagicMock(workflow_id="wf-1", status="success", outputs={"result": "ok"})
-    mock_engine.execute_workflow.return_value = MagicMock(workflow_id="wf-1", status="success", outputs={"result": "ok"})
+    mock_engine.load_workflow.return_value = MagicMock(
+        workflow_id="wf-1", status="success", outputs={"result": "ok"}
+    )
+    mock_engine.execute_workflow.return_value = MagicMock(
+        workflow_id="wf-1", status="success", outputs={"result": "ok"}
+    )
     mock_eval_runner = MagicMock()
-    mock_eval_runner.run.return_value = _make_suite_result(passed=3, failed=0, total_score=1.0, score_variance=0.0)
+    mock_eval_runner.run.return_value = _make_suite_result(
+        passed=3, failed=0, total_score=1.0, score_variance=0.0
+    )
     mock_eval_loader = MagicMock()
     mock_evidence_bridge = MagicMock()
     mock_evidence_bridge.on_eval_complete.return_value = MagicMock(
-        mission_id="m-1", workflow_id="wf-1", run_id="run-1",
-        suite_name="test_suite", pass_rate=1.0, score_variance=0.0,
-        total_cases=3, failed_cases=0
+        mission_id="m-1",
+        workflow_id="wf-1",
+        run_id="run-1",
+        suite_name="test_suite",
+        pass_rate=1.0,
+        score_variance=0.0,
+        total_cases=3,
+        failed_cases=0,
     )
 
     citizen = ResearchCitizen(
@@ -76,6 +87,7 @@ def test_client(memory_backend):
 @pytest.fixture
 def auth_headers():
     from animus_forge.api_routes.auth import create_access_token
+
     token = create_access_token("test-user")
     return {"Authorization": f"Bearer {token}"}
 
@@ -83,13 +95,29 @@ def auth_headers():
 def _make_suite_result(passed=2, failed=0, total_score=1.0, score_variance=0.0):
     from animus_forge.evaluation.base import EvalCase, EvalResult, EvalStatus, EvalSuite
     from animus_forge.evaluation.runner import SuiteResult
+
     suite = EvalSuite(name="test_suite", threshold=0.5)
     results = []
     for i in range(passed):
-        results.append(EvalResult(case=EvalCase(input=f"p{i}"), status=EvalStatus.PASSED, score=1.0, output="ok"))
+        results.append(
+            EvalResult(
+                case=EvalCase(input=f"p{i}"), status=EvalStatus.PASSED, score=1.0, output="ok"
+            )
+        )
     for i in range(failed):
-        results.append(EvalResult(case=EvalCase(input=f"f{i}"), status=EvalStatus.FAILED, score=0.0, output="bad"))
-    return SuiteResult(suite=suite, results=results, passed=passed, failed=failed, total_score=total_score, score_variance=score_variance)
+        results.append(
+            EvalResult(
+                case=EvalCase(input=f"f{i}"), status=EvalStatus.FAILED, score=0.0, output="bad"
+            )
+        )
+    return SuiteResult(
+        suite=suite,
+        results=results,
+        passed=passed,
+        failed=failed,
+        total_score=total_score,
+        score_variance=score_variance,
+    )
 
 
 class TestCitizenEndpoints:
@@ -99,7 +127,9 @@ class TestCitizenEndpoints:
             "eval_suite": "test_suite",
             "workflow_template": "echo_test",
         }
-        response = test_client.post("/v1/citizens/research/commission", json=payload, headers=auth_headers)
+        response = test_client.post(
+            "/v1/citizens/research/commission", json=payload, headers=auth_headers
+        )
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "commissioned"
@@ -108,7 +138,9 @@ class TestCitizenEndpoints:
     def test_get_mission(self, test_client, auth_headers):
         # Commission first
         payload = {"objective": "x", "eval_suite": "s", "workflow_template": "w"}
-        resp = test_client.post("/v1/citizens/research/commission", json=payload, headers=auth_headers)
+        resp = test_client.post(
+            "/v1/citizens/research/commission", json=payload, headers=auth_headers
+        )
         mid = resp.json()["mission_id"]
 
         response = test_client.get(f"/v1/citizens/research/{mid}", headers=auth_headers)
@@ -119,7 +151,9 @@ class TestCitizenEndpoints:
 
     def test_run_mission_iteration(self, test_client, auth_headers):
         payload = {"objective": "x", "eval_suite": "s", "workflow_template": "w"}
-        resp = test_client.post("/v1/citizens/research/commission", json=payload, headers=auth_headers)
+        resp = test_client.post(
+            "/v1/citizens/research/commission", json=payload, headers=auth_headers
+        )
         mid = resp.json()["mission_id"]
 
         response = test_client.post(f"/v1/citizens/research/{mid}/run", headers=auth_headers)
@@ -140,7 +174,9 @@ class TestCitizenEndpoints:
 
     def test_commission_missing_fields(self, test_client, auth_headers):
         payload = {"objective": "x"}
-        response = test_client.post("/v1/citizens/research/commission", json=payload, headers=auth_headers)
+        response = test_client.post(
+            "/v1/citizens/research/commission", json=payload, headers=auth_headers
+        )
         assert response.status_code == 400
 
     def test_get_nonexistent_mission(self, test_client, auth_headers):

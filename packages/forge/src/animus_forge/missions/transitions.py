@@ -14,9 +14,7 @@ class TransitionError(ValueError):
     """Raised when an illegal state transition is requested."""
 
     def __init__(self, entity: str, current: str, requested: str):
-        super().__init__(
-            f"Illegal {entity} transition: {current} → {requested}"
-        )
+        super().__init__(f"Illegal {entity} transition: {current} → {requested}")
         self.entity = entity
         self.current = current
         self.requested = requested

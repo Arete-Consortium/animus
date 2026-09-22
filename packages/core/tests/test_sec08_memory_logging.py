@@ -31,11 +31,11 @@ from animus.memory.types import Memory
 # alone is insufficient.  All values are synthetic test fixtures.
 _ADVERSARIAL_SECRETS = [
     "sk-ant-api03-abcdefghijklmnopqrstuvwxyz123",  # Anthropic key prefix
-    "ghp_abcdefghij1234567890ABCDEFGH",            # GitHub token
-    "Bearer abcdefghijklmnopqrstuvwxyz1234",        # Bearer token
-    "credential_value=test1234567890ABCDEF",        # Credential label pattern
-    "ssn_value=123-45-6789 on file",               # PII / SSN
-    "ProprietaryProjectX-SECRET-SAUCE-2026",        # Proprietary without credential prefix
+    "ghp_abcdefghij1234567890ABCDEFGH",  # GitHub token
+    "Bearer abcdefghijklmnopqrstuvwxyz1234",  # Bearer token
+    "credential_value=test1234567890ABCDEF",  # Credential label pattern
+    "ssn_value=123-45-6789 on file",  # PII / SSN
+    "ProprietaryProjectX-SECRET-SAUCE-2026",  # Proprietary without credential prefix
 ]
 
 

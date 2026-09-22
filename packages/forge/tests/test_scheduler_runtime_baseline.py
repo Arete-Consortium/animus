@@ -297,7 +297,9 @@ async def test_dispatch_atomicity_rollback_leaves_task_eligible(
 
         active = lease_manager.get_active_leases()
         active_for_task = [lease for lease in active if lease.task_id == str(sample_task.task_id)]
-        assert len(active_for_task) == 0, "orphan active lease remains after partial dispatch failure"
+        assert len(active_for_task) == 0, (
+            "orphan active lease remains after partial dispatch failure"
+        )
 
 
 @pytest.mark.asyncio()
@@ -334,7 +336,9 @@ async def test_kill_slot_does_not_terminate_container_task(slow_container_pool, 
     assert pool.active_count() == 0
 
     # Current behavior: the container work is still running after kill_slot returns.
-    assert not container.completed.get("t-kill", False), "kill_slot unexpectedly terminated the task"
+    assert not container.completed.get("t-kill", False), (
+        "kill_slot unexpectedly terminated the task"
+    )
 
     # Wait for the natural completion to prove the task was not killed.
     await asyncio.sleep(2.5)
@@ -382,7 +386,9 @@ async def test_pool_stop_start_cycle_restores_recovery(
 
 
 @pytest.mark.asyncio()
-@pytest.mark.xfail(reason="RUN-00 defect #8: cost recorded without actual provider/model/token usage")
+@pytest.mark.xfail(
+    reason="RUN-00 defect #8: cost recorded without actual provider/model/token usage"
+)
 async def test_recorded_cost_reflects_actual_usage(
     ledger, lease_manager, worker_pool, cost_enforcer, metrics, sample_mission, sample_task
 ):
@@ -428,8 +434,12 @@ def test_concurrent_tasks_can_oversubscribe_budget(cost_enforcer):
     cap = Decimal("1.00")
 
     # Mission has $1.00 cap. Two tasks each reserve $0.60 arrive "concurrently".
-    ok1, _ = cost_enforcer.can_start_task(mission_id, estimated_cost=Decimal("0.60"), mission_cap=cap)
-    ok2, _ = cost_enforcer.can_start_task(mission_id, estimated_cost=Decimal("0.60"), mission_cap=cap)
+    ok1, _ = cost_enforcer.can_start_task(
+        mission_id, estimated_cost=Decimal("0.60"), mission_cap=cap
+    )
+    ok2, _ = cost_enforcer.can_start_task(
+        mission_id, estimated_cost=Decimal("0.60"), mission_cap=cap
+    )
 
     # Without reservations, both are approved even though their combined
     # estimated cost ($1.20) exceeds the cap.
@@ -506,7 +516,9 @@ async def test_cancelled_required_task_allows_completion(
         await asyncio.sleep(3.5)
 
         mission = ledger.get_mission(sample_mission.mission_id)
-        assert mission.status != MissionStatus.COMPLETED, "mission completed despite cancelled required task"
+        assert mission.status != MissionStatus.COMPLETED, (
+            "mission completed despite cancelled required task"
+        )
 
 
 @pytest.mark.asyncio()
@@ -572,7 +584,9 @@ async def test_retry_does_not_create_distinct_attempt_id(
             summary="forced failure",
             risks=[{"severity": "high", "description": "forced"}],
         )
-        await MissionScheduler._process_result(scheduler, task_id, fail_output.model_dump(mode="json"))
+        await MissionScheduler._process_result(
+            scheduler, task_id, fail_output.model_dump(mode="json")
+        )
 
     async with managed_scheduler(scheduler):
         with patch.object(scheduler, "_process_result", side_effect=fake_fail_result):
@@ -678,7 +692,9 @@ async def test_duplicate_result_records_cost_twice(
             summary="duplicate result",
             confidence=0.9,
         )
-        await scheduler._process_result(str(sample_task.task_id), completed_output.model_dump(mode="json"))
+        await scheduler._process_result(
+            str(sample_task.task_id), completed_output.model_dump(mode="json")
+        )
 
         rows = cost_enforcer._backend.fetchall(
             "SELECT * FROM cost_events WHERE mission_id = ? AND task_id = ?",
@@ -728,4 +744,6 @@ async def test_two_schedulers_maintain_single_active_lease(
 
             active = lease_manager.get_active_leases()
             task_leases = [lease for lease in active if lease.task_id == str(sample_task.task_id)]
-            assert len(task_leases) <= 1, f"race allowed {len(task_leases)} active leases for one task"
+            assert len(task_leases) <= 1, (
+                f"race allowed {len(task_leases)} active leases for one task"
+            )

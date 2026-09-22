@@ -747,7 +747,6 @@ class TestEvalIntegration:
         assert result.total == 1
         assert result.results[0].score > 0
 
-
     def test_record_run_deduplicates_identical_recent_run(
         self, eval_store: EvalStore, sample_suite_result: SuiteResult
     ) -> None:

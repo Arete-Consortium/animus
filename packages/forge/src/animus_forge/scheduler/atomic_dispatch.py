@@ -178,7 +178,9 @@ class AtomicDispatcher:
                         to_status=TaskStatus.RUNNING,
                     )
                 except TransitionError as exc:
-                    return DispatchResult(ok=False, error=f"transition:{exc.current}->{exc.requested}")
+                    return DispatchResult(
+                        ok=False, error=f"transition:{exc.current}->{exc.requested}"
+                    )
 
             logger.info(
                 "Atomically dispatched task %s attempt %s lease %s (gen %d)",

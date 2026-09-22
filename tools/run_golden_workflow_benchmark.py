@@ -23,7 +23,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output",
         type=Path,
-        help="Optional output path. Defaults to docs/metrics/artifacts/golden_workflow_<timestamp>.json",
+        help=(
+            "Optional output path. Defaults to "
+            "docs/metrics/artifacts/golden_workflow_<timestamp>.json"
+        ),
     )
     return parser.parse_args()
 

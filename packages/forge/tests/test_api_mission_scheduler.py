@@ -64,6 +64,7 @@ def test_client(memory_backend):
 @pytest.fixture
 def auth_headers():
     from animus_forge.api_routes.auth import create_access_token
+
     token = create_access_token("test-user")
     return {"Authorization": f"Bearer {token}"}
 
@@ -166,7 +167,12 @@ class TestSchedulerEndpoints:
 
         metrics_mock = MagicMock()
         metrics_mock.by_mission.return_value = [
-            {"event_type": "task_dispatched", "task_id": "t1", "value": None, "recorded_at": "2026-07-27T00:00:00"}
+            {
+                "event_type": "task_dispatched",
+                "task_id": "t1",
+                "value": None,
+                "recorded_at": "2026-07-27T00:00:00",
+            }
         ]
         api_state.mission_scheduler.metrics = metrics_mock
 

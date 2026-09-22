@@ -127,16 +127,12 @@ class TestEvidenceBridge:
         assert len(evidence.learned_insights) == 1
 
     def test_auto_learn_when_high_variance(self, bridge, mock_cross_memory):
-        result = _make_suite_result(
-            passed=2, failed=1, total_score=0.7, score_variance=0.25
-        )
+        result = _make_suite_result(passed=2, failed=1, total_score=0.7, score_variance=0.25)
         bridge.on_eval_complete(result, workflow_id="wf-1", mission_id="m-1")
         mock_cross_memory.record_learning.assert_called_once()
 
     def test_no_learn_when_passing_and_low_variance(self, bridge, mock_cross_memory):
-        result = _make_suite_result(
-            passed=3, failed=0, total_score=1.0, score_variance=0.0
-        )
+        result = _make_suite_result(passed=3, failed=0, total_score=1.0, score_variance=0.0)
         bridge.on_eval_complete(result, workflow_id="wf-1", mission_id="m-1")
         mock_cross_memory.record_learning.assert_not_called()
 

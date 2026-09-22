@@ -31,8 +31,8 @@ _CORE_DIR = os.path.join(os.path.dirname(__file__), "..", "packages", "core")
 if os.path.isdir(_CORE_DIR) and _CORE_DIR not in sys.path:
     sys.path.insert(0, os.path.realpath(_CORE_DIR))
 
-from animus.config import AnimusConfig
-from animus.memory import MemoryLayer, MemoryType
+from animus.config import AnimusConfig  # noqa: E402 — local package path bootstrap above
+from animus.memory import MemoryLayer, MemoryType  # noqa: E402 — local package path bootstrap above
 
 # --- Paths ---
 

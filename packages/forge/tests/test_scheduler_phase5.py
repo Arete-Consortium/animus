@@ -103,9 +103,7 @@ class TestLeaseManager:
         assert lease.expires_at > lease.acquired_at
 
     def test_acquire_duplicate_fails(self, lease_manager):
-        lease_manager.acquire(
-            task_id="task-1", mission_id="m", citizen_role="b", worker_id="w1"
-        )
+        lease_manager.acquire(task_id="task-1", mission_id="m", citizen_role="b", worker_id="w1")
         with pytest.raises(LeaseAcquireError) as exc_info:
             lease_manager.acquire(
                 task_id="task-1", mission_id="m", citizen_role="b", worker_id="w2"
@@ -119,6 +117,7 @@ class TestLeaseManager:
         original_expiry = lease.expires_at
         # Wait a tiny bit so renew actually changes the timestamp
         import time
+
         time.sleep(0.05)
         renewed = lease_manager.renew(lease.lease_id, ttl_seconds=20)
         assert renewed is not None
@@ -185,9 +184,7 @@ class TestCostEnforcer:
         assert cost == Decimal("5.00")
 
     def test_mission_remaining(self, cost_enforcer):
-        cost_enforcer.record(
-            mission_id="m1", operation="x", cost_usd=Decimal("2.00")
-        )
+        cost_enforcer.record(mission_id="m1", operation="x", cost_usd=Decimal("2.00"))
         remaining = cost_enforcer.mission_remaining("m1", cap=Decimal("5.00"))
         assert remaining == Decimal("3.00")
 
@@ -199,9 +196,7 @@ class TestCostEnforcer:
         assert reason == "ok"
 
     def test_can_start_task_over_budget(self, cost_enforcer):
-        cost_enforcer.record(
-            mission_id="m1", operation="x", cost_usd=Decimal("9.50")
-        )
+        cost_enforcer.record(mission_id="m1", operation="x", cost_usd=Decimal("9.50"))
         ok, reason = cost_enforcer.can_start_task(
             "m1", estimated_cost=Decimal("1.00"), mission_cap=Decimal("10.00")
         )
@@ -304,9 +299,7 @@ class TestCitizenWorkerPool:
         )
         assert lease is not None
         # Fast-forward
-        recovered = lease_manager.recover_expired(
-            as_of=datetime.now(UTC) + timedelta(seconds=10)
-        )
+        recovered = lease_manager.recover_expired(as_of=datetime.now(UTC) + timedelta(seconds=10))
         assert recovered == ["t-expired"]
         await worker_pool.stop()
 
@@ -364,7 +357,9 @@ class TestCitizenWorkerPool:
 
 @pytest.mark.asyncio()
 class TestMissionScheduler:
-    async def test_run_once_no_ready_tasks(self, ledger, lease_manager, worker_pool, cost_enforcer, metrics):
+    async def test_run_once_no_ready_tasks(
+        self, ledger, lease_manager, worker_pool, cost_enforcer, metrics
+    ):
         scheduler = MissionScheduler(
             ledger=ledger,
             lease_manager=lease_manager,
@@ -378,7 +373,16 @@ class TestMissionScheduler:
         assert dispatched == 0
         await scheduler.stop()
 
-    async def test_run_once_dispatches_task(self, ledger, lease_manager, worker_pool, cost_enforcer, metrics, sample_mission, sample_task):
+    async def test_run_once_dispatches_task(
+        self,
+        ledger,
+        lease_manager,
+        worker_pool,
+        cost_enforcer,
+        metrics,
+        sample_mission,
+        sample_task,
+    ):
         # Setup: create mission and ready task
         sample_mission.status = MissionStatus.PROPOSED
         ledger.create_mission(sample_mission)
@@ -405,7 +409,16 @@ class TestMissionScheduler:
 
         await scheduler.stop()
 
-    async def test_result_completes_task(self, ledger, lease_manager, worker_pool, cost_enforcer, metrics, sample_mission, sample_task):
+    async def test_result_completes_task(
+        self,
+        ledger,
+        lease_manager,
+        worker_pool,
+        cost_enforcer,
+        metrics,
+        sample_mission,
+        sample_task,
+    ):
         ledger.create_mission(sample_mission)
         ledger.create_task(sample_task)
         ledger.transition_mission(sample_mission.mission_id, MissionStatus.READY)
@@ -431,7 +444,9 @@ class TestMissionScheduler:
 
         await scheduler.stop()
 
-    async def test_mission_completes_when_all_tasks_done(self, ledger, lease_manager, worker_pool, cost_enforcer, metrics, sample_mission):
+    async def test_mission_completes_when_all_tasks_done(
+        self, ledger, lease_manager, worker_pool, cost_enforcer, metrics, sample_mission
+    ):
         ledger.create_mission(sample_mission)
         t1 = Task(
             mission_id=sample_mission.mission_id,
@@ -471,7 +486,16 @@ class TestMissionScheduler:
 
         await scheduler.stop()
 
-    async def test_cost_gate_blocks_task(self, ledger, lease_manager, worker_pool, cost_enforcer, metrics, sample_mission, sample_task):
+    async def test_cost_gate_blocks_task(
+        self,
+        ledger,
+        lease_manager,
+        worker_pool,
+        cost_enforcer,
+        metrics,
+        sample_mission,
+        sample_task,
+    ):
         # Exhaust budget
         cost_enforcer.record(
             mission_id=str(sample_mission.mission_id),
@@ -489,14 +513,18 @@ class TestMissionScheduler:
             worker_pool=worker_pool,
             cost_enforcer=cost_enforcer,
             metrics=metrics,
-            config=SchedulerConfig(default_mission_cap_usd=Decimal("10.00"), poll_interval_seconds=0.1),
+            config=SchedulerConfig(
+                default_mission_cap_usd=Decimal("10.00"), poll_interval_seconds=0.1
+            ),
         )
         await scheduler.start()
         dispatched = await scheduler.run_once()
         assert dispatched == 0
         await scheduler.stop()
 
-    async def test_status_snapshot(self, ledger, lease_manager, worker_pool, cost_enforcer, metrics):
+    async def test_status_snapshot(
+        self, ledger, lease_manager, worker_pool, cost_enforcer, metrics
+    ):
         scheduler = MissionScheduler(
             ledger=ledger,
             lease_manager=lease_manager,
@@ -536,7 +564,9 @@ class TestSchedulerMetrics:
         assert len(events) == 2
         assert all(e["mission_id"] == "m1" for e in events)
 
-    def test_status_includes_metrics(self, ledger, lease_manager, worker_pool, cost_enforcer, metrics):
+    def test_status_includes_metrics(
+        self, ledger, lease_manager, worker_pool, cost_enforcer, metrics
+    ):
         scheduler = MissionScheduler(
             ledger=ledger,
             lease_manager=lease_manager,
@@ -558,7 +588,16 @@ class TestSchedulerMetrics:
 
 
 class TestCheckpointPersistence:
-    async def test_checkpoint_saved_on_completion(self, ledger, lease_manager, worker_pool, cost_enforcer, metrics, sample_mission, sample_task):
+    async def test_checkpoint_saved_on_completion(
+        self,
+        ledger,
+        lease_manager,
+        worker_pool,
+        cost_enforcer,
+        metrics,
+        sample_mission,
+        sample_task,
+    ):
         ledger.create_mission(sample_mission)
         ledger.create_task(sample_task)
         ledger.transition_mission(sample_mission.mission_id, MissionStatus.READY)

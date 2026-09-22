@@ -169,7 +169,11 @@ class ContainerManager:
         Returns:
             ``True`` if the kill command completed without error.
         """
-        if not self._runtime_cmd or container_id.startswith("pid-") or container_id == "unavailable":
+        if (
+            not self._runtime_cmd
+            or container_id.startswith("pid-")
+            or container_id == "unavailable"
+        ):
             return False
 
         cmd = [self._runtime_cmd, "rm", "-f", container_id]
@@ -367,7 +371,7 @@ class ContainerManager:
             except OSError:
                 pass
 
-    _INLINE_RUNNER = '''
+    _INLINE_RUNNER = """
 import json, sys, os, uuid
 sys.path.insert(0, "/workspace/src")
 
@@ -412,4 +416,4 @@ except Exception as exc:
         "summary": str(exc),
         "confidence": 0.0,
     }))
-'''
+"""

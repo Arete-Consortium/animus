@@ -288,9 +288,7 @@ def _validating_resolver(
         try:
             results = original(host, port, family, type, proto, flags)
         except OSError as exc:
-            raise SSRFBlockedError(
-                _redact(f"DNS resolution failed for {host}: {exc}")
-            ) from exc
+            raise SSRFBlockedError(_redact(f"DNS resolution failed for {host}: {exc}")) from exc
 
         allowed: list[tuple[int, int, int, str, tuple[Any, ...]]] = []
         for af, socktype, pr, canonname, sockaddr in results:
@@ -300,20 +298,14 @@ def _validating_resolver(
             except ValueError:
                 # Non-IP socket address; skip.
                 continue
-            reason = _ip_is_blocked(
-                ip, allow_loopback=allow_loopback, allow_private=allow_private
-            )
+            reason = _ip_is_blocked(ip, allow_loopback=allow_loopback, allow_private=allow_private)
             if reason:
-                logger.debug(
-                    "SSRF resolver dropped %s -> %s (%s)", host, ip_str, reason
-                )
+                logger.debug("SSRF resolver dropped %s -> %s (%s)", host, ip_str, reason)
                 continue
             allowed.append((af, socktype, pr, canonname, sockaddr))
 
         if not allowed:
-            raise SSRFBlockedError(
-                f"SSRF block: {host} resolved only to disallowed addresses"
-            )
+            raise SSRFBlockedError(f"SSRF block: {host} resolved only to disallowed addresses")
 
         # Return a single result so urllib connects to exactly this IP.
         return [allowed[0]]
@@ -348,9 +340,7 @@ class _ValidatingRedirectHandler(urllib.request.HTTPRedirectHandler):
         try:
             _normalize_url(newurl)
         except SSRFBlockedError as exc:
-            raise SSRFBlockedError(
-                f"SSRF block on redirect to {newurl}: {exc}"
-            ) from exc
+            raise SSRFBlockedError(f"SSRF block on redirect to {newurl}: {exc}") from exc
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
@@ -514,9 +504,7 @@ class GovernedClient:
             try:
                 effective_sensitivity = Sensitivity(str(sensitivity).lower())
             except ValueError as exc:
-                raise SSRFBlockedError(
-                    f"Invalid sensitivity value: {sensitivity}"
-                ) from exc
+                raise SSRFBlockedError(f"Invalid sensitivity value: {sensitivity}") from exc
 
         # Content for DLP / egress gate.
         body_bytes: bytes | None = None
@@ -524,7 +512,9 @@ class GovernedClient:
             body_bytes = body.encode("utf-8") if isinstance(body, str) else body
         outbound_content = content
         if outbound_content is None and body is not None:
-            outbound_content = body if isinstance(body, str) else body.decode("utf-8", errors="replace")
+            outbound_content = (
+                body if isinstance(body, str) else body.decode("utf-8", errors="replace")
+            )
 
         # Centralized egress policy (loopback is always allowed by policy; the
         # allow_loopback/allow_private flags above enforce the SSRF layer).
@@ -560,10 +550,13 @@ class GovernedClient:
             method=method.upper(),
         )
 
-        with _validating_resolver(
-            allow_loopback=allow_loopback,
-            allow_private=allow_private,
-        ), _secure_opener(max_redirects=max_redirects):
+        with (
+            _validating_resolver(
+                allow_loopback=allow_loopback,
+                allow_private=allow_private,
+            ),
+            _secure_opener(max_redirects=max_redirects),
+        ):
             try:
                 response = urllib.request.urlopen(req, timeout=timeout)
             except urllib.error.HTTPError as exc:
@@ -580,9 +573,7 @@ class GovernedClient:
                         start_time=start_time,
                     )
                 except Exception as read_exc:
-                    logger.debug(
-                        "Failed to read HTTP error body: %s", _redact_exception(read_exc)
-                    )
+                    logger.debug("Failed to read HTTP error body: %s", _redact_exception(read_exc))
                     resp = Response(
                         status=exc.code,
                         headers=dict(exc.headers or {}),

@@ -425,7 +425,11 @@ class MissionScheduler:
         if not mission:
             return
 
-        if mission.status in (MissionStatus.COMPLETED, MissionStatus.FAILED, MissionStatus.CANCELLED):
+        if mission.status in (
+            MissionStatus.COMPLETED,
+            MissionStatus.FAILED,
+            MissionStatus.CANCELLED,
+        ):
             return
 
         if any_failed:

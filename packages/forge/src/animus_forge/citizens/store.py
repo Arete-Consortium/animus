@@ -110,9 +110,7 @@ class MissionStore:
             )
 
     def get(self, mission_id: str) -> MissionRecord | None:
-        row = self._backend.fetchone(
-            "SELECT * FROM citizen_missions WHERE id = ?", (mission_id,)
-        )
+        row = self._backend.fetchone("SELECT * FROM citizen_missions WHERE id = ?", (mission_id,))
         if not row:
             return None
         return self._parse_row(row)

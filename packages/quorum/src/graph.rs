@@ -146,7 +146,7 @@ impl IntentGraph {
     pub fn query_all(&self, min_stability: Option<f64>) -> SqlResult<Vec<IntentNode>> {
         let min_stab = min_stability.unwrap_or(0.0);
         let mut stmt = self.conn.prepare(
-            "SELECT id, agent_id, timestamp, intent, provides, requires, 
+            "SELECT id, agent_id, timestamp, intent, provides, requires,
                     constraints, stability, evidence, parent_id, computed_stability
              FROM intents
              WHERE computed_stability >= ?1

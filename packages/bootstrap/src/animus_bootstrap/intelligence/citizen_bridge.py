@@ -345,8 +345,7 @@ class CitizenBridge:
             return {
                 "success": False,
                 "error": (
-                    f"Proposal status is '{proposal.status}', "
-                    "must be 'approved' to commission"
+                    f"Proposal status is '{proposal.status}', must be 'approved' to commission"
                 ),
             }
 

@@ -1158,11 +1158,15 @@ class TestWriteRootsSandbox:
         # Write inside sandbox — should succeed
         sandbox = tmp_path / "sandbox"
         sandbox.mkdir()
-        result = _tool_write_file({"path": str(sandbox / "ok.txt"), "content": "hello"}, policy=policy)
+        result = _tool_write_file(
+            {"path": str(sandbox / "ok.txt"), "content": "hello"}, policy=policy
+        )
         assert result.success
 
         # Write outside sandbox — should fail
-        result = _tool_write_file({"path": str(tmp_path / "outside.txt"), "content": "nope"}, policy=policy)
+        result = _tool_write_file(
+            {"path": str(tmp_path / "outside.txt"), "content": "nope"}, policy=policy
+        )
         assert not result.success
         assert "write_roots" in result.error.lower() or "Write denied" in result.error
 
@@ -1180,7 +1184,9 @@ class TestWriteRootsSandbox:
         )
         policy = WorkspaceToolPolicy.from_tools_security_config(config)
 
-        result = _tool_edit_file({"path": str(target), "old_text": "old", "new_text": "new"}, policy=policy)
+        result = _tool_edit_file(
+            {"path": str(target), "old_text": "old", "new_text": "new"}, policy=policy
+        )
         assert not result.success
         assert "Write denied" in result.error
         # File should be unchanged
@@ -1196,7 +1202,9 @@ class TestWriteRootsSandbox:
         )
         policy = WorkspaceToolPolicy.from_tools_security_config(config)
 
-        result = _tool_write_file({"path": str(tmp_path / "anywhere.txt"), "content": "ok"}, policy=policy)
+        result = _tool_write_file(
+            {"path": str(tmp_path / "anywhere.txt"), "content": "ok"}, policy=policy
+        )
         assert result.success
 
 

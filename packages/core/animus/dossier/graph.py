@@ -269,7 +269,9 @@ class GraphAnalyzer:
             data["distance"] = 1.0 / max(data["weight"], 0.001)
 
         try:
-            path_nodes = self.nx.shortest_path(inverse_graph, source_id, target_id, weight="distance")
+            path_nodes = self.nx.shortest_path(
+                inverse_graph, source_id, target_id, weight="distance"
+            )
         except self.nx.NetworkXNoPath:
             return None
 

@@ -194,7 +194,9 @@ class ResearchCitizen:
         """Fetch a mission record by id."""
         return self.mission_store.get(mission_id)
 
-    def list_missions(self, state: MissionState | None = None, limit: int = 20) -> list[MissionRecord]:
+    def list_missions(
+        self, state: MissionState | None = None, limit: int = 20
+    ) -> list[MissionRecord]:
         """List missions, optionally filtered by state."""
         if state is not None:
             return self.mission_store.list_by_state(state, limit)

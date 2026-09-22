@@ -190,11 +190,7 @@ def run_analyze(case_input: str | dict[str, Any]) -> str:
     tmp_dir = _write_temp_logs(entries)
     try:
         citizen = ConversationDesignerCitizen(conversation_log_dir=tmp_dir)
-        log_count = sum(
-            1
-            for e in entries
-            if ConversationDesignerCitizen._is_human_user_entry(e)
-        )
+        log_count = sum(1 for e in entries if ConversationDesignerCitizen._is_human_user_entry(e))
         if mode == "proposal":
             proposal = citizen.generate_proposal(focus_pattern=focus_pattern)
             return _render_proposal(proposal, log_count=log_count)

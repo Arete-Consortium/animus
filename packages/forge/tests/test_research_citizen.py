@@ -167,7 +167,9 @@ class TestResearchCitizen:
         assert result.current_iteration == 1
         assert result.last_pass_rate == 1.0
 
-    def test_run_iteration_retries_when_failing(self, citizen, mock_evidence_bridge, mock_eval_runner):
+    def test_run_iteration_retries_when_failing(
+        self, citizen, mock_evidence_bridge, mock_eval_runner
+    ):
         # First eval fails
         mock_eval_runner.run.return_value = _make_suite_result(
             passed=1, failed=2, total_score=0.3, score_variance=0.05
@@ -195,7 +197,9 @@ class TestResearchCitizen:
         assert result.current_iteration == 1
         assert result.metadata.get("temperature") == 0.8  # escalated from 0.7
 
-    def test_run_iteration_fails_at_max_iterations(self, citizen, mock_evidence_bridge, mock_eval_runner):
+    def test_run_iteration_fails_at_max_iterations(
+        self, citizen, mock_evidence_bridge, mock_eval_runner
+    ):
         mock_eval_runner.run.return_value = _make_suite_result(
             passed=0, failed=3, total_score=0.0, score_variance=0.0
         )
