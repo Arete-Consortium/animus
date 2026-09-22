@@ -455,3 +455,21 @@ class TestMCPToolInWorkflow:
         """mcp_tool handler should be in the executor's _handlers dict."""
         executor = WorkflowExecutor()
         assert "mcp_tool" in executor._handlers
+
+
+def test_public_executor_imports_use_forge_mcp_adapter():
+    from animus_forge.workflow import WorkflowExecutor as PackageExecutor
+    from animus_forge.workflow.executor import WorkflowExecutor as CompatibilityExecutor
+
+    assert PackageExecutor is WorkflowExecutor
+    assert CompatibilityExecutor is WorkflowExecutor
+
+
+def test_standalone_kernel_requires_explicit_mcp_adapter():
+    from animus_kernel.executor.executor_core import WorkflowExecutor as KernelExecutor
+
+    executor = KernelExecutor(dry_run=False)
+    with pytest.raises(RuntimeError, match="registry is not configured"):
+        executor._resolve_mcp_server("test")
+    with pytest.raises(RuntimeError, match="transport is not configured"):
+        executor._call_mcp_tool()

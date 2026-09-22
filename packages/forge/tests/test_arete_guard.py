@@ -10,49 +10,13 @@ from animus_forge.state.backends import SQLiteBackend
 
 
 @pytest.fixture
-def backend():
-    b = SQLiteBackend(":memory:")
-    # Create eval_runs table inline (matching migration 012)
-    b.executescript(
-        """
-        CREATE TABLE eval_runs (
-            id TEXT PRIMARY KEY,
-            suite_name TEXT NOT NULL,
-            agent_role TEXT,
-            model TEXT,
-            run_mode TEXT NOT NULL,
-            started_at TEXT NOT NULL,
-            completed_at TEXT NOT NULL,
-            duration_ms REAL NOT NULL,
-            total_cases INTEGER DEFAULT 0,
-            passed INTEGER DEFAULT 0,
-            failed INTEGER DEFAULT 0,
-            errors INTEGER DEFAULT 0,
-            skipped INTEGER DEFAULT 0,
-            avg_score REAL DEFAULT 0.0,
-            pass_rate REAL DEFAULT 0.0,
-            score_variance REAL DEFAULT 0.0,
-            total_tokens INTEGER DEFAULT 0,
-            metadata TEXT
-        );
-        CREATE INDEX idx_eval_runs_dedup
-        ON eval_runs(suite_name, agent_role, model, run_mode, completed_at DESC);
-        CREATE TABLE eval_case_results (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            run_id TEXT NOT NULL,
-            case_name TEXT NOT NULL,
-            status TEXT NOT NULL,
-            score REAL NOT NULL,
-            output TEXT,
-            error TEXT,
-            latency_ms REAL DEFAULT 0,
-            tokens_used INTEGER DEFAULT 0,
-            metrics_json TEXT
-        );
-        CREATE INDEX idx_eval_case_run ON eval_case_results(run_id);
-        """
-    )
-    return b
+def backend(tmp_path):
+    from animus_forge.state.migrations import run_migrations
+
+    backend = SQLiteBackend(str(tmp_path / "eval.db"))
+    run_migrations(backend)
+    yield backend
+    backend.close()
 
 
 @pytest.fixture

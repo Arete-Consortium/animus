@@ -175,8 +175,8 @@ jobs:
           pip install -e "packages/bootstrap/[dev]"
           pip install mypy
 
-      - name: Verify type gate failure handling
-        run: pytest tests/test_mypy_ratchet.py -q
+      - name: Verify CI gate failure handling
+        run: pytest tests/test_mypy_ratchet.py tests/test_coverage_ratchet.py -q
 
       - name: Mypy ratchet
         run: python3 scripts/mypy-ratchet.py core kernel forge bootstrap
@@ -219,7 +219,7 @@ jobs:
         run: pip install -e packages/types/ -e "packages/kernel/[dev]" fastapi
 
       - name: Test with coverage
-        run: pytest packages/kernel/tests/ -v --tb=short --cov=animus_kernel --cov-report=term-missing --cov-report=xml
+        run: pytest packages/kernel/tests/ -v --tb=short --cov=animus_kernel --cov-report=term-missing --cov-report=xml --cov-report=json:coverage.json
         env:
           PYTHONPATH: packages/core
 
@@ -231,7 +231,7 @@ jobs:
           verbose: true
 
       - name: Coverage ratchet
-        run: python3 scripts/coverage-ratchet.py kernel
+        run: python3 scripts/coverage-ratchet.py --report coverage.json kernel
 
   test-core:
     name: Test Core (Python ${{ matrix.python-version }})

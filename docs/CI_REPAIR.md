@@ -39,6 +39,10 @@ Tool failures, unknown packages, and unexplained nonzero exits fail closed.
 `--init` can only lower allowances. Unit regressions exercise the gate itself.
 The previous raw mypy steps stopped before this documented ratchet could run.
 
+Kernel coverage consumes the JSON report from the successful test step, preserving
+the existing 21.3% floor and avoiding a second test run with different imports.
+Missing or malformed reports fail closed.
+
 Gitleaks 8.30.1 is downloaded from its upstream release, verified against a pinned
 SHA-256, and scans all fetched Git history with redacted output. It does not need
 the commercial GitHub-action license and still fails on secret findings.
@@ -48,3 +52,13 @@ the commercial GitHub-action license and still fails on secret findings.
 CI and security workflows run for Hunter branch pushes and stacked pull requests,
 as well as main. Docker uses separate amd64/arm64 jobs with `load: true` before
 import and CLI smoke tests. No image is published by these checks.
+
+## Forge MCP composition
+
+Kernel MCP execution now asks the embedding application for a connector registry
+and transport. Forge supplies its existing manager and client through its executor
+adapter, including all three public WorkflowExecutor import paths. Kernel without
+these adapters fails explicitly; it does not import Forge or own its credentials.
+This fixes imports of the nonexistent `animus_kernel.mcp` package left by the split.
+The AreteGuard fixture now uses the actual schema migrations instead of a stale
+inline copy of the original eval schema.
