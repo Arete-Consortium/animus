@@ -3,12 +3,13 @@
 **Status:** Planning / implementation branch created  
 **Branch:** `feat/hunter-os-discord-v1`  
 **Scope:** Monster Hunter Wilds only  
-**Primary interface:** Existing Animus Discord application  
-**Discord information architecture:** three forums — Weapons, Monsters, Hunter Guide
+**Display surface:** three read-oriented forums — Weapons, Monsters, Hunter Guide  
+**Conversation surface:** separate Monster Hunter chat channel with Animus Q&A  
+**Primary automation:** Hunter OS data/card compiler + forum publisher + grounded chat retrieval
 
 ## 1. Objective
 
-Turn the existing Hunter OS PDFs/cards into a canonical, versioned Monster Hunter Wilds knowledge system that Animus can retrieve, render, audit, and publish to Discord.
+Turn the existing Hunter OS PDFs/cards into a canonical, versioned Monster Hunter Wilds knowledge system with two intentionally separate Discord experiences: (1) clean forums that only display curated Hunter OS information, and (2) the existing Monster Hunter chat channel where Animus can answer questions using Hunter OS as its factual source.
 
 The core rule is:
 
@@ -25,7 +26,7 @@ The system must optimize for:
 
 ## 2. Current State Audit
 
-### 2.1 Discord structure
+### 2.1 Discord structure and interaction boundary
 
 Keep the user's existing three Forum Channels:
 
@@ -33,7 +34,19 @@ Keep the user's existing three Forum Channels:
 2. **Monsters**
 3. **Hunter Guide**
 
-Do not add a large channel tree. Forum posts are the records; tags and search provide secondary navigation.
+These forums are a **display/reference library**, not the conversational interface.
+
+Rules:
+- Animus does not answer ordinary questions inside the forums.
+- Forum posts contain curated cards + concise searchable text.
+- Replies inside forum posts are additional reference cards/updates, not chat.
+- Friends browse/tap/search the forums when they want a quick reference.
+
+The user's existing **Monster Hunter chat channel** is the conversational surface:
+- friends ask normal Monster Hunter Wilds questions there;
+- Animus can answer from canonical Hunter OS records;
+- natural-language Q&A is preferred over requiring friends to learn slash commands;
+- mention-only response is the safest default for avoiding noise, while an explicitly configured chat channel may opt into automatic replies.
 
 Recommended optional non-forum channel:
 - `hunter-os-log` — publication/audit/update notices only.
@@ -289,35 +302,29 @@ Changes for generated V1:
 ## 5. Target Architecture
 
 ```text
-Discord
-  |
-  +-- Weapons forum
-  +-- Monsters forum
-  +-- Hunter Guide forum
-  |
-Animus Discord interface
-  |
-  +-- /hunter ...
-  +-- optional grounded routing from conversational chat
-  |
-Hunter OS service/domain
-  |
-  +-- Repository / search
-  +-- Schema validation
-  +-- Audit engine
-  +-- Card renderer
-  +-- Discord formatter
-  +-- Publisher
-  |
-Canonical structured records
-  |
-  +-- monsters/
-  +-- weapons/
-  +-- guides/
-  +-- builds/
-  +-- resources/
-  +-- encounters/
+                    CANONICAL HUNTER OS DATA
+                              |
+             +----------------+----------------+
+             |                                 |
+      DISPLAY / PUBLISH                   CHAT / ANSWER
+             |                                 |
+       Audit + Renderer                    Hunter search
+             |                                 |
+       Forum Publisher                      Animus
+             |                                 |
+   +---------+---------+                MH chat channel
+   |         |         |
+Weapons   Monsters   Hunter Guide
+ forum      forum       forum
+(read-only reference surfaces)
 ```
+
+The forums and chat intentionally use the same canonical records but have different jobs:
+
+- **Forums = documentation UI.** Stable, curated, visual, searchable.
+- **MH chat = reasoning UI.** Friends ask questions naturally; Animus retrieves the relevant Hunter OS records and answers from them.
+- **Publisher = maintenance automation.** It updates forum information when canonical records/cards change.
+- **No conversational memory is required to browse the forums.**
 
 Proposed package:
 
@@ -441,36 +448,19 @@ Build records should distinguish:
 
 ## 7. Discord UX
 
-### 7.1 Initial command namespace
+### 7.1 Forum UX — display only
 
-One top-level group:
-
-`/hunter`
-
-Subcommands for V1:
-- `/hunter monster <name>`
-- `/hunter weapon <name>`
-- `/hunter guide <name>`
-- `/hunter search <query>`
-- `/hunter audit <record>`
-- `/hunter card <record>`
-
-Publishing added only after read/audit/card paths are stable:
-- `/hunter publish <record>`
-
-Use autocomplete from the canonical repository.
-
-### 7.2 Forum mapping
+No friend-facing command is required to use the forums.
 
 **Weapons**
 - one forum post per weapon type;
-- exact weapon/build cards can be replies within the post;
-- Hunting Horn and bowgun specialist material remains grouped under the weapon post.
+- first post = quick-reference/controls card + concise searchable summary;
+- exact weapon/build/song cards appear as curated replies where useful.
 
 **Monsters**
-- one forum post per monster/variant record;
-- first message = searchable text summary + quick card;
-- advanced/timeline/material cards follow as replies.
+- one forum post per monster/variant;
+- first post = quick hunt card + concise searchable summary;
+- advanced mechanics/material/special cards appear as curated replies.
 
 **Hunter Guide**
 - Quick Reference / Start Here;
@@ -481,35 +471,90 @@ Use autocomplete from the canonical repository.
 - Progression;
 - item/status systems.
 
-### 7.3 Searchable companion text
-
-Every image card publication must include concise Discord text:
+Every publication includes:
 - canonical title;
 - key answer line;
 - tags;
 - verification date/status;
-- record ID/version.
+- record ID/version;
+- crisp PNG card.
 
 Do not rely on image-only information.
 
+### 7.2 Monster Hunter chat UX
+
+Friends use the existing Monster Hunter chat channel normally.
+
+Examples:
+
+```text
+@Animus what should we bring for Rathian?
+
+@Animus I'm on Hunting Horn and my friend is Bow. Prep us for Rey Dau.
+
+@Animus how does Encore work?
+
+@Animus where should I farm armor spheres right now?
+```
+
+Desired response path:
+
+```text
+chat question
+ -> detect Monster Hunter Wilds domain
+ -> search Hunter OS canonical records
+ -> construct factual context
+ -> reason/summarize for the question
+ -> answer in chat
+```
+
+The user should not need to know record IDs or slash-command syntax.
+
+### 7.3 Administrative tooling
+
+A `/hunter` command group remains useful **for the owner/admin**, not as the primary friend-facing UI.
+
+Potential admin commands:
+- `/hunter audit <record>`
+- `/hunter card <record>`
+- `/hunter publish <record>`
+- `/hunter republish-changed`
+- `/hunter status`
+
+These are added only after the live Discord command owner is identified.
+
 ## 8. Animus Reasoning Integration
 
-V1 should **not** modify the generic `/ask` command.
+Grounded Monster Hunter chat is a first-class goal, not an optional later UI.
 
-Reason:
-- current `/ask` is a memory search response, not the conversational LLM path;
-- changing it combines two projects and increases regression risk.
+The current generic memory path is not sufficient because Hunter OS needs deterministic, share-safe game facts.
 
-After V1:
-1. add Hunter OS intent detection to conversational messages;
-2. retrieve canonical Hunter records first;
-3. provide only those records as the game-fact context;
-4. let the cognitive model reason over them;
-5. prohibit unsupported factual completion.
+For messages in the configured Monster Hunter chat channel:
 
-Rule:
+1. detect whether the question is about Monster Hunter Wilds;
+2. query Hunter OS first;
+3. retrieve the smallest relevant record set;
+4. format those records as factual context;
+5. let the cognitive model answer the user's actual question;
+6. do **not** fall back to personal/general Animus memory for missing game facts;
+7. if a requested exact fact is not verified in Hunter OS, say the current record does not verify it.
 
-> If Hunter OS has no verified value for a requested exact fact, Animus says the record does not currently verify it rather than inventing it.
+Example:
+
+```text
+"@Animus prep us for Rathian; I'm HH and Sam is Bow"
+        |
+        +-- Rathian record
+        +-- Hunting Horn record
+        +-- Bow record
+        +-- relevant support/prep guide
+        |
+      grounded synthesis
+        |
+      chat answer
+```
+
+The forums are never used as a chat surface; they are generated reference material from the same records.
 
 ## 9. Publishing Model
 
@@ -656,104 +701,72 @@ Acceptance:
 ## 13. Delivery Phases
 
 ### Phase 0 — Runtime ownership audit
-**Goal:** establish live Discord source of truth.
+**Goal:** establish live Discord source of truth before registering new commands or changing chat routing.
 
 Tasks:
 - identify service/process using the Animus Discord token;
-- compare deployed `animus_discord_bot.py` to GitHub main;
+- compare deployed bot code to GitHub main;
 - determine source of `/animus_status`, `/ping`, and `/build`;
-- ensure only one component owns global command synchronization.
-
-Exit criterion:
-- one documented command-registration owner.
+- ensure one documented owner for global command synchronization.
 
 ### Phase 1 — Canonical Hunter OS foundation
-**Goal:** deterministic read-only domain.
+**Goal:** deterministic structured domain.
 
 Tasks:
-- implement models;
+- models;
 - repository loader;
 - provenance;
 - audit engine;
-- migrate three vertical-slice records:
-  - Rathian;
-  - Hunting Horn universal controls;
-  - Combat Healer HH+LBG guide.
-
-Exit criterion:
-- unit tests pass and three records audit PASS.
+- vertical-slice records.
 
 ### Phase 2 — Card renderer
-**Goal:** mobile-first deterministic cards.
+**Goal:** mobile-first documentation output for the forums.
 
 Tasks:
-- create 2:3 renderer;
+- 2:3 renderer;
 - text-fit/overflow checks;
 - controller tokens;
 - verification/status badges;
-- three golden cards.
+- golden reference cards.
 
-Exit criterion:
-- cards pass automated QA and user device review.
-
-### Phase 3 — Discord read interface
-**Goal:** `/hunter` usable in live server.
+### Phase 3 — Grounded Monster Hunter chat
+**Goal:** Animus answers friends' questions in the existing MH chat channel from Hunter OS.
 
 Tasks:
-- add slash group;
-- autocomplete;
-- monster/weapon/guide/search/audit/card;
-- guild/channel allowlist;
-- no publishing yet.
-
-Exit criterion:
-- live read-only Hunter OS works without impacting existing commands.
+- channel allowlist/config;
+- Monster Hunter intent detection;
+- Hunter OS retrieval;
+- factual context builder;
+- grounded cognitive response;
+- unsupported-fact behavior;
+- keep general/private memory outside the Hunter answer path.
 
 ### Phase 4 — Full data migration
-**Goal:** migrate current Hunter OS corpus.
+**Goal:** migrate the current Hunter OS corpus.
 
 Tasks:
-- all 35 monsters;
-- all 14 weapon types;
+- all monsters/variants;
+- all weapon types;
 - HH songbook;
-- LBG specialist records as exact guns become verified;
+- exact LBG records as verified;
 - farming/resources;
 - Artian;
 - progression/endgame;
 - support/Palico.
 
-Exit criterion:
-- no unresolved BLOCK records in publishable set.
-
 ### Phase 5 — Forum publisher
-**Goal:** Animus maintains the three Forum Channels.
+**Goal:** automate the three display-only Forum Channels.
 
 Tasks:
 - map forums by configured ID;
-- create/update posts;
+- create/update curated posts;
 - upload cards;
-- tags;
+- apply tags;
 - idempotency;
 - publication registry;
-- changelog.
+- republish changed records only.
 
-Exit criterion:
-- re-running publish creates no duplicates and updates only changed records.
-
-### Phase 6 — Grounded conversational routing
-**Goal:** natural-language Hunter OS through Animus.
-
-Tasks:
-- domain intent detection;
-- canonical retrieval;
-- context builder;
-- unsupported-fact refusal behavior;
-- optional exact build context.
-
-Exit criterion:
-- Monster Hunter answers cite/use canonical record data and do not silently use stale memory.
-
-### Phase 7 — Patch maintenance
+### Phase 6 — Patch maintenance
 **Goal:** sustainable updates.
 
 Tasks:
@@ -761,7 +774,8 @@ Tasks:
 - mark affected records REVIEW/PATCH-SENSITIVE;
 - re-audit;
 - regenerate;
-- republish changed cards only.
+- republish changed forum content;
+- immediately expose updated records to chat retrieval.
 
 ## 14. Initial Vertical Slice
 
@@ -808,24 +822,26 @@ Mitigation: schema and audit rules make exact weapon identity mandatory.
 ## 16. Definition of Done — V1
 
 V1 is complete when:
-- live Discord command ownership is documented;
+- live Discord runtime ownership is documented;
 - Hunter OS package exists in Core;
 - canonical records load deterministically;
-- Rathian, Hunting Horn, Combat Healer, and Omega test records are modeled;
+- Rathian, Hunting Horn, Combat Healer, and Omega vertical-slice records are modeled;
 - audit engine returns PASS/WARN/BLOCK;
 - mobile card renderer produces deterministic PNGs;
-- `/hunter monster`, `weapon`, `guide`, `search`, `audit`, and `card` work;
-- no generic Animus memory is needed for Hunter OS factual answers;
+- the three forums function as clean display/reference surfaces;
+- Animus can answer Monster Hunter Wilds questions in the existing MH chat channel using Hunter OS grounding;
+- Hunter OS factual answers do not silently use generic/personal Animus memory;
 - existing Animus commands still work;
-- tests/lint pass;
-- user has validated representative cards on iPhone/iPad.
+- tests/lint for touched Hunter OS code pass;
+- representative cards are validated on iPhone/iPad.
 
 ## 17. Immediate Next Actions
 
 1. Complete Phase 0 runtime ownership audit.
-2. Create Core Hunter OS package skeleton.
-3. Implement metadata + MonsterRecord + GuideRecord + WeaponTypeRecord + SpecialEncounterRecord.
-4. Implement repository/audit.
-5. Add the four vertical-slice records.
-6. Add tests.
-7. Only then wire `/hunter` into the Discord command tree.
+2. Finish the Core Hunter OS vertical-slice tests/audit foundation.
+3. Build the mobile card renderer and golden cards.
+4. Add **grounded MH chat routing** to the existing Monster Hunter chat channel.
+5. Test natural questions from multiple friends without exposing generic Animus memory.
+6. Migrate the broader Hunter OS corpus.
+7. Build the forum publisher last, because the forums are display-only and do not need to participate in conversation.
+8. Add admin-only publishing commands only if they improve maintenance.
