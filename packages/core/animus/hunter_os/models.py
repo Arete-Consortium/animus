@@ -120,7 +120,15 @@ class AuditReport:
 
     @property
     def publishable(self) -> bool:
+        """Record may be used/published with any warnings shown."""
+
         return not self.blocked
+
+    @property
+    def auto_publishable(self) -> bool:
+        """Automation may publish only records with no WARN/BLOCK findings."""
+
+        return all(f.severity == AuditSeverity.PASS for f in self.findings)
 
 
 def tupleize(value: Any) -> tuple[str, ...]:
