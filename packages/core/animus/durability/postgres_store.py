@@ -26,7 +26,7 @@ import uuid
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Any, cast
 
 from animus_types import ValidationError as _ContractValidationError
 
@@ -61,7 +61,7 @@ try:
     from sqlalchemy import (
         update as sql_update,
     )
-    from sqlalchemy.engine import Engine
+    from sqlalchemy.engine import CursorResult, Engine
     from sqlalchemy.exc import IntegrityError
     from sqlalchemy.orm import Session, aliased, declarative_base, sessionmaker
 
@@ -645,7 +645,7 @@ class DurableObjectStore:
                     ),
                     execution_options={"synchronize_session": False},
                 )
-                if changed.rowcount != 1:
+                if cast(CursorResult, changed).rowcount != 1:
                     raise ConcurrencyError("Object changed during update; reload and retry.")
                 session.add(self._new_row(candidate, integrity, now))
                 session.flush()
@@ -780,7 +780,7 @@ class DurableObjectStore:
                 ),
                 execution_options={"synchronize_session": False},
             )
-            if changed.rowcount != 1:
+            if cast(CursorResult, changed).rowcount != 1:
                 raise ConcurrencyError("Object changed during deletion.")
             event_id = self._write_ledger_event(session, EventType.DELETED.value, record)
             self._enqueue_outbox(
@@ -900,7 +900,7 @@ class DurableObjectStore:
                     "payload": event["payload"],
                 }
             )
-            return event["integrity_hash"] == expected
+            return bool(event["integrity_hash"] == expected)
 
     # ------------------------------------------------------------------
     # Outbox processing

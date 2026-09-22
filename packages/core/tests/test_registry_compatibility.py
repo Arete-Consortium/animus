@@ -48,7 +48,9 @@ def database_url(request, tmp_path):
 
 
 def config(url: str) -> Config:
-    cfg = Config(str(ROOT / "database/alembic.ini"))
+    # Avoid Alembic fileConfig disabling application loggers in the test process.
+    cfg = Config()
+    cfg.set_main_option("script_location", str(ROOT / "database/migrations"))
     cfg.set_main_option("sqlalchemy.url", url.replace("%", "%%"))
     return cfg
 
