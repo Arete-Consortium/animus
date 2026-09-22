@@ -1,0 +1,59 @@
+id: hunting_horn
+name: Hunting Horn
+record_type: weapon_type
+game: monster_hunter_wilds
+status: verified
+verified_date: "2026-09-21"
+tags:
+  - weapon
+  - hunting-horn
+  - support
+  - blunt
+sources:
+  - document: 01_Hunter_OS_v1_Weapon_Field_Manual
+    section: HUNTING HORN
+  - document: 07_Hunter_OS_v1_HH_LBG_Specialist_Reference
+    section: HUNTING HORN - SONG SYSTEM
+controls:
+  note_1:
+    xbox: Y
+    ps5: Triangle
+    pc: LMB
+  note_2:
+    xbox: B
+    ps5: Circle
+    pc: RMB
+  note_3:
+    xbox: Y+B
+    ps5: Triangle+Circle
+    pc: LMB+RMB
+  perform:
+    xbox: RT
+    ps5: R2
+    pc: R
+  encore:
+    xbox: Y+B after performance
+    ps5: Triangle+Circle after performance
+    pc: LMB+RMB after performance
+  echo_bubble:
+    xbox: A+RT
+    ps5: X+R2
+    pc: Space+R
+  special_performance:
+    xbox: RT+Y+B
+    ps5: R2+Triangle+Circle
+    pc: R+LMB+RMB
+  reverb:
+    xbox: Hold LT+RB at a wound
+    ps5: Hold L2+R1 at a wound
+    pc: Focus Strike input at a wound
+rules:
+  - Melody recipes are horn-specific; never present one horn's song list as universal.
+  - Select the exact horn, read its melody list, queue notes, then Perform/Beat and Encore only when the opening allows.
+core_loop:
+  - Maintain Self-Improvement and the highest-value team buffs.
+  - Maintain meaningful head pressure and KO contribution.
+  - Use wound openings for Reverb.
+failure_modes:
+  - Corner-horning instead of contributing pressure.
+  - Treating another horn's melody set as transferable.
