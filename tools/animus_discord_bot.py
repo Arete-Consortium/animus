@@ -45,7 +45,7 @@ import discord
 from animus.cognitive import CognitiveLayer, ModelProvider
 from animus.cognitive import ModelConfig as CogModelConfig
 from animus.config import AnimusConfig
-from animus.hunter_os import HunterOSChatPolicy, HunterOSChatService
+from animus.hunter_os import HUNTER_CHAT_SYSTEM, HunterOSChatPolicy, HunterOSChatService
 from animus.infrastructure import AlreadyRunningError, LockedPidFile
 from animus.memory import MemoryLayer, MemoryType
 from discord import app_commands
@@ -349,7 +349,7 @@ class AnimusBot(discord.Client):
                     response = await asyncio.to_thread(
                         cognitive.primary.generate,
                         full_prompt,
-                        hunter.prompt_for(content)[1],
+                        HUNTER_CHAT_SYSTEM,
                     )
                     if len(response) > 1900:
                         response = response[:1897] + "..."
