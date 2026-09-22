@@ -46,7 +46,7 @@ controls:
   reverb:
     xbox: Hold LT+RB at a wound
     ps5: Hold L2+R1 at a wound
-    pc: Focus Strike input at a wound
+    pc: Hold Mouse4+Shift at a wound
 rules:
   - Melody recipes are horn-specific; never present one horn's song list as universal.
   - Select the exact horn, read its melody list, queue notes, then Perform/Beat and Encore only when the opening allows.
