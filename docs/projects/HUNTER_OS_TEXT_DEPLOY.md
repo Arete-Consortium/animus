@@ -82,3 +82,38 @@ Because the running Animus service checkout is untouched, rollback is simply:
 - manually remove any bot-published Discord messages if desired.
 
 No service restart is required for the text-only publish.
+
+
+## Corrected Discord structure
+
+The first publisher wrote many messages inside three existing Forum posts. That was too flat.
+
+Discord Forum posts are themselves threads, and threads do not nest. The organized hierarchy therefore needs to be:
+
+```text
+Monster Hunter Wilds (Discord Category)
+├── Weapons       (Forum Channel)
+│   ├── Great Sword
+│   ├── Long Sword
+│   ├── Hunting Horn
+│   └── ...
+├── Monsters      (Forum Channel)
+│   ├── Rathian
+│   ├── Rey Dau
+│   ├── Uth Duna
+│   └── ...
+└── Hunter Guide  (Forum Channel)
+    ├── Start Here
+    ├── Combat Healer
+    ├── Farming
+    ├── Progression
+    └── Artian Forge
+```
+
+Use Discord **List View** while Hunter OS is text-first. Gallery View can be enabled later for the image/card upgrade.
+
+The corrected publisher is:
+`tools/hunter_os_publish_forums.py`
+
+The safe cleanup tool for the first flat dump is:
+`tools/hunter_os_cleanup_flat.py`
