@@ -788,8 +788,12 @@ class DurableObjectStore:
             )
             return True, event_id
 
-    def list_current(self, artifact_type: str | None = None) -> list[ObjectRecord]:
-        """List all current (non-superseded) objects."""
+    def list_current(
+        self, artifact_type: str | None = None, *, limit: int | None = None
+    ) -> list[ObjectRecord]:
+        """List current objects in stable order, optionally bounded in SQL."""
+        if limit is not None and (type(limit) is not int or limit < 1):
+            raise ValueError("limit must be a positive integer.")
         with self._session_factory() as session:
             stmt = (
                 self._objects()
@@ -798,6 +802,8 @@ class DurableObjectStore:
             )
             if artifact_type:
                 stmt = stmt.where(_ObjectRegistryRow.artifact_type == artifact_type)
+            if limit is not None:
+                stmt = stmt.limit(limit)
 
             rows = session.execute(stmt).scalars().all()
             return [_row_to_record(r) for r in rows]
