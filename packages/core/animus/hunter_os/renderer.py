@@ -90,7 +90,7 @@ class HunterCardRenderer:
         x = int(42 * self.scale)
         y = int(44 * self.scale)
         right = self.width - x
-        hero_bottom = int(620 * self.scale)
+        hero_bottom = int(570 * self.scale)
 
         draw.rectangle((x, y, right, hero_bottom), fill=_HERO, outline=_GOLD, width=int(4 * self.scale))
 
@@ -99,20 +99,29 @@ class HunterCardRenderer:
 
         title_y = y + int(84 * self.scale)
         title = record.name.upper()
-        title_font = _fit_font(
+        title_lines, title_font = _fit_title_lines(
             draw,
             title,
             fonts["title_path"],
-            int(88 * self.scale),
-            int(60 * self.scale),
+            int(82 * self.scale),
+            int(54 * self.scale),
             right - x - int(56 * self.scale),
+            max_lines=2,
         )
-        draw.text((x + int(28 * self.scale), title_y), title, font=title_font, fill=_WHITE)
+        title_line_height = int(86 * self.scale)
+        for index, line in enumerate(title_lines):
+            draw.text(
+                (x + int(28 * self.scale), title_y + index * title_line_height),
+                line,
+                font=title_font,
+                fill=_WHITE,
+            )
 
         status = record.status.value.upper()
         subtitle = f"MONSTER HUNTER WILDS  •  {status} FIELD DATA"
+        subtitle_y = title_y + len(title_lines) * title_line_height + int(12 * self.scale)
         draw.text(
-            (x + int(28 * self.scale), title_y + int(112 * self.scale)),
+            (x + int(28 * self.scale), subtitle_y),
             subtitle,
             font=fonts["subhead"],
             fill=_MUTED,
@@ -150,34 +159,25 @@ class HunterCardRenderer:
         fonts: dict[str, Any],
     ) -> None:
         margin = int(40 * self.scale)
-        gutter = int(24 * self.scale)
-        top = int(660 * self.scale)
-        footer_top = int(1875 * self.scale)
-        col_w = (self.width - margin * 2 - gutter) // 2
-        row_h = int(335 * self.scale)
+        gutter = int(18 * self.scale)
+        top = int(610 * self.scale)
+        footer_top = int(1900 * self.scale)
+        width = self.width - margin * 2
 
-        short = panels[:4]
-        for index, panel in enumerate(short):
-            row = index // 2
-            col = index % 2
-            x1 = margin + col * (col_w + gutter)
-            y1 = top + row * (row_h + gutter)
-            self._draw_panel(
-                draw,
-                panel,
-                (x1, y1, x1 + col_w, y1 + row_h),
-                fonts,
+        required = [
+            self._measure_panel_height(draw, panel, width, fonts)
+            for panel in panels
+        ]
+        total = sum(required) + gutter * max(0, len(panels) - 1)
+        available = footer_top - top
+        if total > available:
+            raise CardOverflowError(
+                "Record needs multiple cards at the mobile readability floor "
+                f"({total}px required, {available}px available)."
             )
 
-        remaining = panels[4:]
-        y = top + 2 * (row_h + gutter)
-        for panel in remaining:
-            available = footer_top - y
-            if available < int(220 * self.scale):
-                raise CardOverflowError(
-                    f"Record has too much card content: {panel.title}. Split into multiple cards."
-                )
-            height = min(int(330 * self.scale), available)
+        y = top
+        for panel, height in zip(panels, required, strict=True):
             self._draw_panel(
                 draw,
                 panel,
@@ -185,6 +185,29 @@ class HunterCardRenderer:
                 fonts,
             )
             y += height + gutter
+
+    def _measure_panel_height(
+        self,
+        draw: Any,
+        panel: CardPanel,
+        width: int,
+        fonts: dict[str, Any],
+    ) -> int:
+        """Measure a full-width panel before drawing it."""
+
+        pad = int(22 * self.scale)
+        max_width = width - pad * 2
+        body_lines = 0
+        for raw_line in panel.lines:
+            body_lines += max(1, len(_wrap_text(draw, raw_line, fonts["body"], max_width)))
+
+        title_block = int(72 * self.scale)
+        body_block = body_lines * fonts["body_height"]
+        spacing = max(0, len(panel.lines) - 1) * int(6 * self.scale)
+        return max(
+            int(150 * self.scale),
+            pad * 2 + title_block + body_block + spacing,
+        )
 
     def _draw_panel(
         self,
@@ -376,7 +399,7 @@ def _fonts(ImageFont: Any, scale: float) -> dict[str, Any]:
     def font(path: str, size: int) -> Any:
         return ImageFont.truetype(path, max(12, int(size * scale)))
 
-    body = font(regular, 40)
+    body = font(regular, 32)
     bbox = body.getbbox("Ag")
     body_height = int((bbox[3] - bbox[1]) * 1.45)
     return {
@@ -384,7 +407,7 @@ def _fonts(ImageFont: Any, scale: float) -> dict[str, Any]:
         "title_path": bold,
         "subhead": font(bold, 28),
         "motto": font(bold, 34),
-        "panel_title": font(bold, 34),
+        "panel_title": font(bold, 31),
         "body": body,
         "body_height": body_height,
         "footer_title": font(bold, 50),
@@ -409,24 +432,28 @@ def _font_path(*, bold: bool) -> str:
     return "DejaVuSans-Bold.ttf" if bold else "DejaVuSans.ttf"
 
 
-def _fit_font(
+def _fit_title_lines(
     draw: Any,
     text: str,
     font_path: str,
     start_size: int,
     min_size: int,
     max_width: int,
-) -> Any:
+    *,
+    max_lines: int,
+) -> tuple[list[str], Any]:
     from PIL import ImageFont
 
     size = start_size
     while size >= min_size:
         font = ImageFont.truetype(font_path, size)
-        box = draw.textbbox((0, 0), text, font=font)
-        if box[2] - box[0] <= max_width:
-            return font
+        lines = _wrap_text(draw, text, font, max_width)
+        if len(lines) <= max_lines:
+            return lines, font
         size -= 2
-    raise CardOverflowError(f"Title is too wide for the card at minimum size: {text!r}")
+    raise CardOverflowError(
+        f"Title needs more than {max_lines} lines at the mobile readability floor: {text!r}"
+    )
 
 
 def _wrap_text(draw: Any, text: str, font: Any, max_width: int) -> list[str]:
