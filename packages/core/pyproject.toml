@@ -48,6 +48,7 @@ dependencies = [
 anthropic = ["anthropic>=0.18.0"]
 openai = ["openai>=1.12.0"]
 hybrid-search = ["rank-bm25>=0.2.2"]
+hunter-os = ["Pillow>=10.0,<13"]
 api = [
     "fastapi>=0.109.0",
     "uvicorn[standard]>=0.27.0",
@@ -83,8 +84,9 @@ dev = [
     "mypy>=1.8.0",
     "pre-commit>=3.6.0",
     "httpx>=0.26.0",
+    "Pillow>=10.0,<13",
 ]
-all = ["animus-core[anthropic,openai,api,voice,integrations,sync,mcp,dev]"]
+all = ["animus-core[anthropic,openai,api,voice,integrations,sync,mcp,hunter-os,dev]"]
 
 [project.scripts]
 animus = "animus.__main__:main"
