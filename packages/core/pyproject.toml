@@ -75,6 +75,7 @@ postgres = [
     "psycopg[binary]>=3.1",
 ]
 dev = [
+    "alembic>=1.13,<2",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
     "pytest-benchmark>=4.0.0",

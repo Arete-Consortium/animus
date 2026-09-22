@@ -30,7 +30,7 @@ class ObjectVersion(BaseModel):
     schema_id: constr(min_length=3)
     schema_version: constr(pattern=r"^[0-9]+\.[0-9]+\.[0-9]+$")
     owner_id: constr(pattern=r"^owner-[a-z0-9_-]+$")
-    workspace_id: constr(pattern=r"^ws-[a-z0-9_-]+$")
+    workspace_id: constr(pattern=r"^(ws-[a-z0-9_-]+|hunter-os)$")
     subject_domain: SubjectDomain
     artifact_type: ArtifactType
     cognitive_role: CognitiveRole

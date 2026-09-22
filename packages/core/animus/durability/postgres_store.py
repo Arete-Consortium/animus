@@ -23,13 +23,15 @@ import hashlib
 import json
 import os
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
 from animus_types import ValidationError as _ContractValidationError
 
+from animus.durability.schema import SchemaCompatibilityError, inspect_schema
+from animus.durability.scope import ObjectScope
 from animus.logging import get_logger
 
 logger = get_logger("durability.postgres_store")
@@ -46,16 +48,22 @@ except ImportError:  # pragma: no cover
 try:
     from sqlalchemy import (
         JSON,
+        BigInteger,
         Column,
         DateTime,
+        Index,
         Integer,
         String,
         create_engine,
         func,
         select,
     )
+    from sqlalchemy import (
+        update as sql_update,
+    )
     from sqlalchemy.engine import Engine
-    from sqlalchemy.orm import Session, declarative_base, sessionmaker
+    from sqlalchemy.exc import IntegrityError
+    from sqlalchemy.orm import Session, aliased, declarative_base, sessionmaker
 
     _HAS_SQLALCHEMY = True
 except ImportError:  # pragma: no cover
@@ -150,6 +158,10 @@ class ObjectRecord:
     created_by: str = "animus"
     trace_id: str | None = None
     version: int = 1
+    valid_from: datetime | None = None
+    valid_to: datetime | None = None
+    recorded_at: datetime | None = None
+    superseded_at: datetime | None = None
 
 
 # ------------------------------------------------------------------
@@ -168,7 +180,9 @@ if _HAS_SQLALCHEMY:
 
         __tablename__ = "object_registry"
 
-        id = Column(Integer, primary_key=True, autoincrement=True)
+        id = Column(
+            BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True
+        )
         object_id = Column(String(128), nullable=False, index=True)
         object_version = Column(Integer, nullable=False, default=1)
         schema_id = Column(String(256), nullable=False)
@@ -199,29 +213,46 @@ if _HAS_SQLALCHEMY:
         payload = Column(JSON, nullable=False)
         tags = Column(JSON, nullable=False, server_default="[]")
 
+    Index(
+        "idx_object_id_version",
+        _ObjectRegistryRow.object_id,
+        _ObjectRegistryRow.object_version,
+        unique=True,
+    )
+    Index(
+        "idx_object_current",
+        _ObjectRegistryRow.object_id,
+        unique=True,
+        sqlite_where=_ObjectRegistryRow.superseded_at.is_(None),
+        postgresql_where=_ObjectRegistryRow.superseded_at.is_(None),
+    )
+
     class _LedgerEventRow(Base):  # type: ignore[valid-type,misc]
         """Immutable append-only event ledger."""
 
         __tablename__ = "event_ledger"
 
-        id = Column(Integer, primary_key=True, autoincrement=True)
-        event_id = Column(String(128), nullable=False, unique=True)
-        event_type = Column(String(64), nullable=False)
-        object_id = Column(String(128), nullable=False, index=True)
-        object_version = Column(Integer, nullable=False)
-        principal = Column(String(256), nullable=False)
-        workspace_id = Column(String(128), nullable=False)
-        payload = Column(JSON, nullable=False, server_default="{}")
-        integrity_hash = Column(String(64), nullable=False)
-        tx_time = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-        parent_event_id = Column(String(128), nullable=True)
+        id = Column(
+            BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True
+        )
+        event_kind = Column(String(128), nullable=False)
+        occurred_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+        actor_refs = Column(JSON, nullable=False, server_default="[]")
+        object_refs = Column(JSON, nullable=False, server_default="[]")
+        event_data = Column(JSON, nullable=False, server_default="{}")
+        idempotency_key = Column(String(256), nullable=True, unique=True)
+        valid_from = Column(DateTime(timezone=True), nullable=True)
+        valid_to = Column(DateTime(timezone=True), nullable=True)
+        recorded_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
     class _OutboxEntryRow(Base):  # type: ignore[valid-type,misc]
         """Transactional outbox entry for async consumers."""
 
         __tablename__ = "outbox_entries"
 
-        id = Column(Integer, primary_key=True, autoincrement=True)
+        id = Column(
+            BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True
+        )
         entry_id = Column(String(128), nullable=False, unique=True)
         topic = Column(String(128), nullable=False)
         payload = Column(JSON, nullable=False)
@@ -263,6 +294,17 @@ def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _utc(value: datetime | None) -> datetime | None:
+    """SQLite returns naive timestamps even for timezone-aware columns."""
+    if value is None:
+        return None
+    return (
+        value.replace(tzinfo=timezone.utc)
+        if value.tzinfo is None
+        else value.astimezone(timezone.utc)
+    )
+
+
 def _generate_id(prefix: str) -> str:
     return f"{prefix}-{uuid.uuid4().hex[:16]}"
 
@@ -289,6 +331,10 @@ def _row_to_record(row: Any) -> ObjectRecord:
         created_by=row.created_by,
         trace_id=row.trace_id,
         version=row.object_version,
+        valid_from=_utc(row.valid_from),
+        valid_to=_utc(row.valid_to),
+        recorded_at=_utc(row.recorded_at),
+        superseded_at=_utc(row.superseded_at),
     )
 
 
@@ -313,6 +359,8 @@ class DurableObjectStore:
         database_url: str | None = None,
         owner_id: str = "owner-default",
         workspace_id: str = "ws-default",
+        *,
+        scope: ObjectScope | None = None,
     ):
         if not _HAS_SQLALCHEMY:
             raise RuntimeError(
@@ -323,20 +371,81 @@ class DurableObjectStore:
         if not self.database_url:
             raise RuntimeError("DurableObjectStore requires database_url or ANIMUS_DATABASE_URL.")
 
+        if scope is not None and not _HAS_CONTRACTS:
+            raise RuntimeError(
+                "Scoped stores require animus-contracts; install the contracts package."
+            )
+        self._scope = scope
+        self._schema_checked = False
         self.owner_id = owner_id
         self.workspace_id = workspace_id
-        self._engine: Engine = create_engine(self.database_url, echo=False)
+        self._engine: Engine = create_engine(self.database_url, echo=False, hide_parameters=True)
         self._session_factory = sessionmaker(bind=self._engine)
-        logger.debug(f"DurableObjectStore initialized: {self.database_url}")
+        logger.debug("DurableObjectStore initialized")
+
+    @property
+    def scope(self) -> ObjectScope | None:
+        """Immutable query scope; None is a trusted internal, unscoped store."""
+        return self._scope
+
+    def preflight(self) -> None:
+        """Reject incompatible schemas without printing connection details."""
+        report = inspect_schema(self._engine, Base.metadata)
+        if not report.compatible:
+            raise SchemaCompatibilityError("; ".join(report.problems))
+        self._schema_checked = True
 
     def create_tables(self) -> None:
-        """Create all tables. Call once during setup."""
-        Base.metadata.create_all(self._engine)
-        logger.info("Created bitemporal tables (object_registry, event_ledger, outbox_entries)")
+        """Initialize an empty database only; existing databases need migrations."""
+        from sqlalchemy import inspect
 
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
+        tables = set(inspect(self._engine).get_table_names())
+        if tables.intersection(Base.metadata.tables):
+            self.preflight()
+            return
+        Base.metadata.create_all(self._engine)
+        self.preflight()
+
+    def _scope_conditions(self, row: Any, *, historical: bool = False) -> list[Any]:
+        if self.scope is None:
+            return []
+        scope = self.scope
+        return [
+            row.owner_id == scope.owner_id,
+            row.workspace_id == scope.workspace_id,
+            row.subject_domain == scope.subject_domain,
+            row.security_class == scope.security_class,
+            row.schema_id == scope.schema_id,
+            row.artifact_type.in_(scope.artifact_types),
+            row.lifecycle_status.in_(("active", "superseded") if historical else ("active",)),
+        ]
+
+    def _objects(self, *, historical: bool = False) -> Any:
+        if self.scope is not None and not self._schema_checked:
+            self.preflight()
+        stmt = select(_ObjectRegistryRow).where(
+            *self._scope_conditions(_ObjectRegistryRow, historical=historical)
+        )
+        if self.scope is not None and historical:
+            # A now-private/deleted object must not leak through its old public versions.
+            current = aliased(_ObjectRegistryRow)
+            stmt = stmt.where(
+                select(current.id)
+                .where(
+                    current.object_id == _ObjectRegistryRow.object_id,
+                    current.superseded_at.is_(None),
+                    *self._scope_conditions(current),
+                )
+                .exists()
+            )
+        return stmt
+
+    def _guard_write(self, record: ObjectRecord) -> None:
+        if self.scope is not None:
+            if not self.scope.permits(record):
+                raise PermissionError("Record is outside this store's write scope.")
+            if not self._schema_checked:
+                self.preflight()
 
     def _compute_integrity_hash(self, record: ObjectRecord) -> str:
         payload = {
@@ -377,17 +486,27 @@ class DurableObjectStore:
             }
         )
 
+        event = {
+            "event_id": event_id,
+            "event_type": event_type,
+            "object_id": record.object_id,
+            "object_version": record.version,
+            "principal": record.created_by,
+            "workspace_id": record.workspace_id,
+            "payload": payload,
+            "integrity_hash": integrity,
+            "tx_time": now.isoformat(),
+            "parent_event_id": parent_event_id,
+        }
         row = _LedgerEventRow(
-            event_id=event_id,
-            event_type=event_type,
-            object_id=record.object_id,
-            object_version=record.version,
-            principal=record.created_by,
-            workspace_id=record.workspace_id,
-            payload=payload,
-            integrity_hash=integrity,
-            tx_time=now,
-            parent_event_id=parent_event_id,
+            event_kind=f"object.{event_type}",
+            occurred_at=now,
+            recorded_at=now,
+            actor_refs=[record.created_by],
+            object_refs=[record.object_id],
+            event_data=event,
+            idempotency_key=event_id,
+            valid_from=record.valid_from,
         )
         session.add(row)
         session.flush()
@@ -418,133 +537,132 @@ class DurableObjectStore:
     # CRUD + ledger
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _new_row(record: ObjectRecord, integrity: str, now: datetime) -> Any:
+        values = {
+            key: getattr(record, key)
+            for key in (
+                "object_id",
+                "schema_id",
+                "schema_version",
+                "owner_id",
+                "workspace_id",
+                "subject_domain",
+                "artifact_type",
+                "cognitive_role",
+                "workflow_status",
+                "epistemic_status",
+                "lifecycle_status",
+                "storage_tier",
+                "presentation",
+                "security_class",
+                "created_by",
+                "trace_id",
+                "payload",
+                "tags",
+                "valid_from",
+                "valid_to",
+            )
+        }
+        values["valid_from"] = _utc(record.valid_from)
+        values["valid_to"] = _utc(record.valid_to)
+        return _ObjectRegistryRow(
+            **values, object_version=record.version, recorded_at=now, content_sha256=integrity
+        )
+
     def store(self, record: ObjectRecord) -> tuple[str, str]:
-        """Store a new object. Returns (object_id, event_id).
-
-        Writes:
-        1. Object registry row (current projection)
-        2. Ledger event (immutable)
-        3. Outbox entry (async projection update)
-        """
-        record.version = 1
-        integrity = self._compute_integrity_hash(record)
+        """Create once, atomically with event/outbox; duplicate identity is an error."""
+        self._guard_write(record)
+        candidate = replace(
+            record,
+            version=1,
+            valid_from=record.valid_from if self.scope else (record.valid_from or _now_utc()),
+        )
         now = _now_utc()
-
-        self._validate_object_version(record, integrity, valid_from=now, recorded_at=now)
-
-        with self._session_factory() as session:
-            row = _ObjectRegistryRow(
-                object_id=record.object_id,
-                object_version=record.version,
-                schema_id=record.schema_id,
-                schema_version=record.schema_version,
-                owner_id=record.owner_id,
-                workspace_id=record.workspace_id,
-                subject_domain=record.subject_domain,
-                artifact_type=record.artifact_type,
-                cognitive_role=record.cognitive_role,
-                workflow_status=record.workflow_status,
-                epistemic_status=record.epistemic_status,
-                lifecycle_status=record.lifecycle_status,
-                storage_tier=record.storage_tier,
-                presentation=record.presentation,
-                security_class=record.security_class,
-                valid_from=now,
-                created_by=record.created_by,
-                trace_id=record.trace_id,
-                content_sha256=integrity,
-                payload=record.payload,
-                tags=record.tags,
-            )
-            session.add(row)
-            event_id = self._write_ledger_event(session, EventType.CREATED.value, record)
-            self._enqueue_outbox(
-                session,
-                topic="object.created",
-                payload={
-                    "object_id": record.object_id,
-                    "version": record.version,
-                    "event_id": event_id,
-                },
-            )
-            session.commit()
-            logger.debug(f"Stored object {record.object_id} with event {event_id}")
-            return record.object_id, event_id
+        integrity = self._compute_integrity_hash(candidate)
+        self._validate_object_version(candidate, integrity, candidate.valid_from, now)
+        try:
+            with self._session_factory.begin() as session:
+                session.add(self._new_row(candidate, integrity, now))
+                session.flush()
+                event_id = self._write_ledger_event(session, EventType.CREATED.value, candidate)
+                self._enqueue_outbox(
+                    session,
+                    "object.created",
+                    {
+                        "object_id": candidate.object_id,
+                        "version": 1,
+                        "event_id": event_id,
+                    },
+                )
+        except IntegrityError:
+            raise ConcurrencyError(
+                "Object identity already exists or violates registry constraints."
+            ) from None
+        record.version = 1
+        return record.object_id, event_id
 
     def update(self, record: ObjectRecord, expected_version: int | None = None) -> tuple[bool, str]:
-        """Update an object with optimistic concurrency control.
-
-        If *expected_version* is provided and does not match the current
-        version, raises :exc:`ConcurrencyError`.
-        """
-        with self._session_factory() as session:
-            current = session.execute(
-                select(_ObjectRegistryRow).where(
-                    _ObjectRegistryRow.object_id == record.object_id,
-                    _ObjectRegistryRow.superseded_at.is_(None),
+        """Atomically replace the current version. Scoped writers must supply a version."""
+        self._guard_write(record)
+        if self.scope is not None and expected_version is None:
+            raise ValueError("Scoped updates require expected_version.")
+        try:
+            with self._session_factory.begin() as session:
+                current = session.execute(
+                    self._objects().where(
+                        _ObjectRegistryRow.object_id == record.object_id,
+                        _ObjectRegistryRow.superseded_at.is_(None),
+                    )
+                ).scalar_one_or_none()
+                if current is None:
+                    return False, ""
+                if expected_version is not None and current.object_version != expected_version:
+                    raise ConcurrencyError("Expected version does not match the current object.")
+                candidate = replace(
+                    record,
+                    version=current.object_version + 1,
+                    valid_from=record.valid_from
+                    if self.scope
+                    else (record.valid_from or _now_utc()),
                 )
-            ).scalar_one_or_none()
-
-            if not current:
-                return False, ""
-
-            if expected_version is not None and current.object_version != expected_version:
-                raise ConcurrencyError(
-                    f"Expected version {expected_version}, found {current.object_version}"
+                now = _now_utc()
+                integrity = self._compute_integrity_hash(candidate)
+                self._validate_object_version(candidate, integrity, candidate.valid_from, now)
+                # Compare-and-swap in SQL, not just a Python check of a prior read.
+                changed = session.execute(
+                    sql_update(_ObjectRegistryRow)
+                    .where(
+                        _ObjectRegistryRow.id == current.id,
+                        _ObjectRegistryRow.object_version == current.object_version,
+                        _ObjectRegistryRow.superseded_at.is_(None),
+                        *self._scope_conditions(_ObjectRegistryRow),
+                    )
+                    .values(
+                        superseded_at=now,
+                        lifecycle_status=LifecycleStatus.SUPERSEDED.value,
+                        **({"valid_to": now} if self.scope is None else {}),
+                    ),
+                    execution_options={"synchronize_session": False},
                 )
-
-            # Supersede old version
-            now = _now_utc()
-            current.superseded_at = now
-            current.valid_to = now
-            current.lifecycle_status = LifecycleStatus.SUPERSEDED.value
-
-            # Increment version
-            record.version = current.object_version + 1
-            integrity = self._compute_integrity_hash(record)
-            self._validate_object_version(record, integrity, valid_from=now, recorded_at=now)
-
-            new_row = _ObjectRegistryRow(
-                object_id=record.object_id,
-                object_version=record.version,
-                schema_id=record.schema_id,
-                schema_version=record.schema_version,
-                owner_id=record.owner_id,
-                workspace_id=record.workspace_id,
-                subject_domain=record.subject_domain,
-                artifact_type=record.artifact_type,
-                cognitive_role=record.cognitive_role,
-                workflow_status=record.workflow_status,
-                epistemic_status=record.epistemic_status,
-                lifecycle_status=record.lifecycle_status,
-                storage_tier=record.storage_tier,
-                presentation=record.presentation,
-                security_class=record.security_class,
-                valid_from=now,
-                created_by=record.created_by,
-                trace_id=record.trace_id,
-                content_sha256=integrity,
-                payload=record.payload,
-                tags=record.tags,
-            )
-            session.add(new_row)
-            event_id = self._write_ledger_event(
-                session, EventType.UPDATED.value, record, parent_event_id=None
-            )
-            self._enqueue_outbox(
-                session,
-                topic="object.updated",
-                payload={
-                    "object_id": record.object_id,
-                    "version": record.version,
-                    "event_id": event_id,
-                },
-            )
-            session.commit()
-            logger.debug(
-                f"Updated object {record.object_id} v{record.version} with event {event_id}"
-            )
-            return True, event_id
+                if changed.rowcount != 1:
+                    raise ConcurrencyError("Object changed during update; reload and retry.")
+                session.add(self._new_row(candidate, integrity, now))
+                session.flush()
+                event_id = self._write_ledger_event(session, EventType.UPDATED.value, candidate)
+                self._enqueue_outbox(
+                    session,
+                    "object.updated",
+                    {
+                        "object_id": record.object_id,
+                        "version": candidate.version,
+                        "event_id": event_id,
+                    },
+                )
+        except IntegrityError:
+            raise ConcurrencyError("Concurrent update violates registry constraints.") from None
+        record.version = candidate.version
+        return True, event_id
 
     def _validate_object_version(
         self,
@@ -558,7 +676,17 @@ class DurableObjectStore:
         Raises :exc:`LedgerValidationError` on mismatch (fail-closed).
         Skips validation when ``animus_contracts`` is not installed.
         """
+        for value in (record.valid_from, record.valid_to):
+            if value is not None and (not isinstance(value, datetime) or value.utcoffset() is None):
+                raise LedgerValidationError(
+                    "Effective timestamps must be timezone-aware datetimes."
+                )
+        if record.valid_from is not None and record.valid_to is not None:
+            if record.valid_to <= record.valid_from:
+                raise LedgerValidationError("valid_to must be later than valid_from.")
         if not _HAS_CONTRACTS:
+            if self.scope is not None:
+                raise LedgerValidationError("Scoped writes require contract validation.")
             return
 
         now_iso = (recorded_at or _now_utc()).isoformat()
@@ -581,6 +709,7 @@ class DurableObjectStore:
             "presentation": record.presentation,
             "security_class": record.security_class,
             "valid_from": valid_from_iso,
+            "valid_to": record.valid_to.isoformat() if record.valid_to else None,
             "recorded_at": now_iso,
             "created_by": record.created_by,
             "content_sha256": integrity_hash,
@@ -599,7 +728,7 @@ class DurableObjectStore:
         """Retrieve the current (non-superseded) version of an object."""
         with self._session_factory() as session:
             row = session.execute(
-                select(_ObjectRegistryRow).where(
+                self._objects().where(
                     _ObjectRegistryRow.object_id == object_id,
                     _ObjectRegistryRow.superseded_at.is_(None),
                 )
@@ -613,7 +742,7 @@ class DurableObjectStore:
         """Retrieve a specific historical version of an object."""
         with self._session_factory() as session:
             row = session.execute(
-                select(_ObjectRegistryRow).where(
+                self._objects(historical=True).where(
                     _ObjectRegistryRow.object_id == object_id,
                     _ObjectRegistryRow.object_version == version,
                 )
@@ -624,41 +753,49 @@ class DurableObjectStore:
             return _row_to_record(row)
 
     def delete(self, object_id: str, principal: str = "animus") -> tuple[bool, str]:
-        """Soft-delete an object (mark superseded + ledger event)."""
-        with self._session_factory() as session:
+        """Soft-delete a scoped current object in the same transaction as its event."""
+        with self._session_factory.begin() as session:
             row = session.execute(
-                select(_ObjectRegistryRow).where(
+                self._objects().where(
                     _ObjectRegistryRow.object_id == object_id,
                     _ObjectRegistryRow.superseded_at.is_(None),
                 )
             ).scalar_one_or_none()
-
-            if not row:
+            if row is None:
                 return False, ""
-
+            record = _row_to_record(row)
+            record.created_by = principal
             now = _now_utc()
-            row.superseded_at = now
-            row.valid_to = now
-            row.lifecycle_status = LifecycleStatus.DELETED.value
-
-            record = self.retrieve(object_id)
-            if record:
-                record.created_by = principal
-                event_id = self._write_ledger_event(session, EventType.DELETED.value, record)
-                self._enqueue_outbox(
-                    session,
-                    topic="object.deleted",
-                    payload={"object_id": object_id, "event_id": event_id},
+            changed = session.execute(
+                sql_update(_ObjectRegistryRow)
+                .where(
+                    _ObjectRegistryRow.id == row.id,
+                    _ObjectRegistryRow.superseded_at.is_(None),
+                    *self._scope_conditions(_ObjectRegistryRow),
                 )
-                session.commit()
-                logger.debug(f"Deleted object {object_id} with event {event_id}")
-                return True, event_id
-            return False, ""
+                .values(
+                    superseded_at=now,
+                    lifecycle_status=LifecycleStatus.DELETED.value,
+                    **({"valid_to": now} if self.scope is None else {}),
+                ),
+                execution_options={"synchronize_session": False},
+            )
+            if changed.rowcount != 1:
+                raise ConcurrencyError("Object changed during deletion.")
+            event_id = self._write_ledger_event(session, EventType.DELETED.value, record)
+            self._enqueue_outbox(
+                session, "object.deleted", {"object_id": object_id, "event_id": event_id}
+            )
+            return True, event_id
 
     def list_current(self, artifact_type: str | None = None) -> list[ObjectRecord]:
         """List all current (non-superseded) objects."""
         with self._session_factory() as session:
-            stmt = select(_ObjectRegistryRow).where(_ObjectRegistryRow.superseded_at.is_(None))
+            stmt = (
+                self._objects()
+                .where(_ObjectRegistryRow.superseded_at.is_(None))
+                .order_by(_ObjectRegistryRow.object_id)
+            )
             if artifact_type:
                 stmt = stmt.where(_ObjectRegistryRow.artifact_type == artifact_type)
 
@@ -671,13 +808,18 @@ class DurableObjectStore:
 
     def as_of_valid_time(self, object_id: str, vt: datetime) -> ObjectRecord | None:
         """Retrieve the version valid at *vt* (valid time)."""
+        valid_time = _utc(vt)
         with self._session_factory() as session:
             row = session.execute(
-                select(_ObjectRegistryRow).where(
+                self._objects(historical=True)
+                .where(
                     _ObjectRegistryRow.object_id == object_id,
-                    _ObjectRegistryRow.valid_from <= vt,
-                    _ObjectRegistryRow.valid_to.is_(None) | (_ObjectRegistryRow.valid_to > vt),
+                    _ObjectRegistryRow.valid_from <= valid_time,
+                    _ObjectRegistryRow.valid_to.is_(None)
+                    | (_ObjectRegistryRow.valid_to > valid_time),
                 )
+                .order_by(_ObjectRegistryRow.object_version.desc())
+                .limit(1)
             ).scalar_one_or_none()
 
             if not row:
@@ -686,13 +828,14 @@ class DurableObjectStore:
 
     def as_of_transaction_time(self, object_id: str, tt: datetime) -> ObjectRecord | None:
         """Retrieve the version as known at *tt* (transaction time)."""
+        transaction_time = _utc(tt)
         with self._session_factory() as session:
             row = session.execute(
-                select(_ObjectRegistryRow).where(
+                self._objects(historical=True).where(
                     _ObjectRegistryRow.object_id == object_id,
-                    _ObjectRegistryRow.recorded_at <= tt,
+                    _ObjectRegistryRow.recorded_at <= transaction_time,
                     _ObjectRegistryRow.superseded_at.is_(None)
-                    | (_ObjectRegistryRow.superseded_at > tt),
+                    | (_ObjectRegistryRow.superseded_at > transaction_time),
                 )
             ).scalar_one_or_none()
 
@@ -704,55 +847,60 @@ class DurableObjectStore:
     # Ledger access
     # ------------------------------------------------------------------
 
+    def _ledger_query(self) -> Any:
+        # Core events coexist with Kernel events; only the documented Core
+        # envelope is exposed through this compatibility API.
+        stmt = select(_LedgerEventRow).where(_LedgerEventRow.event_kind.like("object.%"))
+        if self.scope is not None:
+            stmt = stmt.where(
+                self._objects(historical=True)
+                .where(
+                    _ObjectRegistryRow.object_id
+                    == _LedgerEventRow.event_data["object_id"].as_string(),
+                    _ObjectRegistryRow.object_version
+                    == _LedgerEventRow.event_data["object_version"].as_integer(),
+                )
+                .exists()
+            )
+        return stmt
+
     def get_ledger_events(self, object_id: str) -> list[dict[str, Any]]:
-        """Retrieve all ledger events for an object, ordered by tx_time."""
+        """Core events for an object, filtered in SQL before loading event data."""
         with self._session_factory() as session:
             rows = (
                 session.execute(
-                    select(_LedgerEventRow)
-                    .where(_LedgerEventRow.object_id == object_id)
-                    .order_by(_LedgerEventRow.tx_time)
+                    self._ledger_query()
+                    .where(
+                        _LedgerEventRow.event_data["object_id"].as_string() == object_id,
+                    )
+                    .order_by(_LedgerEventRow.id)
                 )
                 .scalars()
                 .all()
             )
-
-            return [
-                {
-                    "event_id": r.event_id,
-                    "event_type": r.event_type,
-                    "object_id": r.object_id,
-                    "object_version": r.object_version,
-                    "principal": r.principal,
-                    "workspace_id": r.workspace_id,
-                    "payload": r.payload,
-                    "integrity_hash": r.integrity_hash,
-                    "tx_time": r.tx_time.isoformat() if r.tx_time else None,
-                    "parent_event_id": r.parent_event_id,
-                }
-                for r in rows
-            ]
+            return [dict(row.event_data) for row in rows]
 
     def verify_integrity(self, event_id: str) -> bool:
-        """Verify the integrity hash of a ledger event."""
+        """Verify a visible Core event; out-of-scope events return False."""
         with self._session_factory() as session:
             row = session.execute(
-                select(_LedgerEventRow).where(_LedgerEventRow.event_id == event_id)
+                self._ledger_query().where(
+                    _LedgerEventRow.idempotency_key == event_id,
+                )
             ).scalar_one_or_none()
-
-            if not row:
+            if row is None:
                 return False
-
+            event = row.event_data
             expected = _sha256(
                 {
-                    "event_id": row.event_id,
-                    "event_type": row.event_type,
-                    "object_id": row.object_id,
-                    "version": row.object_version,
-                    "payload": row.payload,
+                    "event_id": event["event_id"],
+                    "event_type": event["event_type"],
+                    "object_id": event["object_id"],
+                    "version": event["object_version"],
+                    "payload": event["payload"],
                 }
             )
-            return row.integrity_hash == expected
+            return event["integrity_hash"] == expected
 
     # ------------------------------------------------------------------
     # Outbox processing
@@ -760,6 +908,8 @@ class DurableObjectStore:
 
     def claim_outbox_entries(self, worker_id: str, limit: int = 10) -> list[dict[str, Any]]:
         """Claim unprocessed outbox entries for a worker."""
+        if self.scope is not None:
+            raise PermissionError("Outbox operations require a trusted internal worker.")
         with self._session_factory() as session:
             rows = (
                 session.execute(
@@ -791,6 +941,8 @@ class DurableObjectStore:
 
     def acknowledge_outbox_entry(self, entry_id: str, error: str | None = None) -> bool:
         """Mark an outbox entry as processed (or failed)."""
+        if self.scope is not None:
+            raise PermissionError("Outbox operations require a trusted internal worker.")
         with self._session_factory() as session:
             row = session.execute(
                 select(_OutboxEntryRow).where(_OutboxEntryRow.entry_id == entry_id)
