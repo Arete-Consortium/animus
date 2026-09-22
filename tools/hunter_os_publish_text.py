@@ -206,6 +206,9 @@ def main() -> int:
         action="append",
         help="Publish only one content family; may be repeated.",
     )
+    parser.add_argument("--weapons-thread", help="Override Weapons thread ID.")
+    parser.add_argument("--monsters-thread", help="Override Monsters thread ID.")
+    parser.add_argument("--guide-thread", help="Override Hunter Guide thread ID.")
     parser.add_argument("--dry-run", action="store_true", help="Validate and show actions without Discord writes.")
     args = parser.parse_args()
 
@@ -216,11 +219,19 @@ def main() -> int:
         return 2
 
     selected = args.only or list(THREAD_ENV)
+    cli_threads = {
+        "weapons": args.weapons_thread,
+        "monsters": args.monsters_thread,
+        "hunter_guide": args.guide_thread,
+    }
     threads: dict[str, str] = {}
     for name in selected:
-        thread_id = _setting(THREAD_ENV[name], file_env)
+        thread_id = cli_threads[name] or _setting(THREAD_ENV[name], file_env)
         if not thread_id and not args.dry_run:
-            print(f"Missing {THREAD_ENV[name]}.", file=sys.stderr)
+            print(
+                f"Missing {THREAD_ENV[name]} or corresponding --*-thread argument.",
+                file=sys.stderr,
+            )
             return 2
         threads[name] = thread_id or "<dry-run>"
 
