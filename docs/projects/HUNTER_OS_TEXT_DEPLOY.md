@@ -38,7 +38,7 @@ The publisher reads the Discord bot token from:
 Pass the three existing thread IDs explicitly:
 
 ```bash
-packages/core/.venv/bin/python tools/hunter_os_publish_text.py \
+/home/arete/projects/animus/packages/core/.venv/bin/python tools/hunter_os_publish_text.py \
   --weapons-thread <WEAPONS_THREAD_ID> \
   --monsters-thread <MONSTERS_THREAD_ID> \
   --guide-thread <HUNTER_GUIDE_THREAD_ID> \
@@ -52,7 +52,7 @@ Dry run performs no Discord writes.
 Remove `--dry-run`:
 
 ```bash
-packages/core/.venv/bin/python tools/hunter_os_publish_text.py \
+/home/arete/projects/animus/packages/core/.venv/bin/python tools/hunter_os_publish_text.py \
   --weapons-thread <WEAPONS_THREAD_ID> \
   --monsters-thread <MONSTERS_THREAD_ID> \
   --guide-thread <HUNTER_GUIDE_THREAD_ID>
