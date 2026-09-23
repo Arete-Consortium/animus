@@ -492,7 +492,7 @@ jobs:
       - name: Test shared registry on PostgreSQL
         env:
           HUNTER_TEST_DATABASE_URL: postgresql://postgres:testpass@localhost/animus_test
-        run: pytest packages/core/tests/test_registry_compatibility.py -v --tb=short
+        run: pytest packages/core/tests/test_registry_compatibility.py packages/core/tests/test_hunter_os.py -v --tb=short
 
   test-pwa:
     name: Test PWA
