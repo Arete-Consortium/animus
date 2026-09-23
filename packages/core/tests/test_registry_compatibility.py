@@ -117,8 +117,10 @@ def test_scope_blocks_all_reads_and_writes(stores, field, value):
     assert scoped.list_current() == []
     assert scoped.get_ledger_events(foreign.object_id) == []
     assert not scoped.verify_integrity(event_id)
-    assert scoped.delete(foreign.object_id) == (False, "")
-    assert scoped.update(record(), expected_version=1) == (False, "")
+    delete_result = scoped.delete(foreign.object_id)
+    assert delete_result == (False, "")
+    update_result = scoped.update(record(), expected_version=1)
+    assert update_result == (False, "")
     with pytest.raises(PermissionError):
         scoped.store(foreign)
     with pytest.raises(PermissionError):
@@ -252,9 +254,11 @@ def test_core_and_kernel_share_migrated_schema(stores):
         # Kernel records both its write and the retrieval above.
         assert counts(admin) == (2, 3, 1)
         memory.content = "synthetic private revision"
-        assert kernel.update(memory)
+        updated = kernel.update(memory)
+        assert updated
         assert kernel.retrieve(memory.id).content == memory.content
-        assert kernel.delete(memory.id)
+        deleted = kernel.delete(memory.id)
+        assert deleted
         assert kernel.retrieve(memory.id) is None
         assert scoped.retrieve(record().object_id) is not None
     finally:
