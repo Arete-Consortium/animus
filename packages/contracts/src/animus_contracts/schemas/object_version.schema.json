@@ -50,14 +50,15 @@
     },
     "workspace_id": {
       "type": "string",
-      "pattern": "^ws-[a-z0-9_-]+$"
+      "pattern": "^(ws-[a-z0-9_-]+|hunter-os)$"
     },
     "subject_domain": {
       "enum": [
         "self",
         "world",
         "project",
-        "operations"
+        "operations",
+        "monster_hunter_wilds"
       ]
     },
     "artifact_type": {
@@ -82,7 +83,16 @@
         "action_receipt",
         "context_envelope",
         "trace",
-        "agent_contract"
+        "agent_contract",
+        "monster",
+        "special_encounter",
+        "weapon_type",
+        "exact_weapon",
+        "hunting_horn_tree",
+        "guide",
+        "farm_route",
+        "item_reference",
+        "skill_reference"
       ]
     },
     "cognitive_role": {

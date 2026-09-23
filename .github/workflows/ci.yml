@@ -288,7 +288,7 @@ jobs:
         # animus-types is a sibling pip-installable package and is not
         # published to PyPI — pip resolves it from the local path when
         # both -e targets are part of the same install transaction.
-        run: pip install -e packages/types/ -e packages/kernel/ -e "packages/core/[dev,api,postgres,mcp]"
+        run: pip install -e packages/types/ -e packages/contracts/ -e packages/kernel/ -e "packages/core/[dev,api,postgres,mcp]"
 
       - name: Test with coverage
         run: pytest packages/core/tests/ -v --tb=short --cov=animus --cov-report=term-missing
@@ -483,6 +483,16 @@ jobs:
         run: |
           export TEST_DATABASE_URL="postgresql://postgres:testpass@localhost/animus_test"
           pytest tests/ -v --tb=short -k "postgres or integration"
+
+      - name: Install registry integration dependencies
+        run: |
+          pip install -e packages/types/ -e packages/contracts/ -e "packages/core/[postgres]"
+          pip install --no-deps -e packages/kernel/
+
+      - name: Test shared registry on PostgreSQL
+        env:
+          HUNTER_TEST_DATABASE_URL: postgresql://postgres:testpass@localhost/animus_test
+        run: pytest packages/core/tests/test_registry_compatibility.py -v --tb=short
 
   test-pwa:
     name: Test PWA

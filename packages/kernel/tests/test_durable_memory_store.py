@@ -8,6 +8,7 @@ a live PostgreSQL instance.
 from __future__ import annotations
 
 import os
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -208,13 +209,108 @@ def test_list_all_by_type(store: DurableMemoryStore):
     assert results[0].memory_type == MemoryType.EPISODIC
 
 
+def test_search_by_type(store: DurableMemoryStore):
+    store.store(_make_memory("shared semantic", memory_type=MemoryType.SEMANTIC))
+    store.store(_make_memory("shared episodic", memory_type=MemoryType.EPISODIC))
+    results = store.search("shared", memory_type=MemoryType.EPISODIC)
+    assert len(results) == 1
+    assert results[0].memory_type == MemoryType.EPISODIC
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("schema_id", "hunter_os"),
+        ("artifact_type", "monster"),
+        ("subject_domain", "monster_hunter_wilds"),
+        ("owner_id", "another-owner"),
+        ("workspace_id", "another-workspace"),
+    ],
+)
+@pytest.mark.parametrize("historical", [False, True])
+def test_foreign_identity_never_loads_or_mutates(store, field, value, historical):
+    """Even a legacy registry without uniqueness constraints must reject ID adoption."""
+    from animus_kernel.memory.stores.durable import _EventLedgerRow, _ObjectRegistryRow
+
+    foreign = _make_memory("foreign sentinel")
+    own = _make_memory("owned sentinel", tags=["owned"])
+    store.store(foreign)
+    store.store(own)
+    with store._session_factory() as session:
+        row = session.query(_ObjectRegistryRow).filter_by(object_id=foreign.id).one()
+        setattr(row, field, value)
+        # No memory decoder can accept this payload: SQL must exclude it first.
+        row.payload = {"sentinel": "foreign payload"}
+        if historical:
+            row.superseded_at = datetime.now(UTC)
+        session.commit()
+        before_events = session.query(_EventLedgerRow).count()
+        before_rows = session.query(_ObjectRegistryRow).count()
+
+    assert store.retrieve(foreign.id) is None
+    assert [m.id for m in store.list_all()] == [own.id]
+    assert [m.id for m in store.search("sentinel", limit=1)] == [own.id]
+    assert store.get_all_tags() == {"owned": 1}
+    updated = store.update(foreign)
+    assert updated is False
+    deleted = store.delete(foreign.id)
+    assert deleted is False
+    with pytest.raises(PermissionError, match="another registry scope"):
+        store.store(foreign)
+
+    with store._session_factory() as session:
+        assert session.query(_EventLedgerRow).count() == before_events
+        assert session.query(_ObjectRegistryRow).count() == before_rows
+        row = session.query(_ObjectRegistryRow).filter_by(object_id=foreign.id).one()
+        assert getattr(row, field) == value
+        assert row.payload == {"sentinel": "foreign payload"}
+        assert (row.superseded_at is not None) is historical
+
+
+def test_store_rejects_legacy_null_identity(tmp_path):
+    """A nullable identity in an old database is unknown, never an owned ID."""
+    from sqlalchemy import MetaData
+
+    from animus_kernel.memory.stores.durable import (
+        Base,
+        _EventLedgerRow,
+        _ObjectRegistryRow,
+    )
+
+    legacy = MetaData()
+    for table in Base.metadata.sorted_tables:
+        table.to_metadata(legacy)
+    legacy.tables["object_registry"].c.owner_id.nullable = True
+    store = DurableMemoryStore(f"sqlite:///{tmp_path / 'legacy.db'}")
+    try:
+        legacy.create_all(store._engine)
+        memory = _make_memory("legacy sentinel")
+        store.store(memory)
+        with store._session_factory() as session:
+            row = session.query(_ObjectRegistryRow).one()
+            row.owner_id = None
+            session.commit()
+
+        assert store.retrieve(memory.id) is None
+        with pytest.raises(PermissionError, match="another registry scope"):
+            store.store(memory)
+        with store._session_factory() as session:
+            assert session.query(_ObjectRegistryRow).count() == 1
+            assert session.query(_EventLedgerRow).count() == 1
+            assert session.query(_ObjectRegistryRow).one().owner_id is None
+    finally:
+        store._engine.dispose()
+
+
 def test_update_missing_returns_false(store: DurableMemoryStore):
     mem = _make_memory("orphan")
-    assert store.update(mem) is False
+    updated = store.update(mem)
+    assert updated is False
 
 
 def test_delete_missing_returns_false(store: DurableMemoryStore):
-    assert store.delete("nonexistent") is False
+    deleted = store.delete("nonexistent")
+    assert deleted is False
 
 
 def test_search_no_match(store: DurableMemoryStore):
