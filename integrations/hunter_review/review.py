@@ -8,6 +8,7 @@ import os
 import re
 import sqlite3
 import stat
+import tempfile
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -177,11 +178,15 @@ def scan(root: Path) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     records: list[dict[str, Any]] = []
     hashes: dict[str, str] = {}
     total = 0
+
+    def directory_error(error: OSError) -> None:
+        raise SourceUnavailableError("Source directory cannot be inspected") from error
+
     for folder, suffixes in (("records", {".yaml", ".yml", ".json"}), ("forum", {".md"})):
         directory = root / folder
         if not directory.is_dir() or directory.is_symlink():
             raise SourceUnavailableError("Configured source directory is unavailable")
-        for current, dirs, names in os.walk(directory, followlinks=False):
+        for current, dirs, names in os.walk(directory, followlinks=False, onerror=directory_error):
             if any((Path(current) / d).is_symlink() for d in dirs):
                 raise SourceUnavailableError("Source symlinks are not supported")
             for name in sorted(names):
@@ -250,7 +255,10 @@ class ReviewStore:
                 "SELECT packet FROM reviews WHERE request_id = ?", (request_id,)
             ).fetchone()
             if existing:
-                return json.loads(existing[0])
+                packet = json.loads(existing[0])
+                self.write_report(packet)
+                conn.commit()
+                return self.export_latest(packet)
             previous = conn.execute(
                 "SELECT packet FROM reviews ORDER BY sequence DESC LIMIT 1"
             ).fetchone()
@@ -307,12 +315,38 @@ class ReviewStore:
                     "before import or publishing."
                 ),
             }
+            # Do not acknowledge or advance the baseline without the run report.
+            self.write_report(packet)
             conn.execute(
                 "INSERT INTO reviews(request_id, packet) VALUES (?, ?)",
                 (request_id, json.dumps(packet)),
             )
-        # SQLite is authoritative; presentation files can always be regenerated.
-        self.write_report(packet)
+        return self.export_latest(packet)
+
+    def export_latest(self, packet: dict[str, Any]) -> dict[str, Any]:
+        """Refresh the convenience export from committed state, serialized with writers.
+
+        The per-run report is required before commit. A failure of this derived
+        convenience file must not turn a committed review into an HTTP failure.
+        """
+        try:
+            with sqlite3.connect(self.db_path, timeout=10) as conn:
+                conn.execute("BEGIN IMMEDIATE")
+                row = conn.execute(
+                    "SELECT packet FROM reviews ORDER BY sequence DESC LIMIT 1"
+                ).fetchone()
+                if row:
+                    current = json.loads(row[0])
+                    report = self.state_root / f"{current['run_id']}.md"
+                    atomic_write(self.state_root / "latest.md", report.read_text())
+        except (OSError, sqlite3.Error):
+            return {
+                **packet,
+                "report_export_warning": (
+                    "Review saved; latest.md export unavailable. Read the per-run report "
+                    "or retry the same request to regenerate the export."
+                ),
+            }
         return packet
 
     def write_report(self, packet: dict[str, Any]) -> None:
@@ -342,5 +376,18 @@ class ReviewStore:
                 f"- {r['source_path']}: {r['name']}" for r in packet["removed"]
             ]
         destination = self.state_root / f"{packet['run_id']}.md"
-        destination.write_text("\n".join(lines) + "\n")
-        (self.state_root / "latest.md").write_text("\n".join(lines) + "\n")
+        atomic_write(destination, "\n".join(lines) + "\n")
+
+
+def atomic_write(destination: Path, text: str) -> None:
+    """Leave the previous report intact if writing its replacement fails."""
+    fd, name = tempfile.mkstemp(prefix=".report-", dir=destination.parent)
+    temporary = Path(name)
+    try:
+        with os.fdopen(fd, "w") as stream:
+            stream.write(text)
+            stream.flush()
+            os.fsync(stream.fileno())
+        temporary.replace(destination)
+    finally:
+        temporary.unlink(missing_ok=True)

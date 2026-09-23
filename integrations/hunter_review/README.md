@@ -41,17 +41,19 @@ python3 integrations/hunter_review/install_local.py
 curl --fail http://localhost:8788/healthz
 ```
 
-The installer briefly stops only this review service, preserves its history, refreshes source snapshots, and reuses its dedicated credential ID. It imports the private header credential through n8n's CLI without exporting existing credentials. For a different installation, use the printed credential ID when installing `workflow.ts`, then apply a 60-second workflow execution timeout and save manual success/error executions.
+The installer prepares new source/config volumes and validates their readability before stopping this review service. It preserves the previous container until replacement readiness succeeds and restores it if startup fails. Review history stays in its original volume. The dedicated credential ID is reused; import uses n8n's CLI without exporting existing credentials. For a different installation, use the printed credential ID when installing `workflow.ts`, then apply a 60-second workflow execution timeout and save manual success/error executions.
 
 Docker-managed volumes avoid the macOS folder-sharing stall observed on this machine:
 
 | Volume | Runtime access | Purpose |
 | --- | --- | --- |
-| `animus-hunter-review-sources` | Read only | Installed source snapshot |
-| `animus-hunter-review-config` | Read only | Dedicated private connector token |
+| `animus-hunter-review-sources-<installation-id>` | Read only | Installed source snapshot |
+| `animus-hunter-review-config-<installation-id>` | Read only | Dedicated private connector token |
 | `animus-hunter-review-state` | Read/write | SQLite review history and Markdown reports |
 
 The service has a read-only root filesystem, runs as the local operator UID, drops Linux capabilities, and has memory/CPU/PID limits. Host port 8788 is bound only to 127.0.0.1. n8n reaches `http://hunter-review:8788` on its Docker network. `.local/` is private and ignored; the Docker-specific build context excludes it. Never commit it.
+
+Previous source/config volumes, including the initial unsuffixed volumes, are retained after replacement. They are small recovery snapshots; do not remove the active mounts or the state volume. A deployment failure leaves these snapshots intact.
 
 The service restarts with Docker unless explicitly stopped. Existing n8n containers retain their original restart policies; after a Docker restart, start them if necessary:
 
@@ -61,7 +63,9 @@ docker start n8n-n8n-1 n8n-runners-1 animus-hunter-review
 
 ## Reports and failures
 
-SQLite is the durable review history. Requests use the n8n execution ID for idempotency. A duplicate request returns the same packet. A new successful inspection compares against the last saved packet. Unsafe or unavailable sources abort inspection without replacing that baseline.
+SQLite is the durable review history. Requests use the n8n execution ID for idempotency. Each run's Markdown report is written atomically before advancing the baseline. A duplicate request regenerates its report and returns the same packet. A new successful inspection compares against the last saved packet. Unsafe or unreadable source files or directories abort inspection without replacing that baseline.
+
+`latest.md` is a convenience export from committed history. If only that export fails, the review still succeeds and reports `report_export_warning` in n8n. Retrying the same request repairs the export; replaying an older request never replaces the latest export with older data.
 
 Copy the latest Markdown report for local reading:
 

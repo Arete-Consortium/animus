@@ -71,3 +71,21 @@ def test_http_review_replay_and_source_failure(service):
     (store.source_root / "provenance.json").write_text("malformed")
     assert request(service, "/v1/reviews", {"request_id": "bad-source"})[0] == 503
     assert request(service, "/v1/reviews/latest") == (200, initial)
+
+
+def test_report_write_failure_does_not_hide_changes_from_http_retry(service, monkeypatch):
+    store, _, _ = service
+    _, initial = request(service, "/v1/reviews", {"request_id": "initial"})
+    path = store.source_root / "records/rathian.yaml"
+    path.write_text(path.read_text() + "\nnotes: [changed]\n")
+    original = store.write_report
+
+    def unavailable(_packet):
+        raise OSError("storage unavailable")
+
+    monkeypatch.setattr(store, "write_report", unavailable)
+    assert request(service, "/v1/reviews", {"request_id": "retry"})[0] == 503
+    assert store.latest() == initial
+    monkeypatch.setattr(store, "write_report", original)
+    status, recovered = request(service, "/v1/reviews", {"request_id": "retry"})
+    assert status == 200 and recovered["summary"]["changed"] == 1

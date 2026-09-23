@@ -2,12 +2,14 @@
 
 import hashlib
 import json
+import os
 import shutil
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
 
+from integrations.hunter_review import review as review_module
 from integrations.hunter_review.review import ReviewStore, SourceUnavailableError
 
 
@@ -108,3 +110,66 @@ def test_concurrent_duplicate_request_has_one_durable_run(store):
         results = list(executor.map(store.review, ["same", "same"]))
     assert results[0] == results[1]
     assert store.review("next")["baseline_run_id"] == results[0]["run_id"]
+
+
+def test_unreadable_directory_keeps_baseline(store, monkeypatch):
+    initial = store.review("initial")
+    original = os.scandir
+
+    def unreadable(path):
+        if Path(path) == store.source_root / "records":
+            raise PermissionError("directory unavailable")
+        return original(path)
+
+    monkeypatch.setattr(os, "scandir", unreadable)
+    with pytest.raises(SourceUnavailableError):
+        store.review("unreadable")
+    assert store.latest() == initial
+
+
+def test_report_failure_keeps_baseline_and_retry_keeps_delta(store, monkeypatch):
+    initial = store.review("initial")
+    target = store.source_root / "records/rathian.yaml"
+    target.write_text(target.read_text() + "\nnotes: [changed]\n")
+    original = store.write_report
+
+    def fail(_packet):
+        raise OSError("report storage unavailable")
+
+    monkeypatch.setattr(store, "write_report", fail)
+    with pytest.raises(OSError):
+        store.review("retry")
+    assert store.latest() == initial
+    monkeypatch.setattr(store, "write_report", original)
+    recovered = store.review("retry")
+    assert recovered["summary"]["changed"] == 1
+    assert (store.state_root / f"{recovered['run_id']}.md").exists()
+
+
+def test_replay_repairs_report_without_reverting_latest(store):
+    first = store.review("first")
+    second = store.review("second")
+    report = store.state_root / f"{first['run_id']}.md"
+    report.unlink()
+    assert store.review("first") == first
+    assert report.exists()
+    assert second["run_id"] in (store.state_root / "latest.md").read_text()
+
+
+def test_latest_export_failure_returns_committed_packet_and_retry_repairs(store, monkeypatch):
+    original = review_module.atomic_write
+
+    def failed_export(path, text):
+        if path.name == "latest.md":
+            raise OSError("export unavailable")
+        original(path, text)
+
+    monkeypatch.setattr(review_module, "atomic_write", failed_export)
+    packet = store.review("first")
+    assert packet["report_export_warning"]
+    assert store.latest()["run_id"] == packet["run_id"]
+    assert (store.state_root / f"{packet['run_id']}.md").exists()
+    monkeypatch.setattr(review_module, "atomic_write", original)
+    replay = store.review("first")
+    assert "report_export_warning" not in replay
+    assert replay["run_id"] in (store.state_root / "latest.md").read_text()

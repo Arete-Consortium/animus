@@ -12,11 +12,162 @@ import re
 import secrets
 import shutil
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 LOCAL = ROOT / ".local"
 CONTAINER = "animus-hunter-review"
+
+
+def replace_service(run: Callable[..., str]) -> None:
+    """Prepare fresh snapshots, then switch containers with rollback on failure."""
+    existing = run("ps", "-a", "--filter", f"name=^/{CONTAINER}$", "--format", "{{.Names}}")
+    if existing:
+        label = run(
+            "inspect", "--format", '{{index .Config.Labels "com.animus.component"}}', CONTAINER
+        )
+        if label != "hunter-review":
+            raise RuntimeError("Existing container name belongs to another service")
+    suffix = secrets.token_hex(6)
+    helper = f"hunter-review-install-{suffix}"
+    candidate = f"{CONTAINER}-next-{suffix}"
+    backup = f"{CONTAINER}-rollback-{suffix}"
+    sources = f"animus-hunter-review-sources-{suffix}"
+    config = f"animus-hunter-review-config-{suffix}"
+    uid, gid = os.getuid(), os.getgid()
+    helper_created = candidate_created = old_stopped = old_renamed = switched = False
+    try:
+        run(
+            "create",
+            "--name",
+            helper,
+            "--network",
+            "none",
+            "--user",
+            "0:0",
+            "--mount",
+            f"type=volume,src={sources},dst=/sources",
+            "--mount",
+            f"type=volume,src={config},dst=/config",
+            "--mount",
+            "type=volume,src=animus-hunter-review-state,dst=/state",
+            "--entrypoint",
+            "python",
+            "animus-hunter-review:local",
+            "-c",
+            "import time; time.sleep(180)",
+        )
+        helper_created = True
+        run("start", helper)
+        run("cp", "-a", f"{ROOT / 'sources'}/.", f"{helper}:/sources")
+        run("cp", "-a", f"{LOCAL / 'config'}/.", f"{helper}:/config")
+        run(
+            "exec",
+            helper,
+            "python",
+            "-c",
+            "import os; "
+            f"[os.chown(p, {uid}, {gid}) "
+            "for p in ['/state', '/config', '/config/connector.token']]; "
+            "os.chmod('/state', 0o700); os.chmod('/config', 0o700); "
+            "os.chmod('/config/connector.token', 0o600)",
+        )
+        # Validate as the runtime UID, without writing review history.
+        run(
+            "exec",
+            "--user",
+            f"{uid}:{gid}",
+            helper,
+            "python",
+            "-c",
+            "from pathlib import Path; from integrations.hunter_review.review import scan; "
+            "scan(Path('/sources')); "
+            "assert len(Path('/config/connector.token').read_text().strip()) >= 32",
+        )
+        run(
+            "create",
+            "--name",
+            candidate,
+            "--label",
+            "com.animus.component=hunter-review",
+            "--pull",
+            "never",
+            "--restart",
+            "unless-stopped",
+            "--network",
+            "n8n_default",
+            "--network-alias",
+            "hunter-review",
+            "--publish",
+            "127.0.0.1:8788:8788",
+            "--user",
+            f"{uid}:{gid}",
+            "--read-only",
+            "--tmpfs",
+            "/tmp:rw,noexec,nosuid,size=16m",
+            "--memory",
+            "512m",
+            "--memory-swap",
+            "512m",
+            "--pids-limit",
+            "32",
+            "--cpus",
+            "0.5",
+            "--cap-drop",
+            "ALL",
+            "--security-opt",
+            "no-new-privileges",
+            "--mount",
+            f"type=volume,src={sources},dst=/sources,readonly",
+            "--mount",
+            f"type=volume,src={config},dst=/config,readonly",
+            "--mount",
+            "type=volume,src=animus-hunter-review-state,dst=/state",
+            "animus-hunter-review:local",
+        )
+        candidate_created = True
+        if existing:
+            run("stop", CONTAINER)
+            old_stopped = True
+            run("rename", CONTAINER, backup)
+            old_renamed = True
+        run("rename", candidate, CONTAINER)
+        switched = True
+        run("start", CONTAINER)
+        run(
+            "exec",
+            CONTAINER,
+            "python",
+            "-c",
+            """
+import time
+import urllib.request
+for attempt in range(20):
+    try:
+        urllib.request.urlopen('http://127.0.0.1:8788/healthz', timeout=1)
+        break
+    except OSError:
+        time.sleep(.25)
+else:
+    raise RuntimeError('Review service failed readiness')
+""",
+        )
+    except Exception:
+        # Never clear or mutate the previous snapshot volumes during replacement.
+        if candidate_created:
+            run("rm", "-f", CONTAINER if switched else candidate)
+        if old_renamed:
+            run("rename", backup, CONTAINER)
+        if old_stopped:
+            run("start", CONTAINER)
+        raise
+    finally:
+        if helper_created:
+            run("rm", "-f", helper)
+    if old_renamed:
+        run("rm", backup)
+    # Previous source/config volumes are retained; review history uses its original volume.
 
 
 def main() -> None:
@@ -88,109 +239,7 @@ console.log(directory);
                 "require('fs').rmSync(process.argv[1], {recursive:true, force:true})",
                 directory,
             )
-    existing = run("ps", "-a", "--filter", f"name=^/{CONTAINER}$", "--format", "{{.Names}}")
-    if existing:
-        label = run(
-            "inspect", "--format", '{{index .Config.Labels "com.animus.component"}}', CONTAINER
-        )
-        if label != "hunter-review":
-            raise RuntimeError("Existing container name belongs to another service")
-        run("stop", CONTAINER)
-        run("rm", CONTAINER)
-    # Docker-managed volumes avoid macOS host-folder sharing/TCC failures.
-    # Reinstall explicitly refreshes source snapshots while preserving review history.
-    helper = f"hunter-review-install-{secrets.token_hex(4)}"
-    run(
-        "create",
-        "--name",
-        helper,
-        "--network",
-        "none",
-        "--user",
-        "0:0",
-        "--mount",
-        "type=volume,src=animus-hunter-review-sources,dst=/sources",
-        "--mount",
-        "type=volume,src=animus-hunter-review-config,dst=/config",
-        "--mount",
-        "type=volume,src=animus-hunter-review-state,dst=/state",
-        "--entrypoint",
-        "python",
-        "animus-hunter-review:local",
-        "-c",
-        "import time; time.sleep(60)",
-    )
-    try:
-        run("start", helper)
-        run(
-            "exec",
-            helper,
-            "python",
-            "-c",
-            "import pathlib, shutil; "
-            "[(shutil.rmtree(p) if p.is_dir() and not p.is_symlink() else p.unlink()) "
-            "for p in pathlib.Path('/sources').iterdir()]",
-        )
-        run("cp", "-a", f"{ROOT / 'sources'}/.", f"{helper}:/sources")
-        run("cp", "-a", f"{LOCAL / 'config'}/.", f"{helper}:/config")
-        # Docker Desktop does not reliably preserve host ownership with cp -a.
-        run(
-            "exec",
-            helper,
-            "python",
-            "-c",
-            "import os; "
-            f"[os.chown(p, {os.getuid()}, {os.getgid()}) "
-            "for p in ['/state', '/config', '/config/connector.token']]; "
-            "os.chmod('/state', 0o700); os.chmod('/config', 0o700); "
-            "os.chmod('/config/connector.token', 0o600)",
-        )
-    finally:
-        run("stop", "--time", "1", helper)
-        run("rm", helper)
-    if not run("ps", "-a", "--filter", f"name=^/{CONTAINER}$", "--format", "{{.Names}}"):
-        run(
-            "create",
-            "--name",
-            CONTAINER,
-            "--label",
-            "com.animus.component=hunter-review",
-            "--pull",
-            "never",
-            "--restart",
-            "unless-stopped",
-            "--network",
-            "n8n_default",
-            "--network-alias",
-            "hunter-review",
-            "--publish",
-            "127.0.0.1:8788:8788",
-            "--user",
-            f"{os.getuid()}:{os.getgid()}",
-            "--read-only",
-            "--tmpfs",
-            "/tmp:rw,noexec,nosuid,size=16m",
-            "--memory",
-            "512m",
-            "--memory-swap",
-            "512m",
-            "--pids-limit",
-            "32",
-            "--cpus",
-            "0.5",
-            "--cap-drop",
-            "ALL",
-            "--security-opt",
-            "no-new-privileges",
-            "--mount",
-            "type=volume,src=animus-hunter-review-sources,dst=/sources,readonly",
-            "--mount",
-            "type=volume,src=animus-hunter-review-config,dst=/config,readonly",
-            "--mount",
-            "type=volume,src=animus-hunter-review-state,dst=/state",
-            "animus-hunter-review:local",
-        )
-        run("start", CONTAINER)
+    replace_service(run)
     print(
         json.dumps(
             {
