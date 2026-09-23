@@ -328,7 +328,12 @@ class MissionScheduler:
                 total_cost += usage.cost_usd
             # Built-in citizens are deterministic local workers, so empty usage
             # is a legitimate zero-cost result. Invalid/killed results are unknown.
-            known_usage = valid_usage and not meta.get("killed") and not meta.get("timed_out")
+            known_usage = (
+                valid_usage
+                and output.usage_complete
+                and not meta.get("killed")
+                and not meta.get("timed_out")
+            )
             if known_usage and not output.usage:
                 self.cost.record(
                     mission_id=str(task.mission_id),
@@ -349,6 +354,7 @@ class MissionScheduler:
                     "summary": output.summary,
                     "confidence": output.confidence,
                     "usage": [u.model_dump(mode="json") for u in output.usage],
+                    "usage_complete": known_usage,
                 },
                 artifacts=[a.model_dump(mode="json") for a in output.artifacts],
             )

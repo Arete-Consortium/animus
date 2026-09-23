@@ -157,6 +157,16 @@ killed, timed-out, or malformed results with unknown charges retain their hold
 for reconciliation; they must not silently be treated as free work. No automated
 reconciliation or new live LLM integration is introduced by this repair.
 
+The PR review reproduced a gap in that rule: synthetic worker failures and
+caught citizen exceptions could look like valid empty-usage results and settle
+their reservation at zero. `CitizenOutput.usage_complete` now explicitly marks
+whether the reported provider usage is complete. Crashes, malformed output, and
+supervisor failures set it false on subprocess and container paths; the scheduler
+records the completeness flag in its checkpoint and retains the reservation for
+reconciliation. Valid completed workers and known-zero task failures retain their
+existing behavior. The review follow-up passes 152 focused regressions, including
+16 failure-protocol cases; no live provider was called.
+
 ## Running the code-execution checks from macOS
 
 This Mac accepts the CPU and file-size ceilings but rejects the 512 MiB
