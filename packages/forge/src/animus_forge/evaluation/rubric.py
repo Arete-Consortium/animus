@@ -29,13 +29,29 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .base import EvalMetric
+from .base import EvalCase, EvalMetric
 
 JUDGE_METRIC_PROVIDER_KWARG = {
     "LLMJudgeMetric": "judge_provider",
     "FactualityMetric": "verifier_provider",
     "SafetyMetric": "safety_provider",
 }
+
+
+class _RubricMetric(EvalMetric):
+    """Expose the rubric dimension name without changing a metric implementation."""
+
+    def __init__(self, name: str, metric: EvalMetric) -> None:
+        self._name = name
+        self._metric = metric
+        self.fail_fast = metric.fail_fast
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    def score(self, output: Any, expected: Any, case: EvalCase) -> float:
+        return self._metric.score(output, expected, case)
 
 
 @dataclass
@@ -158,13 +174,9 @@ class Rubric:
             if provider_kwarg and provider is not None:
                 kwargs.setdefault(provider_kwarg, provider)
             instance = cls(**kwargs)
-            # Re-name the metric to the dim name so downstream metric dicts
-            # are keyed by dim (e.g. "correctness") not metric class name
-            # (e.g. "exact_match"). Only mutates a private attribute on
-            # metrics that expose one; falls back silently otherwise.
-            if hasattr(instance, "_name"):
-                instance._name = dim.name
-            resolved.append(instance)
+            # Metrics with a fixed name property cannot be renamed by assigning
+            # _name. Preserve dimension identity through the EvalMetric interface.
+            resolved.append(_RubricMetric(dim.name, instance))
         return resolved
 
     # -----------------------------------------------------------------

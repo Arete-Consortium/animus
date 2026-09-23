@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from animus_forge.evaluation.base import EvalCase
 from animus_forge.evaluation.rubric import (
     DEFAULT_BANDS,
     GradeBand,
@@ -99,9 +100,8 @@ def test_build_metrics_resolves_classes():
     )
     metrics = rubric.build_metrics()
     assert len(metrics) == 2
-    # Metrics should be re-named to dim names where possible
     names = [m.name for m in metrics]
-    assert "correctness" in names or "contains" in names
+    assert names == ["correctness", "length"]
 
 
 def test_build_metrics_unknown_class_raises():
@@ -111,6 +111,27 @@ def test_build_metrics_unknown_class_raises():
     )
     with pytest.raises(ValueError, match="Unknown metric"):
         rubric.build_metrics()
+
+
+def test_repeated_metric_class_preserves_dimension_names_and_configuration():
+    rubric = Rubric(
+        name="case-rules",
+        dims=[
+            RubricDim(name="meaning", metric="ExactMatchMetric", weight=3.0),
+            RubricDim(
+                name="casing",
+                metric="ExactMatchMetric",
+                kwargs={"case_sensitive": True},
+            ),
+        ],
+    )
+    case = EvalCase(input="Greeting", expected="Hello")
+    scores = {
+        metric.name: metric.score("hello", case.expected, case) for metric in rubric.build_metrics()
+    }
+    assert scores == {"meaning": 1.0, "casing": 0.0}
+    assert rubric.composite_score(scores) == pytest.approx(0.75)
+    assert rubric.band_for(rubric.composite_score(scores)) == "C"
 
 
 def test_yaml_roundtrip(tmp_path: Path):
