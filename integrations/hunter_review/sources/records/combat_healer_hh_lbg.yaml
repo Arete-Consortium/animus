@@ -1,0 +1,38 @@
+id: combat_healer_hh_lbg
+name: Combat Healer — Hunting Horn + Light Bowgun
+record_type: guide
+game: monster_hunter_wilds
+status: verified
+verified_date: "2026-09-21"
+tags:
+  - guide
+  - build
+  - support
+  - combat-healer
+  - hunting-horn
+  - light-bowgun
+sources:
+  - document: 03_Hunter_OS_v1_Support_and_Builds
+    section: COMBAT HEALER - HUNTING HORN + LBG
+  - document: 07_Hunter_OS_v1_HH_LBG_Specialist_Reference
+    section: COMBAT HEALER PAIRING
+sections:
+  core_support:
+    - Wide-Range
+    - Speed Eating
+    - Free Meal
+  hunting_horn:
+    - Prioritize Horn Maestro, then weapon-relevant offense and uptime.
+    - Use Hunting Horn as the primary frontline support for buffs, KO/head pressure, songs, and wound punishment.
+  light_bowgun:
+    - Use LBG as a secondary ranged utility option.
+    - Ammo availability is weapon-specific; never assume every LBG supports every support/status ammo.
+  swap_logic:
+    - Swap resistance or status counters based on the selected monster.
+    - Use LBG when range, safe status application, or gun-specific utility beats staying on Hunting Horn.
+  doctrine:
+    - Heal meaningful damage or status while preserving combat uptime.
+    - Do not sheath for every scratch.
+    - Do not duplicate support functions when Hunting Horn or Palico support already covers them effectively.
+related_records:
+  - hunting_horn

@@ -1,0 +1,48 @@
+{
+  "repository": "Arete-Consortium/animus",
+  "origin": "Existing Hunter OS staged candidates; not live ChatGPT synchronization",
+  "files": [
+    {
+      "path": "records/omega_planetes.yaml",
+      "source_commit": "854a7a64617e4493f02299a1a20112c8104103d7",
+      "source_path": "packages/core/animus/hunter_os/data/encounters/omega_planetes.yaml",
+      "sha256": "7017a191b752588e61a212f65f01f0ad8dbc1ad48c7a45c9631a942fd8e028d7"
+    },
+    {
+      "path": "records/combat_healer_hh_lbg.yaml",
+      "source_commit": "854a7a64617e4493f02299a1a20112c8104103d7",
+      "source_path": "packages/core/animus/hunter_os/data/guides/combat_healer_hh_lbg.yaml",
+      "sha256": "0c7b5931fb0ff8331eaed662f3c6a275035549e9ed6172ecda0bb22173d22a67"
+    },
+    {
+      "path": "records/rathian.yaml",
+      "source_commit": "854a7a64617e4493f02299a1a20112c8104103d7",
+      "source_path": "packages/core/animus/hunter_os/data/monsters/rathian.yaml",
+      "sha256": "4f7b05e478c66f9047e3fff37edfa8b456b0bee52928c6656d39411757cd3608"
+    },
+    {
+      "path": "records/hunting_horn.yaml",
+      "source_commit": "854a7a64617e4493f02299a1a20112c8104103d7",
+      "source_path": "packages/core/animus/hunter_os/data/weapons/hunting_horn.yaml",
+      "sha256": "ca0a2c401cb01a08f3e51e02e2fd6ce29fb1b80fa999cab2967a042d94c3d961"
+    },
+    {
+      "path": "forum/hunter_guide.md",
+      "source_commit": "c3f5a3c9eb3fc98d80d5c8f199f14425de274263",
+      "source_path": "packages/core/animus/hunter_os/forum/hunter_guide.md",
+      "sha256": "85ac0ca83acf0b0f80b2d5a45649bc4d5385f78ba459ef7177220dfa97b31c10"
+    },
+    {
+      "path": "forum/monsters.md",
+      "source_commit": "c3f5a3c9eb3fc98d80d5c8f199f14425de274263",
+      "source_path": "packages/core/animus/hunter_os/forum/monsters.md",
+      "sha256": "fa26de8f0430136f69c6fdec4cb33cab9ee5c9a0a9252bb16cbcc80922409bc2"
+    },
+    {
+      "path": "forum/weapons.md",
+      "source_commit": "c3f5a3c9eb3fc98d80d5c8f199f14425de274263",
+      "source_path": "packages/core/animus/hunter_os/forum/weapons.md",
+      "sha256": "9fb951b0677bd4eadf2d3a83b3894b62e7aa5d5f80abffdd8603e82a47022792"
+    }
+  ]
+}
