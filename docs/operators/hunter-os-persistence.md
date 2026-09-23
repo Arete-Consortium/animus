@@ -53,7 +53,9 @@ store.preflight()
 
 The immutable server-selected scope fixes owner, `hunter-os` workspace, Monster Hunter Wilds domain, public security, `hunter_os` schema, allowed artifact types, and active lifecycle. SQL filters cover current reads, version/time reads, lists, ledger access and mutations. Historical public versions are hidden when their current object becomes private, deleted, or otherwise outside the scope. Global outbox worker methods are denied on scoped stores.
 
-The legacy `owner_id` and `workspace_id` constructor arguments alone **do not restrict queries**. Existing unscoped callers remain trusted internal clients. The Hunter adapter must inject this explicit scope and later expose a narrower read interface to chat.
+For Core's `DurableObjectStore`, the legacy `owner_id` and `workspace_id` constructor arguments alone **do not restrict queries**. Existing unscoped callers remain trusted internal clients. The Hunter adapter must inject this explicit scope and later expose a narrower read interface to chat.
+
+Kernel's `DurableMemoryStore` restricts every read and mutation to its configured owner/workspace and the `memory-v1` schema, `memory` artifact type, and `user` domain. Broad memory searches and tag listings therefore exclude Hunter payloads before deserialization. Attempts to store a memory under a foreign object ID, including a historical ID, fail without replacing records or emitting events. Existing deployments must retain their configured owner/workspace; this change does not move or rewrite memories.
 
 Scoped writes require the contracts package. Scoped updates also require `expected_version`; stale or concurrent changes fail atomically. Registry rows, Core ledger envelopes and outbox entries commit together. Both object/version and current-object uniqueness are enforced by the database. Object IDs are global, not reusable per owner. Use compliant stable IDs such as `mhw-monster-rathian`.
 
@@ -66,7 +68,7 @@ The physical ledger follows migration `001`: `event_kind`, `actor_refs`, `object
 The regression suite exercises SQLite and, when `HUNTER_TEST_DATABASE_URL` is set, PostgreSQL in a randomly named temporary schema. Use a disposable test database; the suite creates and drops only its test schemas and never reads `ANIMUS_DATABASE_URL` as a test target.
 
 ```sh
-python -m pytest packages/core/tests/test_registry_compatibility.py -q
+python -m pytest packages/core/tests/test_registry_compatibility.py packages/core/tests/test_kernel_registry_isolation.py -q
 ```
 
 CI runs the integration suite on PostgreSQL 14, 15 and 16. Local verification used PostgreSQL 16. Tests cover migration data preservation and refusal, Core/Kernel coexistence, privacy filters, deleted/reclassified history, compare-and-swap races, rollback on outbox failure, temporal boundaries, logging and operator preflight.
