@@ -184,6 +184,10 @@ class CitizenWorkerPool:
             logger.debug("Pool is stopping; rejecting task %s", task_id)
             return None
 
+        if self.config.isolation_mode == "container" and self.container is None:
+            logger.error("Container isolation requested without a container manager")
+            return None
+
         # Find a free slot
         if slot_id is not None:
             free_slot = self._slots.get(slot_id)
@@ -470,6 +474,9 @@ class CitizenWorkerPool:
 
         # Embed scheduler metadata so the result consumer can fence stale results.
         meta = {"lease_id": lease_id, "generation": lease_generation}
+        for key in ("_killed", "_timed_out", "_returncode"):
+            if key in result_dict:
+                meta[key.removeprefix("_")] = result_dict.pop(key)
         if container_id:
             meta["container_id"] = container_id
         if pid:

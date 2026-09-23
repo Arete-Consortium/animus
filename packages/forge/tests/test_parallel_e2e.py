@@ -291,7 +291,7 @@ class TestAutoParallelE2E:
                 StepConfig(
                     id="first",
                     type="shell",
-                    params={"command": "echo first"},
+                    params={"command": "printf first"},
                     outputs=["first_out"],
                 ),
                 StepConfig(
@@ -600,9 +600,7 @@ class TestErrorHandling:
                         "fail_fast": False,
                         "step_template": {
                             "type": "shell",
-                            "params": {
-                                "command": 'if [ "${item}" = "fail" ]; then exit 1; fi && echo ${item}'
-                            },
+                            "params": {"command": "test ${item} != fail"},
                         },
                     },
                 ),

@@ -98,6 +98,7 @@ def dispatcher(ledger, lease_manager, cost_enforcer):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.usefixtures("lease_test_records")
 def test_acquire_creates_current_row_and_history(lease_manager):
     lease = lease_manager.acquire(
         task_id="task-1",
@@ -119,6 +120,7 @@ def test_acquire_creates_current_row_and_history(lease_manager):
     assert history[0]["status"] == LeaseStatus.ACTIVE
 
 
+@pytest.mark.usefixtures("lease_test_records")
 def test_acquire_already_leased_raises(lease_manager):
     lease_manager.acquire(
         task_id="task-1",
@@ -139,6 +141,7 @@ def test_acquire_already_leased_raises(lease_manager):
     assert exc_info.value.task_id == "task-1"
 
 
+@pytest.mark.usefixtures("lease_test_records")
 def test_release_moves_row_to_history(lease_manager):
     lease = lease_manager.acquire(
         task_id="task-1",
@@ -158,6 +161,7 @@ def test_release_moves_row_to_history(lease_manager):
     assert history[0]["status"] == LeaseStatus.RELEASED
 
 
+@pytest.mark.usefixtures("lease_test_records")
 def test_generation_increments_on_reacquire(lease_manager):
     lease = lease_manager.acquire(
         task_id="task-1",
@@ -177,6 +181,7 @@ def test_generation_increments_on_reacquire(lease_manager):
     assert second.generation == 2
 
 
+@pytest.mark.usefixtures("lease_test_records")
 def test_recover_expired_creates_history_and_allows_reacquire(lease_manager):
     _ = lease_manager.acquire(
         task_id="task-1",

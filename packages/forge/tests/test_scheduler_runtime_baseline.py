@@ -14,13 +14,14 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-import time
+import json
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 from contextlib import asynccontextmanager
 from decimal import Decimal
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -125,21 +126,31 @@ class FakeContainerManager(ContainerManager):
     def is_available(self) -> bool:
         return True
 
-    def run_task(self, **kwargs) -> dict:
-        task_id = kwargs.get("task_id", "unknown")
+    async def run_task_async(self, **kwargs):
+        task_id = kwargs["task_id"]
         self.calls.append(kwargs)
         self.running[task_id] = True
-        time.sleep(self.sleep_seconds)
-        self.running[task_id] = False
-        self.completed[task_id] = True
-        return {
-            "status": "completed",
-            "summary": "mock container completed",
-            "changed_files": [],
-            "evidence": [],
-            "risks": [],
-            "confidence": 0.9,
-        }
+        process = SimpleNamespace(returncode=None)
+        stopped = asyncio.Event()
+        self._stopped = stopped
+
+        async def communicate():
+            try:
+                await asyncio.wait_for(stopped.wait(), timeout=self.sleep_seconds)
+                process.returncode = -9
+                return b"", b"killed"
+            except TimeoutError:
+                self.completed[task_id] = True
+                process.returncode = 0
+                return json.dumps({"status": "completed", "summary": "fixture"}).encode(), b""
+            finally:
+                self.running[task_id] = False
+
+        process.communicate = communicate
+        return SimpleNamespace(container_id=task_id, process=process)
+
+    async def kill_container(self, container_id):
+        self._stopped.set()
 
 
 @pytest.fixture()
@@ -208,6 +219,7 @@ async def test_recovery_loop_survives_three_intervals(
         assert recovery["state"] != "failed", "recovery loop failed"
 
 
+@pytest.mark.usefixtures("lease_test_records")
 def test_released_task_can_reacquire_lease(lease_manager):
     """After a lease is released the same task must be claimable again."""
     lease = lease_manager.acquire(
@@ -233,6 +245,7 @@ def test_released_task_can_reacquire_lease(lease_manager):
     assert second.lease_id != lease.lease_id
 
 
+@pytest.mark.usefixtures("lease_test_records")
 def test_expired_task_can_reacquire_lease(lease_manager):
     """After a lease expires the same task must be claimable again."""
     from datetime import UTC, datetime, timedelta
@@ -303,12 +316,9 @@ async def test_dispatch_atomicity_rollback_leaves_task_eligible(
 
 
 @pytest.mark.asyncio()
-async def test_kill_slot_does_not_terminate_container_task(slow_container_pool, lease_manager):
-    """Current defect: kill_slot clears bookkeeping but the underlying work continues.
-
-    This test documents the current behavior so it can be flipped to assert
-    termination once RUN-03 is implemented.
-    """
+@pytest.mark.usefixtures("lease_test_records")
+async def test_kill_slot_terminates_container_task(slow_container_pool, lease_manager):
+    """The implemented container kill path must stop work and release the slot."""
     pool = slow_container_pool
     container = pool._test_container
     await pool.start()
@@ -335,14 +345,11 @@ async def test_kill_slot_does_not_terminate_container_task(slow_container_pool, 
     assert killed is True
     assert pool.active_count() == 0
 
-    # Current behavior: the container work is still running after kill_slot returns.
-    assert not container.completed.get("t-kill", False), (
-        "kill_slot unexpectedly terminated the task"
-    )
-
-    # Wait for the natural completion to prove the task was not killed.
+    # Wait beyond normal completion and verify that kill prevented completion.
     await asyncio.sleep(2.5)
-    assert container.completed.get("t-kill", False), "test setup did not run task long enough"
+    assert not container.running["t-kill"]
+    assert not container.completed.get("t-kill", False)
+    assert lease_manager.get_lease_for_task("t-kill") is None
 
     await pool.stop()
 

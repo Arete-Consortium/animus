@@ -98,3 +98,11 @@ adapters. Dashboard and executor parallel metrics share the Kernel tracker inste
 of maintaining two independent singletons. YAML orchestration smoke tests mock
 retry sleeps while preserving the execution result checks; real shell tests retain
 the command-chaining rejection and use supported single commands.
+
+Worker exit diagnostics now travel inside scheduler metadata, so strict citizen
+output validation no longer turns successful subprocess results into failures.
+Container mode refuses dispatch when its manager is absent, before acquiring a
+lease or starting a host process. Regressions cover that denial, existing command
+log redaction, and container termination through the current async interface.
+Lease, schedule, and webhook fixtures now create their referenced parent records;
+evolution-metric fixtures commit their setup writes.

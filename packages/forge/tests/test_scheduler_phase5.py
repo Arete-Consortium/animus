@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
@@ -88,6 +91,7 @@ def sample_task(sample_mission):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.usefixtures("lease_test_records")
 class TestLeaseManager:
     def test_acquire_lease(self, lease_manager):
         lease = lease_manager.acquire(
@@ -103,10 +107,12 @@ class TestLeaseManager:
         assert lease.expires_at > lease.acquired_at
 
     def test_acquire_duplicate_fails(self, lease_manager):
-        lease_manager.acquire(task_id="task-1", mission_id="m", citizen_role="b", worker_id="w1")
+        lease_manager.acquire(
+            task_id="task-1", mission_id="mission-1", citizen_role="b", worker_id="w1"
+        )
         with pytest.raises(LeaseAcquireError) as exc_info:
             lease_manager.acquire(
-                task_id="task-1", mission_id="m", citizen_role="b", worker_id="w2"
+                task_id="task-1", mission_id="mission-1", citizen_role="b", worker_id="w2"
             )
         assert exc_info.value.reason == "already_leased"
 
@@ -222,7 +228,31 @@ class TestCostEnforcer:
 
 
 @pytest.mark.asyncio()
+@pytest.mark.usefixtures("lease_test_records")
 class TestCitizenWorkerPool:
+    async def test_worker_exit_metadata_is_separate_from_citizen_output(self, worker_pool):
+        await worker_pool.start()
+        try:
+            await worker_pool._finish_task(
+                "task-1",
+                "0",
+                {
+                    "status": "completed",
+                    "summary": "done",
+                    "_killed": False,
+                    "_timed_out": False,
+                    "_returncode": 0,
+                },
+            )
+            _, result = await (await worker_pool.results()).get()
+            meta = result.pop("_scheduler_meta")
+            assert result == {"status": "completed", "summary": "done"}
+            assert meta["killed"] is False
+            assert meta["timed_out"] is False
+            assert meta["returncode"] == 0
+        finally:
+            await worker_pool.stop()
+
     async def test_start_stop(self, worker_pool):
         await worker_pool.start()
         assert worker_pool.active_count() == 0
@@ -313,16 +343,14 @@ class TestCitizenWorkerPool:
             def is_available(self):
                 return True
 
-            def run_task(self, **kwargs):
+            async def run_task_async(self, **kwargs):
                 self.calls.append(kwargs)
-                return {
-                    "status": "success",
-                    "summary": "mock container",
-                    "changed_files": [],
-                    "evidence": [],
-                    "risks": [],
-                    "confidence": 0.9,
-                }
+                output = {"status": "success", "summary": "mock container"}
+                process = SimpleNamespace(
+                    communicate=AsyncMock(return_value=(json.dumps(output).encode(), b"")),
+                    returncode=0,
+                )
+                return SimpleNamespace(container_id="fixture-container", process=process)
 
         fake = FakeContainerManager()
         pool = CitizenWorkerPool(
@@ -440,7 +468,7 @@ class TestMissionScheduler:
 
         task = ledger.get_task(sample_task.task_id)
         # Should be COMPLETED (planner succeeds trivially)
-        assert task.status == TaskStatus.COMPLETED
+        assert task.status == TaskStatus.COMPLETED, task.error
 
         await scheduler.stop()
 
