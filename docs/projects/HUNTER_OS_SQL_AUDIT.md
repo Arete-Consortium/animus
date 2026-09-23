@@ -1,10 +1,10 @@
 # Hunter OS SQL domain: audit and implementation plan
 
-Date: 2026-09-22. Status: audit complete; steps 1 and 2 implemented for review; live migration pending.
+Date: 2026-09-22. Status: audit complete; steps 1 and 2 plus step 3 planning implemented for review; live migration pending.
 
 ## Implementation update
 
-Step 2 adds the nine typed payload families, deterministic eligibility audits, exact horn/ammo lookups, bounded search and separate operator inspection/history. See [repository contract](HUNTER_OS_REPOSITORY.md). The final combined local run passed **470 tests with one optional skip**, including **113 new Hunter-domain tests** across SQLite and PostgreSQL 16. No source records have been imported. The next item is step 3's four-record import preview. Hosted CI on the persistence PR exposed logging-test interference and SQL result typing issues, corrected in a follow-up; broader CI and dependency-security failures remain merge gates.
+Step 2 adds the nine typed payload families, deterministic eligibility audits, exact horn/ammo lookups, bounded search and separate operator inspection/history. See [repository contract](HUNTER_OS_REPOSITORY.md). The final combined local run passed **470 tests with one optional skip**, including **113 new Hunter-domain tests** across SQLite and PostgreSQL 16. No source records have been imported. Step 3 now has an [offline import preview](../operators/hunter-os-import-preview.md): four proposed payloads and 101 preserved forum blocks, all 105 held, with no conversion conflicts in this snapshot. Installed-wheel execution and deterministic replay are verified. No registry baseline was read; atomic SQL apply and repeat-import no-op acceptance remain pending. Hosted CI on the persistence PR exposed logging-test interference and SQL result typing issues, corrected in a follow-up; the parent stack head `c430a80` now passes hosted CI. New-head CI and the legacy Chroma dependency audit remain merge gates.
 
 The persistence foundation is implemented on `codex/hunter-os-persistence`, based on the inspected main revision below. It adds explicit SQL scope enforcement, migration `002`, compatible Core/Kernel ledger storage, atomic version changes, Hunter envelope values, effective timestamps, and a read-only operator preflight. See [operator instructions](../operators/hunter-os-persistence.md).
 

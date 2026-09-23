@@ -8,9 +8,9 @@ repos:
     hooks:
       - id: trailing-whitespace
         # Preserve hashed source evidence, including Markdown hard line breaks.
-        exclude: ^integrations/hunter_review/sources/
+        exclude: ^(integrations/hunter_review/sources/|packages/core/animus/hunter_os/seed_sources/)
       - id: end-of-file-fixer
-        exclude: ^integrations/hunter_review/sources/
+        exclude: ^(integrations/hunter_review/sources/|packages/core/animus/hunter_os/seed_sources/)
       - id: check-yaml
         exclude: ^PORTFOLIO_MANIFEST\.yaml$
       - id: check-json
