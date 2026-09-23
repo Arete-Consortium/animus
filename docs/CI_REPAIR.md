@@ -166,10 +166,20 @@ removes its own container. It checks the evaluation module, not the full Forge
 suite. For normal use, run the Forge evaluation process/tests inside the Linux
 environment as well.
 
-On the latest local verification, Docker Desktop left even a minimal Python
-`print()` container in `Created` and timed out starting it. The new verifier could
-therefore not complete. An earlier isolated Linux run passed the four equivalent
-checks, but this is not evidence that the current Docker runtime is healthy.
-If startup remains stalled, restart Docker Desktop after safely stopping or
-scheduling downtime for running n8n services, then rerun the command above. This
-repair did not restart Docker or alter those services.
+Docker Desktop initially left even a minimal Python `print()` container in
+`Created`. Opening the app did not resolve it. An explicitly approved Docker
+Desktop restart restored container startup. Both existing n8n containers were
+started again, and the n8n readiness endpoint returned HTTP 200. Neither has an
+automatic restart policy, so explicitly restoring them was necessary.
+
+The first successful container start exposed a verifier packaging issue: Docker
+preserved the temporary bundle's private directory permissions. The helper now
+sets readable permissions on only its temporary source bundle, supporting
+non-root images without changing the image user or sandbox restrictions.
+
+After that repair, the checked-in verifier passed all four checks on this Mac
+through the existing Linux image: timeout, memory limit, normal code, and crash
+scoring. Its temporary container was removed. This verifies the Linux path; it
+does not make the native macOS resource-limit implementation portable. If Docker
+startup stalls again, arrange n8n downtime before restarting Desktop, restore
+both n8n containers, check readiness, and rerun the verification command.

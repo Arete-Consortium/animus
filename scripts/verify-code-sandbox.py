@@ -76,6 +76,12 @@ def main() -> int:
             for filename in ("base.py", "metrics.py"):
                 shutil.copy2(evaluation / filename, bundle / filename)
             shutil.copy2(__file__, bundle / "verify.py")
+            # docker cp preserves the private temporary directory's mode.
+            # The bundle contains only public source, and must be readable by
+            # images that run Python as a non-root user.
+            bundle.chmod(0o755)
+            for source_file in bundle.iterdir():
+                source_file.chmod(0o644)
             container_id = run(
                 "create",
                 "--pull",
