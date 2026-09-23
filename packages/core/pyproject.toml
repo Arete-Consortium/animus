@@ -157,3 +157,6 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
 ]
+
+[tool.setuptools.package-data]
+"animus.hunter_os" = ["seed_sources/provenance.json", "seed_sources/records/*.yaml", "seed_sources/forum/*.md"]
