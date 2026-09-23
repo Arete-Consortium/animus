@@ -688,7 +688,7 @@ class TestExecutorClients:
 
     def test_get_ollama_provider_success(self):
         """_get_ollama_provider creates provider from env vars."""
-        import animus_forge.workflow.executor_clients as ec
+        import animus_kernel.executor.executor_clients as ec
 
         # Reset cached provider
         ec._ollama_provider = None
@@ -696,7 +696,7 @@ class TestExecutorClients:
         mock_provider = MagicMock()
         with (
             patch(
-                "animus_forge.providers.ollama_provider.OllamaProvider", return_value=mock_provider
+                "animus_kernel.providers.ollama_provider.OllamaProvider", return_value=mock_provider
             ),
             patch.dict(
                 "os.environ", {"OLLAMA_HOST": "http://test:11434", "OLLAMA_MODEL": "llama3"}
@@ -710,12 +710,12 @@ class TestExecutorClients:
 
     def test_get_ollama_provider_failure(self):
         """_get_ollama_provider returns None when Ollama not available."""
-        import animus_forge.workflow.executor_clients as ec
+        import animus_kernel.executor.executor_clients as ec
 
         ec._ollama_provider = None
 
         with patch(
-            "animus_forge.providers.ollama_provider.OllamaProvider",
+            "animus_kernel.providers.ollama_provider.OllamaProvider",
             side_effect=ImportError("no ollama"),
         ):
             result = ec._get_ollama_provider()
@@ -725,7 +725,7 @@ class TestExecutorClients:
 
     def test_get_ollama_provider_cached(self):
         """_get_ollama_provider returns cached provider on second call."""
-        import animus_forge.workflow.executor_clients as ec
+        import animus_kernel.executor.executor_clients as ec
 
         sentinel = MagicMock()
         ec._ollama_provider = sentinel
@@ -737,7 +737,7 @@ class TestExecutorClients:
 
     def test_get_claude_client_failure(self):
         """_get_claude_client returns None when ClaudeCodeClient unavailable."""
-        import animus_forge.workflow.executor_clients as ec
+        import animus_kernel.executor.executor_clients as ec
 
         ec._claude_client = None
 
@@ -752,7 +752,7 @@ class TestExecutorClients:
 
     def test_get_openai_client_failure(self):
         """_get_openai_client returns None when OpenAIClient unavailable."""
-        import animus_forge.workflow.executor_clients as ec
+        import animus_kernel.executor.executor_clients as ec
 
         ec._openai_client = None
 
@@ -767,7 +767,7 @@ class TestExecutorClients:
 
     def test_configure_circuit_breaker(self):
         """configure_circuit_breaker creates and stores a breaker."""
-        import animus_forge.workflow.executor_clients as ec
+        import animus_kernel.executor.executor_clients as ec
 
         cb = ec.configure_circuit_breaker("test_key", failure_threshold=3)
         assert cb is not None

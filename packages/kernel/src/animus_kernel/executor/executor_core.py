@@ -203,6 +203,11 @@ class WorkflowExecutor(
                 return i
         return 0
 
+    def _budget_store(self):
+        from animus_kernel.db import get_task_store
+
+        return get_task_store()
+
     def _check_budget_exceeded(self, step: StepConfig, result: ExecutionResult) -> bool:
         """Check if token budget would be exceeded by step.
 
@@ -220,7 +225,7 @@ class WorkflowExecutor(
         # what makes ET an enforced constraint, not a reported number.
         from animus_kernel.budget import BudgetStatus
 
-        if self.budget_manager.status == BudgetStatus.EXCEEDED:
+        if getattr(self.budget_manager.status, "value", None) == BudgetStatus.EXCEEDED.value:
             result.status = "failed"
             result.error = "Budget exceeded (effective-tokens)"
             return True
@@ -234,9 +239,7 @@ class WorkflowExecutor(
         daily_limit = self.budget_manager.config.daily_token_limit
         if daily_limit > 0:
             try:
-                from animus_kernel.db import get_task_store
-
-                rows = get_task_store().get_daily_budget(days=1)
+                rows = self._budget_store().get_daily_budget(days=1)
                 today_total = sum(r.get("total_tokens", 0) for r in rows)
                 if today_total >= daily_limit:
                     result.status = "failed"
@@ -315,9 +318,7 @@ class WorkflowExecutor(
 
         # Record in task history (analytics, non-critical)
         try:
-            from animus_kernel.db import get_task_store
-
-            get_task_store().record_task(
+            self._budget_store().record_task(
                 job_id=step.id,
                 workflow_id=self._current_workflow_id or "",
                 status=step_result.status.value,
@@ -711,12 +712,12 @@ class WorkflowExecutor(
         token = step_result.output.get("token", "")
         if token:
             try:
-                from animus_kernel.executor.approval_store import get_approval_store
-
-                get_approval_store().backend.execute(
-                    "UPDATE approval_tokens SET next_step_id = ? WHERE token = ?",
-                    (next_step_id, token),
-                )
+                store = self._approval_store()
+                with store.backend.transaction():
+                    store.backend.execute(
+                        "UPDATE approval_tokens SET next_step_id = ? WHERE token = ?",
+                        (next_step_id, token),
+                    )
             except Exception:
                 logger.debug("Failed to update approval token next_step_id", exc_info=True)
 

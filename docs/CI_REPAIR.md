@@ -62,3 +62,39 @@ these adapters fails explicitly; it does not import Forge or own its credentials
 This fixes imports of the nonexistent `animus_kernel.mcp` package left by the split.
 The AreteGuard fixture now uses the actual schema migrations instead of a stale
 inline copy of the original eval schema.
+
+## Forge follow-up repairs
+
+The full Forge suite exposed additional split-package defects. Service clients
+and autonomy loops now have explicit application adapters, and Forge's CLI/API
+instantiate the composed Forge executor. Kernel integration dry runs need no
+client; actual integration execution without an adapter fails explicitly.
+Forge's daily budget check uses its own task store, while effective-token status
+is compared by value across package boundaries. The loader accepts the service
+step types already registered by the executor.
+
+Shell steps support an explicit `working_directory`, resolved independently of
+the command. The feature-build workflow uses it instead of `cd ... && ...`.
+Execution still uses `shell=False`; metacharacter, executable-path, interpreter
+flag, and command-allowlist checks remain in place. The changed workflow passes
+agent-lint with a score of 100/100.
+
+Forge SQLite connections enable foreign keys so declared cascades are enforced.
+This does not migrate or delete existing data; future writes are checked against
+the declared constraints. Test fixtures now target the actual Kernel owner of
+re-exported code, commit their setup transactions, and normalize platform paths.
+Test cleanup collects young objects after every case and the full heap every 25
+cases, retaining the existing 32 GB process memory limit.
+
+Approval tokens and memory-recall access updates now commit their writes. Approval
+creation, decisions, and the executor's next-step pointer survive subsequent
+transactions; regression coverage reopens the connection to verify durability.
+Fresh migration 021 creates the mission/task parents before copying lease rows,
+so the normal migration sequence also works with foreign keys enabled. Existing
+applied migrations are not replayed by this change.
+
+Cloud API factories, approval storage, and task-history writes use Forge-owned
+adapters. Dashboard and executor parallel metrics share the Kernel tracker instead
+of maintaining two independent singletons. YAML orchestration smoke tests mock
+retry sleeps while preserving the execution result checks; real shell tests retain
+the command-chaining rejection and use supported single commands.

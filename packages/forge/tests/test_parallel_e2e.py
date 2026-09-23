@@ -217,19 +217,19 @@ class TestAutoParallelE2E:
                 StepConfig(
                     id="step_a",
                     type="shell",
-                    params={"command": "sleep 0.1 && echo A"},
+                    params={"command": "sleep 0.1"},
                     outputs=["result_a"],
                 ),
                 StepConfig(
                     id="step_b",
                     type="shell",
-                    params={"command": "sleep 0.1 && echo B"},
+                    params={"command": "sleep 0.1"},
                     outputs=["result_b"],
                 ),
                 StepConfig(
                     id="step_c",
                     type="shell",
-                    params={"command": "sleep 0.1 && echo C"},
+                    params={"command": "sleep 0.1"},
                     outputs=["result_c"],
                 ),
                 StepConfig(

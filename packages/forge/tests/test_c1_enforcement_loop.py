@@ -89,7 +89,7 @@ def _ai_host():
 
 
 def test_executor_tags_sensitivity_and_surfaces_breakdown(monkeypatch):
-    import animus_forge.workflow.executor_ai as ai
+    import animus_kernel.executor.executor_ai as ai
 
     cap = _CaptureProvider()
     monkeypatch.setattr(ai, "_get_ollama_provider", lambda: cap)
@@ -110,7 +110,7 @@ def test_executor_tags_sensitivity_and_surfaces_breakdown(monkeypatch):
 
 
 def test_executor_defaults_public_when_unspecified(monkeypatch):
-    import animus_forge.workflow.executor_ai as ai
+    import animus_kernel.executor.executor_ai as ai
 
     cap = _CaptureProvider()
     monkeypatch.setattr(ai, "_get_ollama_provider", lambda: cap)

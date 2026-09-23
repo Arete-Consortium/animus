@@ -301,10 +301,9 @@ class TestAuditChecks:
     @pytest.mark.asyncio
     async def test_check_error_rate_ok(self, backend: SQLiteBackend) -> None:
         # Insert some jobs
-        for _ in range(10):
-            backend.execute("INSERT INTO jobs (status) VALUES (?)", ("completed",))
         with backend.transaction():
-            pass
+            for _ in range(10):
+                backend.execute("INSERT INTO jobs (status) VALUES (?)", ("completed",))
 
         check = AuditCheck(
             name="error_rate",
@@ -319,11 +318,10 @@ class TestAuditChecks:
 
     @pytest.mark.asyncio
     async def test_check_error_rate_warning(self, backend: SQLiteBackend) -> None:
-        for _ in range(9):
-            backend.execute("INSERT INTO jobs (status) VALUES (?)", ("completed",))
-        backend.execute("INSERT INTO jobs (status) VALUES (?)", ("failed",))
         with backend.transaction():
-            pass
+            for _ in range(9):
+                backend.execute("INSERT INTO jobs (status) VALUES (?)", ("completed",))
+            backend.execute("INSERT INTO jobs (status) VALUES (?)", ("failed",))
 
         check = AuditCheck(
             name="error_rate",

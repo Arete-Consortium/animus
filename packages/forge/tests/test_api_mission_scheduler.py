@@ -1,9 +1,8 @@
 """Tests for mission scheduler API routes."""
 
-import asyncio
 import os
 import tempfile
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -42,10 +41,8 @@ def test_client(memory_backend):
     # Wire up a minimal mission scheduler mock
     scheduler_mock = MagicMock()
     scheduler_mock.is_running = False  # Start as "stopped"
-    scheduler_mock.start = MagicMock(return_value=asyncio.Future())
-    scheduler_mock.start.return_value.set_result(None)
-    scheduler_mock.stop = MagicMock(return_value=asyncio.Future())
-    scheduler_mock.stop.return_value.set_result(None)
+    scheduler_mock.start = AsyncMock(return_value=None)
+    scheduler_mock.stop = AsyncMock(return_value=None)
     scheduler_mock.status.return_value = {
         "is_running": True,
         "active_workers": 1,

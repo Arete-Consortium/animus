@@ -145,7 +145,7 @@ class TestExecuteAutonomy:
         assert result["stop_reason"] == "error"
         assert "Provider not configured" in result["error"]
 
-    @patch("animus_forge.workflow.executor_agents.AgentStepHandlerMixin._get_autonomy_provider")
+    @patch("animus_kernel.executor.executor_agents.AgentStepHandlerMixin._get_autonomy_provider")
     def test_successful_run(self, mock_get_provider):
         fake_result = FakeAutonomyResult()
         mock_loop = MagicMock()
@@ -162,7 +162,7 @@ class TestExecuteAutonomy:
         assert result["final_output"] == "Done"
         assert result["stop_reason"] == "goal_achieved"
 
-    @patch("animus_forge.workflow.executor_agents.AgentStepHandlerMixin._get_autonomy_provider")
+    @patch("animus_kernel.executor.executor_agents.AgentStepHandlerMixin._get_autonomy_provider")
     def test_loop_exception_returns_error(self, mock_get_provider):
         mock_loop = MagicMock()
         mock_loop.run = AsyncMock(side_effect=RuntimeError("boom"))
@@ -178,7 +178,7 @@ class TestExecuteAutonomy:
         assert result["stop_reason"] == "error"
         assert "boom" in result["error"]
 
-    @patch("animus_forge.workflow.executor_agents.AgentStepHandlerMixin._get_autonomy_provider")
+    @patch("animus_kernel.executor.executor_agents.AgentStepHandlerMixin._get_autonomy_provider")
     def test_stores_in_memory_manager(self, mock_get_provider):
         fake_result = FakeAutonomyResult()
         mock_loop = MagicMock()
@@ -196,7 +196,7 @@ class TestExecuteAutonomy:
         call_kwargs = mm.store_output.call_args
         assert call_kwargs[1]["step_id"] == "step-mem"
 
-    @patch("animus_forge.workflow.executor_agents.AgentStepHandlerMixin._get_autonomy_provider")
+    @patch("animus_kernel.executor.executor_agents.AgentStepHandlerMixin._get_autonomy_provider")
     def test_stores_in_agent_memory(self, mock_get_provider):
         fake_result = FakeAutonomyResult(final_output="learned something")
         mock_loop = MagicMock()
@@ -217,7 +217,7 @@ class TestExecuteAutonomy:
         assert call_kwargs["content"] == "learned something"
         assert call_kwargs["memory_type"] == "learned"
 
-    @patch("animus_forge.workflow.executor_agents.AgentStepHandlerMixin._get_autonomy_provider")
+    @patch("animus_kernel.executor.executor_agents.AgentStepHandlerMixin._get_autonomy_provider")
     def test_recalls_agent_memory_into_state(self, mock_get_provider):
         fake_result = FakeAutonomyResult()
         mock_loop = MagicMock()
@@ -248,7 +248,7 @@ class TestExecuteAutonomy:
         assert result["stop_reason"] == "dry_run"
         am.store.assert_not_called()
 
-    @patch("animus_forge.workflow.executor_agents.AgentStepHandlerMixin._get_autonomy_provider")
+    @patch("animus_kernel.executor.executor_agents.AgentStepHandlerMixin._get_autonomy_provider")
     def test_memory_manager_error_swallowed(self, mock_get_provider):
         fake_result = FakeAutonomyResult()
         mock_loop = MagicMock()
@@ -265,7 +265,7 @@ class TestExecuteAutonomy:
 
         assert result["final_output"] == "Done"  # Still succeeds
 
-    @patch("animus_forge.workflow.executor_agents.AgentStepHandlerMixin._get_autonomy_provider")
+    @patch("animus_kernel.executor.executor_agents.AgentStepHandlerMixin._get_autonomy_provider")
     def test_agent_memory_recall_error_swallowed(self, mock_get_provider):
         fake_result = FakeAutonomyResult()
         mock_loop = MagicMock()
@@ -282,7 +282,7 @@ class TestExecuteAutonomy:
 
         assert result["final_output"] == "Done"
 
-    @patch("animus_forge.workflow.executor_agents.AgentStepHandlerMixin._get_autonomy_provider")
+    @patch("animus_kernel.executor.executor_agents.AgentStepHandlerMixin._get_autonomy_provider")
     def test_agent_memory_store_error_swallowed(self, mock_get_provider):
         fake_result = FakeAutonomyResult()
         mock_loop = MagicMock()
@@ -456,7 +456,7 @@ class TestGetAutonomyProvider:
         assert result is None
 
     @patch(
-        "animus_forge.workflow.executor_agents.AgentStepHandlerMixin._build_ollama_autonomy_provider"
+        "animus_kernel.executor.executor_agents.AgentStepHandlerMixin._build_ollama_autonomy_provider"
     )
     def test_ollama_provider_created(self, mock_build):
         mock_build.return_value = MagicMock()
@@ -465,7 +465,7 @@ class TestGetAutonomyProvider:
         assert result is not None
 
     @patch(
-        "animus_forge.workflow.executor_agents.AgentStepHandlerMixin._build_ollama_autonomy_provider"
+        "animus_kernel.executor.executor_agents.AgentStepHandlerMixin._build_ollama_autonomy_provider"
     )
     def test_provider_creation_error_returns_none(self, mock_build):
         mock_build.side_effect = RuntimeError("connection failed")

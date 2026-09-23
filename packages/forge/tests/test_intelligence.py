@@ -225,10 +225,11 @@ class TestCrossWorkflowMemory:
 
         # Ensure created_at is timezone-aware (SQLite stores naive timestamps)
         now_iso = datetime.now(UTC).isoformat()
-        memory.backend.execute(
-            "UPDATE agent_memories SET created_at = ?, accessed_at = ?",
-            (now_iso, now_iso),
-        )
+        with memory.backend.transaction():
+            memory.backend.execute(
+                "UPDATE agent_memories SET created_at = ?, accessed_at = ?",
+                (now_iso, now_iso),
+            )
 
         context = cross_memory.build_context_for_agent("builder", "Write a new FastAPI endpoint")
         assert "Cross-Workflow Learnings" in context
@@ -276,10 +277,11 @@ class TestCrossWorkflowMemory:
         # Store a memory and manually backdate it via direct SQL
         mid = cross_memory.record_learning("builder", "Old insight", importance=0.5)
         old_date = (datetime.now(UTC) - timedelta(days=365)).isoformat()
-        memory.backend.execute(
-            "UPDATE agent_memories SET created_at = ?, accessed_at = ? WHERE id = ?",
-            (old_date, old_date, mid),
-        )
+        with memory.backend.transaction():
+            memory.backend.execute(
+                "UPDATE agent_memories SET created_at = ?, accessed_at = ? WHERE id = ?",
+                (old_date, old_date, mid),
+            )
 
         affected = cross_memory.decay_memories(
             half_life_days=90, min_importance=0.05, agent_roles=["builder"]

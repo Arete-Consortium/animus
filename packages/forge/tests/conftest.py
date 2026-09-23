@@ -3,6 +3,7 @@
 import gc
 import resource
 import sys
+from itertools import count
 from pathlib import Path
 
 import pytest
@@ -30,8 +31,15 @@ except (OSError, ValueError):
     pass  # Some environments don't support RLIMIT_AS
 
 
+_gc_cycles = count(1)
+
+
 @pytest.fixture(autouse=True)
 def _force_gc():
-    """Force garbage collection after every test to prevent memory accumulation."""
+    """Reclaim test cycles without scanning all collected tests after every case.
+
+    Collect young objects each time and the full heap every 25 tests. The
+    32 GB process limit above remains in force for runaway allocations.
+    """
     yield
-    gc.collect()
+    gc.collect(2 if next(_gc_cycles) % 25 == 0 else 0)

@@ -46,12 +46,12 @@ limiter = Limiter(key_func=get_remote_address)
 # Eagerly-initialized components (created at import time)
 # ---------------------------------------------------------------------------
 from animus_kernel.executor.arete_hooks import get_arete_hooks  # noqa: E402
-from animus_kernel.executor.executor import WorkflowExecutor  # noqa: E402
 
 from animus_forge.api_clients import OpenAIClient  # noqa: E402
 from animus_forge.config import get_settings  # noqa: E402
 from animus_forge.orchestrator.workflow_engine_adapter import WorkflowEngineAdapter  # noqa: E402
 from animus_forge.prompts import PromptTemplateManager  # noqa: E402
+from animus_forge.workflow.executor import WorkflowExecutor  # noqa: E402
 
 workflow_engine = WorkflowEngineAdapter()
 yaml_workflow_executor = WorkflowExecutor()

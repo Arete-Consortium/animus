@@ -38,7 +38,7 @@ class TestDistributedLimiter:
     def test_get_distributed_limiter_lazy_init(self):
         """Lines 224-228: first call builds + caches the limiter."""
         ex = RateLimitedParallelExecutor(distributed=True)
-        with patch("animus_forge.workflow.distributed_rate_limiter.get_rate_limiter") as mock_get:
+        with patch("animus_kernel.executor.distributed_rate_limiter.get_rate_limiter") as mock_get:
             fake_limiter = MagicMock()
             mock_get.return_value = fake_limiter
 

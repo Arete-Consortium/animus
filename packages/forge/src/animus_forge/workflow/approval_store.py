@@ -64,25 +64,26 @@ class ResumeTokenStore:
         preview_json = json.dumps(preview) if preview else None
         context_json = json.dumps(context, default=str) if context else None
 
-        self.backend.execute(
-            """
-            INSERT INTO approval_tokens
-                (token, execution_id, workflow_id, step_id, next_step_id,
-                 status, prompt, preview, context, timeout_at)
-            VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)
-            """,
-            (
-                token,
-                execution_id,
-                workflow_id,
-                step_id,
-                next_step_id,
-                prompt,
-                preview_json,
-                context_json,
-                timeout_at.isoformat(),
-            ),
-        )
+        with self.backend.transaction():
+            self.backend.execute(
+                """
+                INSERT INTO approval_tokens
+                    (token, execution_id, workflow_id, step_id, next_step_id,
+                     status, prompt, preview, context, timeout_at)
+                VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)
+                """,
+                (
+                    token,
+                    execution_id,
+                    workflow_id,
+                    step_id,
+                    next_step_id,
+                    prompt,
+                    preview_json,
+                    context_json,
+                    timeout_at.isoformat(),
+                ),
+            )
         return token
 
     def get_by_token(self, token: str) -> dict | None:
@@ -121,14 +122,15 @@ class ResumeTokenStore:
 
         Returns True if the token existed and was pending.
         """
-        cursor = self.backend.execute(
-            """
-            UPDATE approval_tokens
-            SET status = 'approved', decided_at = ?, decided_by = ?
-            WHERE token = ? AND status = 'pending'
-            """,
-            (datetime.now().isoformat(), approved_by, token),
-        )
+        with self.backend.transaction():
+            cursor = self.backend.execute(
+                """
+                UPDATE approval_tokens
+                SET status = 'approved', decided_at = ?, decided_by = ?
+                WHERE token = ? AND status = 'pending'
+                """,
+                (datetime.now().isoformat(), approved_by, token),
+            )
         return cursor.rowcount > 0
 
     def reject(self, token: str, rejected_by: str = "api") -> bool:
@@ -136,26 +138,28 @@ class ResumeTokenStore:
 
         Returns True if the token existed and was pending.
         """
-        cursor = self.backend.execute(
-            """
-            UPDATE approval_tokens
-            SET status = 'rejected', decided_at = ?, decided_by = ?
-            WHERE token = ? AND status = 'pending'
-            """,
-            (datetime.now().isoformat(), rejected_by, token),
-        )
+        with self.backend.transaction():
+            cursor = self.backend.execute(
+                """
+                UPDATE approval_tokens
+                SET status = 'rejected', decided_at = ?, decided_by = ?
+                WHERE token = ? AND status = 'pending'
+                """,
+                (datetime.now().isoformat(), rejected_by, token),
+            )
         return cursor.rowcount > 0
 
     def expire_stale(self) -> int:
         """Bulk-expire tokens past their timeout. Returns count expired."""
-        cursor = self.backend.execute(
-            """
-            UPDATE approval_tokens
-            SET status = 'expired'
-            WHERE status = 'pending' AND timeout_at < ?
-            """,
-            (datetime.now().isoformat(),),
-        )
+        with self.backend.transaction():
+            cursor = self.backend.execute(
+                """
+                UPDATE approval_tokens
+                SET status = 'expired'
+                WHERE status = 'pending' AND timeout_at < ?
+                """,
+                (datetime.now().isoformat(),),
+            )
         return cursor.rowcount
 
     def get_by_execution(self, execution_id: str) -> list[dict]:
@@ -182,10 +186,11 @@ class ResumeTokenStore:
 
     def _expire_token(self, token: str) -> None:
         """Mark a single token as expired."""
-        self.backend.execute(
-            "UPDATE approval_tokens SET status = 'expired' WHERE token = ?",
-            (token,),
-        )
+        with self.backend.transaction():
+            self.backend.execute(
+                "UPDATE approval_tokens SET status = 'expired' WHERE token = ?",
+                (token,),
+            )
 
 
 def get_approval_store() -> ResumeTokenStore:

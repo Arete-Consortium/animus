@@ -48,6 +48,12 @@ class AIHandlersMixin:
     dry_run: bool
     memory_manager: WorkflowMemoryManager | None
 
+    def _claude_api_client(self):
+        return _get_claude_client()
+
+    def _openai_api_client(self):
+        return _get_openai_client()
+
     def _execute_claude_code(self, step: StepConfig, context: dict) -> dict:
         """Execute a Claude Code step using the Anthropic API.
 
@@ -98,7 +104,7 @@ class AIHandlersMixin:
             return output
 
         # Get Claude client
-        client = _get_claude_client()
+        client = self._claude_api_client()
         if not client:
             raise RuntimeError("Claude Code client not available. Check API key configuration.")
 
@@ -197,7 +203,7 @@ class AIHandlersMixin:
             return output
 
         # Get OpenAI client
-        client = _get_openai_client()
+        client = self._openai_api_client()
         if not client:
             raise RuntimeError("OpenAI client not available. Check API key configuration.")
 

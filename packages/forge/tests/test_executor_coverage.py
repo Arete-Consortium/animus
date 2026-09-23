@@ -311,10 +311,10 @@ class TestExecuteShell:
             setattr(s, k, v)
         return s
 
-    @patch("animus_forge.workflow.executor_integrations.subprocess.run")
+    @patch("animus_kernel.executor.executor_integrations.subprocess.run")
     @patch("animus_forge.config.get_settings")
-    @patch("animus_forge.utils.validation.validate_shell_command")
-    @patch("animus_forge.utils.validation.substitute_shell_variables")
+    @patch("animus_kernel.utils.validation.validate_shell_command")
+    @patch("animus_kernel.utils.validation.substitute_shell_variables")
     def test_successful_command(self, mock_sub, mock_val, mock_settings, mock_run):
         mock_settings.return_value = self._settings_mock()
         mock_val.return_value = "echo hi"
@@ -331,10 +331,10 @@ class TestExecuteShell:
         assert out["stdout"] == "hi\n"
         assert out["returncode"] == 0
 
-    @patch("animus_forge.workflow.executor_integrations.subprocess.run")
+    @patch("animus_kernel.executor.executor_integrations.subprocess.run")
     @patch("animus_forge.config.get_settings")
-    @patch("animus_forge.utils.validation.validate_shell_command")
-    @patch("animus_forge.utils.validation.substitute_shell_variables")
+    @patch("animus_kernel.utils.validation.validate_shell_command")
+    @patch("animus_kernel.utils.validation.substitute_shell_variables")
     def test_failed_command_raises(self, mock_sub, mock_val, mock_settings, mock_run):
         mock_settings.return_value = self._settings_mock()
         mock_val.return_value = "false"
@@ -350,10 +350,10 @@ class TestExecuteShell:
         with pytest.raises(RuntimeError, match="Command failed with code 1"):
             exe._execute_shell(step, {})
 
-    @patch("animus_forge.workflow.executor_integrations.subprocess.run")
+    @patch("animus_kernel.executor.executor_integrations.subprocess.run")
     @patch("animus_forge.config.get_settings")
-    @patch("animus_forge.utils.validation.validate_shell_command")
-    @patch("animus_forge.utils.validation.substitute_shell_variables")
+    @patch("animus_kernel.utils.validation.validate_shell_command")
+    @patch("animus_kernel.utils.validation.substitute_shell_variables")
     def test_timeout_raises(self, mock_sub, mock_val, mock_settings, mock_run):
         mock_settings.return_value = self._settings_mock()
         mock_val.return_value = "sleep 999"
@@ -365,10 +365,10 @@ class TestExecuteShell:
         with pytest.raises(RuntimeError, match="timed out"):
             exe._execute_shell(step, {})
 
-    @patch("animus_forge.workflow.executor_integrations.subprocess.run")
+    @patch("animus_kernel.executor.executor_integrations.subprocess.run")
     @patch("animus_forge.config.get_settings")
-    @patch("animus_forge.utils.validation.validate_shell_command")
-    @patch("animus_forge.utils.validation.substitute_shell_variables")
+    @patch("animus_kernel.utils.validation.validate_shell_command")
+    @patch("animus_kernel.utils.validation.substitute_shell_variables")
     def test_output_truncation(self, mock_sub, mock_val, mock_settings, mock_run):
         mock_settings.return_value = self._settings_mock(shell_max_output_bytes=20)
         mock_val.return_value = "big"
@@ -385,7 +385,7 @@ class TestExecuteShell:
         assert "[OUTPUT TRUNCATED]" in out["stdout"]
 
     @patch("animus_forge.config.get_settings")
-    @patch("animus_forge.utils.validation.validate_shell_command")
+    @patch("animus_kernel.utils.validation.validate_shell_command")
     def test_dangerous_command_rejected(self, mock_val, mock_settings):
         from animus_forge.errors import ValidationError
 
@@ -429,7 +429,7 @@ class TestExecuteWithRetries:
         assert error_msg is None
         assert retries == 0
 
-    @patch("animus_forge.workflow.executor_patterns.time.sleep")
+    @patch("animus_kernel.executor.executor_patterns.time.sleep")
     def test_success_after_retry(self, mock_sleep):
         call_count = 0
 
@@ -448,7 +448,7 @@ class TestExecuteWithRetries:
         assert retries == 1  # one failed attempt before success
         mock_sleep.assert_called()
 
-    @patch("animus_forge.workflow.executor_patterns.time.sleep")
+    @patch("animus_kernel.executor.executor_patterns.time.sleep")
     def test_all_retries_fail_raises(self, mock_sleep):
         handler = MagicMock(side_effect=RuntimeError("always fails"))
         exe = _bare_executor(budget_manager=None, _handlers={"shell": handler})

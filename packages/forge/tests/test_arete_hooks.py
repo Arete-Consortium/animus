@@ -18,15 +18,15 @@ from animus_forge.workflow.arete_hooks import (
 class TestOnStepFailure:
     """Tests for the error callback hook."""
 
-    @patch("animus_forge.workflow.arete_hooks.HAS_QUORUM_BRIDGE", False)
+    @patch("animus_kernel.executor.arete_hooks.HAS_QUORUM_BRIDGE", False)
     def test_noop_without_quorum(self):
         hooks = AreteHooks(phi_scorer=MagicMock(), stigmergy_field=MagicMock())
         # Should not raise
         hooks.on_step_failure("step1", "wf1", Exception("err"))
 
-    @patch("animus_forge.workflow.arete_hooks.HAS_QUORUM_BRIDGE", True)
-    @patch("animus_forge.workflow.arete_hooks.record_failure_outcome", create=True)
-    @patch("animus_forge.workflow.arete_hooks.leave_autopsy_marker", create=True)
+    @patch("animus_kernel.executor.arete_hooks.HAS_QUORUM_BRIDGE", True)
+    @patch("animus_kernel.executor.arete_hooks.record_failure_outcome", create=True)
+    @patch("animus_kernel.executor.arete_hooks.leave_autopsy_marker", create=True)
     def test_records_phi_score(self, mock_marker, mock_record):
         mock_record.return_value = 0.4
         scorer = MagicMock()
@@ -36,9 +36,9 @@ class TestOnStepFailure:
         mock_record.assert_called_once()
         assert mock_record.call_args.kwargs["failure_type"] == "tool_loop"
 
-    @patch("animus_forge.workflow.arete_hooks.HAS_QUORUM_BRIDGE", True)
-    @patch("animus_forge.workflow.arete_hooks.record_failure_outcome", create=True)
-    @patch("animus_forge.workflow.arete_hooks.leave_autopsy_marker", create=True)
+    @patch("animus_kernel.executor.arete_hooks.HAS_QUORUM_BRIDGE", True)
+    @patch("animus_kernel.executor.arete_hooks.record_failure_outcome", create=True)
+    @patch("animus_kernel.executor.arete_hooks.leave_autopsy_marker", create=True)
     def test_leaves_stigmergy_marker(self, mock_marker, mock_record):
         mock_record.return_value = 0.5
         scorer = MagicMock()
@@ -48,18 +48,18 @@ class TestOnStepFailure:
         mock_marker.assert_called_once()
         assert mock_marker.call_args.kwargs["target"] == "wf-2/build"
 
-    @patch("animus_forge.workflow.arete_hooks.HAS_QUORUM_BRIDGE", True)
-    @patch("animus_forge.workflow.arete_hooks.record_failure_outcome", create=True)
-    @patch("animus_forge.workflow.arete_hooks.leave_autopsy_marker", create=True)
+    @patch("animus_kernel.executor.arete_hooks.HAS_QUORUM_BRIDGE", True)
+    @patch("animus_kernel.executor.arete_hooks.record_failure_outcome", create=True)
+    @patch("animus_kernel.executor.arete_hooks.leave_autopsy_marker", create=True)
     def test_no_scorer_skips_phi(self, mock_marker, mock_record):
         hooks = AreteHooks(phi_scorer=None, stigmergy_field=MagicMock())
         hooks.on_step_failure("s1", "wf1", Exception("err"))
         mock_record.assert_not_called()
         mock_marker.assert_called_once()
 
-    @patch("animus_forge.workflow.arete_hooks.HAS_QUORUM_BRIDGE", True)
-    @patch("animus_forge.workflow.arete_hooks.record_failure_outcome", create=True)
-    @patch("animus_forge.workflow.arete_hooks.leave_autopsy_marker", create=True)
+    @patch("animus_kernel.executor.arete_hooks.HAS_QUORUM_BRIDGE", True)
+    @patch("animus_kernel.executor.arete_hooks.record_failure_outcome", create=True)
+    @patch("animus_kernel.executor.arete_hooks.leave_autopsy_marker", create=True)
     def test_no_field_skips_marker(self, mock_marker, mock_record):
         mock_record.return_value = 0.5
         hooks = AreteHooks(phi_scorer=MagicMock(), stigmergy_field=None)
@@ -67,9 +67,9 @@ class TestOnStepFailure:
         mock_record.assert_called_once()
         mock_marker.assert_not_called()
 
-    @patch("animus_forge.workflow.arete_hooks.HAS_QUORUM_BRIDGE", True)
-    @patch("animus_forge.workflow.arete_hooks.record_failure_outcome", create=True)
-    @patch("animus_forge.workflow.arete_hooks.leave_autopsy_marker", create=True)
+    @patch("animus_kernel.executor.arete_hooks.HAS_QUORUM_BRIDGE", True)
+    @patch("animus_kernel.executor.arete_hooks.record_failure_outcome", create=True)
+    @patch("animus_kernel.executor.arete_hooks.leave_autopsy_marker", create=True)
     def test_phi_exception_swallowed(self, mock_marker, mock_record):
         mock_record.side_effect = RuntimeError("scorer broken")
         hooks = AreteHooks(phi_scorer=MagicMock(), stigmergy_field=MagicMock())
@@ -77,9 +77,9 @@ class TestOnStepFailure:
         hooks.on_step_failure("s1", "wf1", Exception("err"))
         mock_marker.assert_called_once()  # marker still called
 
-    @patch("animus_forge.workflow.arete_hooks.HAS_QUORUM_BRIDGE", True)
-    @patch("animus_forge.workflow.arete_hooks.record_failure_outcome", create=True)
-    @patch("animus_forge.workflow.arete_hooks.leave_autopsy_marker", create=True)
+    @patch("animus_kernel.executor.arete_hooks.HAS_QUORUM_BRIDGE", True)
+    @patch("animus_kernel.executor.arete_hooks.record_failure_outcome", create=True)
+    @patch("animus_kernel.executor.arete_hooks.leave_autopsy_marker", create=True)
     def test_uses_default_agent_id(self, mock_marker, mock_record):
         mock_record.return_value = 0.5
         hooks = AreteHooks(
@@ -90,9 +90,9 @@ class TestOnStepFailure:
         hooks.on_step_failure("s1", "wf1", Exception("err"))
         assert mock_record.call_args.kwargs["agent_id"] == "my-agent"
 
-    @patch("animus_forge.workflow.arete_hooks.HAS_QUORUM_BRIDGE", True)
-    @patch("animus_forge.workflow.arete_hooks.record_failure_outcome", create=True)
-    @patch("animus_forge.workflow.arete_hooks.leave_autopsy_marker", create=True)
+    @patch("animus_kernel.executor.arete_hooks.HAS_QUORUM_BRIDGE", True)
+    @patch("animus_kernel.executor.arete_hooks.record_failure_outcome", create=True)
+    @patch("animus_kernel.executor.arete_hooks.leave_autopsy_marker", create=True)
     def test_error_text_truncated_to_500(self, mock_marker, mock_record):
         mock_record.return_value = 0.5
         hooks = AreteHooks(phi_scorer=MagicMock(), stigmergy_field=MagicMock())
@@ -108,7 +108,7 @@ class TestOnStepFailure:
 class TestOnWorkflowComplete:
     """Tests for the post-workflow hook."""
 
-    @patch("animus_forge.workflow.arete_hooks.HAS_CORE_BRIDGE", False)
+    @patch("animus_kernel.executor.arete_hooks.HAS_CORE_BRIDGE", False)
     def test_noop_without_core(self):
         hooks = AreteHooks(memory_layer=MagicMock())
         hooks.on_workflow_complete("wf1", "success")
@@ -121,8 +121,8 @@ class TestOnWorkflowComplete:
         hooks = AreteHooks()
         hooks.on_workflow_complete("wf1", "success")
 
-    @patch("animus_forge.workflow.arete_hooks.HAS_CORE_BRIDGE", True)
-    @patch("animus_forge.workflow.arete_hooks.auto_sync_verdicts", create=True)
+    @patch("animus_kernel.executor.arete_hooks.HAS_CORE_BRIDGE", True)
+    @patch("animus_kernel.executor.arete_hooks.auto_sync_verdicts", create=True)
     def test_syncs_on_success(self, mock_sync):
         mock_sync.return_value = 3
         memory = MagicMock()
@@ -130,8 +130,8 @@ class TestOnWorkflowComplete:
         hooks.on_workflow_complete("wf-1", "success")
         mock_sync.assert_called_once_with(memory)
 
-    @patch("animus_forge.workflow.arete_hooks.HAS_CORE_BRIDGE", True)
-    @patch("animus_forge.workflow.arete_hooks.auto_sync_verdicts", create=True)
+    @patch("animus_kernel.executor.arete_hooks.HAS_CORE_BRIDGE", True)
+    @patch("animus_kernel.executor.arete_hooks.auto_sync_verdicts", create=True)
     def test_sync_exception_swallowed(self, mock_sync):
         mock_sync.side_effect = RuntimeError("DB locked")
         hooks = AreteHooks(memory_layer=MagicMock())
@@ -200,7 +200,7 @@ class TestGetAreteHooks:
             {
                 "animus_quorum.scoring": None,
                 "animus_quorum.stigmergy": None,
-                "animus.memory": None,
+                "animus_kernel.memory": None,
             },
         ):
             result = get_arete_hooks()
@@ -215,7 +215,7 @@ class TestGetAreteHooks:
             {
                 "animus_quorum.scoring": fake_scoring,
                 "animus_quorum.stigmergy": None,
-                "animus.memory": None,
+                "animus_kernel.memory": None,
             },
         ):
             result = get_arete_hooks()
@@ -230,14 +230,14 @@ class TestGetAreteHooks:
         fake_scoring.ScoreStore = MagicMock
         fake_stigmergy = types.ModuleType("animus_quorum.stigmergy")
         fake_stigmergy.StigmergyField = MagicMock
-        fake_memory = types.ModuleType("animus.memory")
+        fake_memory = types.ModuleType("animus_kernel.memory")
         fake_memory.MemoryLayer = MagicMock
         with patch.dict(
             "sys.modules",
             {
                 "animus_quorum.scoring": fake_scoring,
                 "animus_quorum.stigmergy": fake_stigmergy,
-                "animus.memory": fake_memory,
+                "animus_kernel.memory": fake_memory,
             },
         ):
             result = get_arete_hooks()

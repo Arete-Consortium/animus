@@ -316,7 +316,7 @@ class TestGetRateLimiter:
         mock_settings = MagicMock()
         mock_settings.redis_url = None
         with patch(
-            "animus_forge.config.settings.get_settings",
+            "animus_kernel.config.settings.get_settings",
             return_value=mock_settings,
         ):
             reset_rate_limiter()
@@ -329,7 +329,7 @@ class TestGetRateLimiter:
         mock_settings = MagicMock()
         mock_settings.redis_url = "redis://localhost:6379"
         with patch(
-            "animus_forge.config.settings.get_settings",
+            "animus_kernel.config.settings.get_settings",
             return_value=mock_settings,
         ):
             with patch("importlib.util.find_spec") as mock_find_spec:
@@ -345,7 +345,7 @@ class TestGetRateLimiter:
         mock_settings = MagicMock()
         mock_settings.redis_url = "redis://localhost:6379"
         with patch(
-            "animus_forge.config.settings.get_settings",
+            "animus_kernel.config.settings.get_settings",
             return_value=mock_settings,
         ):
             with patch("importlib.util.find_spec") as mock_find_spec:

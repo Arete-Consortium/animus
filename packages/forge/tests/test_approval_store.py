@@ -141,10 +141,11 @@ class TestGetByToken:
         )
 
         # Force the timeout to be in the past
-        store.backend.execute(
-            "UPDATE approval_tokens SET timeout_at = ? WHERE token = ?",
-            ((datetime.now() - timedelta(hours=1)).isoformat(), token),
-        )
+        with store.backend.transaction():
+            store.backend.execute(
+                "UPDATE approval_tokens SET timeout_at = ? WHERE token = ?",
+                ((datetime.now() - timedelta(hours=1)).isoformat(), token),
+            )
 
         assert store.get_by_token(token) is None
 
@@ -252,10 +253,11 @@ class TestExpireStale:
             step_id="gate",
             next_step_id="next",
         )
-        store.backend.execute(
-            "UPDATE approval_tokens SET timeout_at = ? WHERE token = ?",
-            ((datetime.now() - timedelta(hours=1)).isoformat(), token),
-        )
+        with store.backend.transaction():
+            store.backend.execute(
+                "UPDATE approval_tokens SET timeout_at = ? WHERE token = ?",
+                ((datetime.now() - timedelta(hours=1)).isoformat(), token),
+            )
 
         # Create a valid token
         valid_token = store.create_token(
@@ -344,3 +346,20 @@ class TestSingleton:
             s2 = get_approval_store()
             assert s1 is not s2
         reset_approval_store()
+
+
+def test_approval_decision_survives_connection_reopen(store):
+    """A response to an approval request must be durable across worker restarts."""
+    token = store.create_token(
+        execution_id="durable-execution",
+        workflow_id="workflow",
+        step_id="approval",
+        next_step_id="apply",
+    )
+    store.backend.close()
+    assert store.get_by_token(token)["status"] == "pending"
+    assert store.approve(token, approved_by="reviewer") is True
+    store.backend.close()
+    decision = store.get_by_token(token)
+    assert decision["status"] == "approved"
+    assert decision["decided_by"] == "reviewer"
