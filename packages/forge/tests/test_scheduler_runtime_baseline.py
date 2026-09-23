@@ -618,10 +618,11 @@ def test_api_routes_inspect_private_stopped_field():
 
 
 @pytest.mark.asyncio()
+@pytest.mark.parametrize("initial_shutdown", [False, True])
 async def test_api_with_real_scheduler_lifecycle(
-    ledger, lease_manager, worker_pool, cost_enforcer, metrics
+    ledger, lease_manager, worker_pool, cost_enforcer, metrics, monkeypatch, initial_shutdown
 ):
-    """The scheduler API must work against a real scheduler instance."""
+    """Exercise a real scheduler independently of prior API lifespan tests."""
     from httpx import ASGITransport, AsyncClient
 
     from animus_forge import api_state
@@ -629,7 +630,6 @@ async def test_api_with_real_scheduler_lifecycle(
 
     token = create_access_token("test-user")
     headers = {"Authorization": f"Bearer {token}"}
-
     scheduler = MissionScheduler(
         ledger=ledger,
         lease_manager=lease_manager,
@@ -638,33 +638,31 @@ async def test_api_with_real_scheduler_lifecycle(
         metrics=metrics,
         config=SchedulerConfig(poll_interval_seconds=0.1),
     )
-
+    monkeypatch.setitem(api_state._app_state, "shutting_down", initial_shutdown)
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        # The app lifespan creates and starts its own scheduler.  Stop it so
-        # we can substitute the test scheduler cleanly.
-        await client.post("/v1/scheduler/stop", headers=headers)
+    # ASGITransport does not run lifespan. Supply and restore the state needed
+    # by this test instead of inheriting a previous TestClient's shutdown flag.
+    with (
+        patch.dict(api_state._app_state, {"shutting_down": False}),
+        patch.object(api_state, "mission_scheduler", scheduler),
+    ):
+        try:
+            async with AsyncClient(transport=transport, base_url="http://test") as client:
+                response = await client.post("/v1/scheduler/start", headers=headers)
+                assert response.status_code == 200
+                assert response.json()["status"] == "started"
 
-        # Inject the test scheduler and exercise it through the API.
-        api_state.mission_scheduler = scheduler
+                response = await client.get("/v1/scheduler/status", headers=headers)
+                assert response.status_code == 200
+                status = response.json()
+                assert status["is_running"] is True
+                assert "lifecycle_state" in status
 
-        response = await client.post("/v1/scheduler/start", headers=headers)
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "started"
-
-        # Real status must reflect the running scheduler.
-        response = await client.get("/v1/scheduler/status", headers=headers)
-        assert response.status_code == 200
-        status = response.json()
-        assert status["is_running"] is True
-        # Health should expose a public lifecycle state, not a private flag.
-        assert "lifecycle_state" in status
-
-        response = await client.post("/v1/scheduler/stop", headers=headers)
-        assert response.status_code == 200
-
-    api_state.mission_scheduler = None
+                response = await client.post("/v1/scheduler/stop", headers=headers)
+                assert response.status_code == 200
+        finally:
+            await scheduler.stop()
+    assert api_state._app_state["shutting_down"] is initial_shutdown
 
 
 @pytest.mark.asyncio()
