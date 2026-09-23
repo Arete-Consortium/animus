@@ -635,7 +635,7 @@ class TestDoCommand:
 
     @patch("animus_forge.cli.commands.dev.get_workflow_executor")
     @patch("animus_forge.cli.commands.dev.detect_codebase_context")
-    @patch("animus_forge.workflow.loader.load_workflow")
+    @patch("animus_kernel.executor.loader.load_workflow")
     def test_do_dry_run(self, mock_load, mock_context, mock_get_executor):
         """Do command with --dry-run shows plan."""
         mock_context.return_value = {
@@ -756,7 +756,7 @@ class TestBudgetSubcommands:
 class TestScheduleSubcommands:
     """Tests for schedule subcommands."""
 
-    @patch("animus_forge.workflow.WorkflowScheduler")
+    @patch("animus_kernel.executor.WorkflowScheduler")
     def test_schedule_list_empty(self, mock_scheduler_class):
         """Schedule list shows message when empty."""
         mock_scheduler = MagicMock()
@@ -768,7 +768,7 @@ class TestScheduleSubcommands:
         assert result.exit_code == 0
         assert "No scheduled workflows" in result.output
 
-    @patch("animus_forge.workflow.WorkflowScheduler")
+    @patch("animus_kernel.executor.WorkflowScheduler")
     def test_schedule_add_requires_cron_or_interval(self, mock_scheduler_class):
         """Schedule add requires --cron or --interval."""
         result = runner.invoke(app, ["schedule", "add", "workflow.json"])
@@ -776,8 +776,8 @@ class TestScheduleSubcommands:
         assert result.exit_code == 1
         assert "Must specify" in result.output
 
-    @patch("animus_forge.workflow.WorkflowScheduler")
-    @patch("animus_forge.workflow.ScheduleConfig")
+    @patch("animus_kernel.executor.WorkflowScheduler")
+    @patch("animus_kernel.executor.ScheduleConfig")
     def test_schedule_add_with_cron(self, mock_config, mock_scheduler_class):
         """Schedule add with cron expression."""
         mock_scheduler = MagicMock()
@@ -791,7 +791,7 @@ class TestScheduleSubcommands:
         assert result.exit_code == 0
         assert "created" in result.output.lower()
 
-    @patch("animus_forge.workflow.WorkflowScheduler")
+    @patch("animus_kernel.executor.WorkflowScheduler")
     def test_schedule_remove(self, mock_scheduler_class):
         """Schedule remove deletes schedule."""
         mock_scheduler = MagicMock()
@@ -803,7 +803,7 @@ class TestScheduleSubcommands:
         assert result.exit_code == 0
         assert "removed" in result.output.lower()
 
-    @patch("animus_forge.workflow.WorkflowScheduler")
+    @patch("animus_kernel.executor.WorkflowScheduler")
     def test_schedule_remove_not_found(self, mock_scheduler_class):
         """Schedule remove fails when not found."""
         mock_scheduler = MagicMock()
@@ -815,7 +815,7 @@ class TestScheduleSubcommands:
         assert result.exit_code == 1
         assert "not found" in result.output.lower()
 
-    @patch("animus_forge.workflow.WorkflowScheduler")
+    @patch("animus_kernel.executor.WorkflowScheduler")
     def test_schedule_pause(self, mock_scheduler_class):
         """Schedule pause pauses schedule."""
         mock_scheduler = MagicMock()
@@ -827,7 +827,7 @@ class TestScheduleSubcommands:
         assert result.exit_code == 0
         assert "paused" in result.output.lower()
 
-    @patch("animus_forge.workflow.WorkflowScheduler")
+    @patch("animus_kernel.executor.WorkflowScheduler")
     def test_schedule_resume(self, mock_scheduler_class):
         """Schedule resume resumes paused schedule."""
         mock_scheduler = MagicMock()

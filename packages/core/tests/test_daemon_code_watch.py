@@ -119,7 +119,9 @@ class TestDaemonIntegration:
         assert watched[0]["root"] == str(cb)
         assert watched[0]["tags"] == ["myapp"]
 
-    def test_daemon_tick_scans_code_watchers(self, tmp_path: Path):
+    def test_daemon_tick_scans_code_watchers(self, tmp_path: Path, monkeypatch):
+        monkeypatch.setenv("ANIMUS_DATA_DIR", str(tmp_path / "data"))
+        monkeypatch.setenv("ANIMUS_MEMORY_BACKEND", "json")
         from animus.daemon.core import AnimusDaemon, DaemonConfig
 
         config = DaemonConfig(

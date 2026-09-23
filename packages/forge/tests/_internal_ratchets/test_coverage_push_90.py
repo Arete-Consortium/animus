@@ -690,7 +690,7 @@ class TestCLISchedule:
 
     def test_schedule_list_empty(self, runner, app):
         mock_module, _ = self._mock_workflow_module([])
-        with patch.dict(sys.modules, {"animus_forge.workflow": mock_module}):
+        with patch.dict(sys.modules, {"animus_kernel.executor": mock_module}):
             result = runner.invoke(app, ["list"])
             assert result.exit_code == 0
             assert "No scheduled" in result.output
@@ -705,7 +705,7 @@ class TestCLISchedule:
         sched.next_run_time = datetime(2024, 6, 1, 12, 0, 0)
 
         mock_module, _ = self._mock_workflow_module([sched])
-        with patch.dict(sys.modules, {"animus_forge.workflow": mock_module}):
+        with patch.dict(sys.modules, {"animus_kernel.executor": mock_module}):
             result = runner.invoke(app, ["list"])
             assert result.exit_code == 0
 
@@ -714,14 +714,14 @@ class TestCLISchedule:
         sched.__dict__ = {"id": "1", "name": "test"}
 
         mock_module, _ = self._mock_workflow_module([sched])
-        with patch.dict(sys.modules, {"animus_forge.workflow": mock_module}):
+        with patch.dict(sys.modules, {"animus_kernel.executor": mock_module}):
             result = runner.invoke(app, ["list", "--json"])
             assert result.exit_code == 0
 
     def test_schedule_list_error(self, runner, app):
         mock_module = MagicMock()
         mock_module.WorkflowScheduler.side_effect = RuntimeError("fail")
-        with patch.dict(sys.modules, {"animus_forge.workflow": mock_module}):
+        with patch.dict(sys.modules, {"animus_kernel.executor": mock_module}):
             result = runner.invoke(app, ["list"])
             assert result.exit_code != 0
 
@@ -731,7 +731,7 @@ class TestCLISchedule:
         mock_result.schedule_id = "new-sched-id"
         mock_scheduler.add.return_value = mock_result
 
-        with patch.dict(sys.modules, {"animus_forge.workflow": mock_module}):
+        with patch.dict(sys.modules, {"animus_kernel.executor": mock_module}):
             result = runner.invoke(app, ["add", "workflow.yaml", "--cron", "0 * * * *"])
             assert result.exit_code == 0
 
@@ -741,7 +741,7 @@ class TestCLISchedule:
         mock_result.schedule_id = "new-sched-id"
         mock_scheduler.add.return_value = mock_result
 
-        with patch.dict(sys.modules, {"animus_forge.workflow": mock_module}):
+        with patch.dict(sys.modules, {"animus_kernel.executor": mock_module}):
             result = runner.invoke(app, ["add", "workflow.yaml", "--interval", "60"])
             assert result.exit_code == 0
 
@@ -753,70 +753,70 @@ class TestCLISchedule:
         mock_module = MagicMock()
         mock_module.WorkflowScheduler.side_effect = RuntimeError("fail")
         mock_module.ScheduleConfig = MagicMock()
-        with patch.dict(sys.modules, {"animus_forge.workflow": mock_module}):
+        with patch.dict(sys.modules, {"animus_kernel.executor": mock_module}):
             result = runner.invoke(app, ["add", "wf.yaml", "--cron", "* * * * *"])
             assert result.exit_code != 0
 
     def test_schedule_remove_success(self, runner, app):
         mock_module, mock_scheduler = self._mock_workflow_module()
         mock_scheduler.remove.return_value = True
-        with patch.dict(sys.modules, {"animus_forge.workflow": mock_module}):
+        with patch.dict(sys.modules, {"animus_kernel.executor": mock_module}):
             result = runner.invoke(app, ["remove", "sched-123"])
             assert result.exit_code == 0
 
     def test_schedule_remove_not_found(self, runner, app):
         mock_module, mock_scheduler = self._mock_workflow_module()
         mock_scheduler.remove.return_value = False
-        with patch.dict(sys.modules, {"animus_forge.workflow": mock_module}):
+        with patch.dict(sys.modules, {"animus_kernel.executor": mock_module}):
             result = runner.invoke(app, ["remove", "nonexistent"])
             assert result.exit_code != 0
 
     def test_schedule_remove_error(self, runner, app):
         mock_module = MagicMock()
         mock_module.WorkflowScheduler.side_effect = RuntimeError("fail")
-        with patch.dict(sys.modules, {"animus_forge.workflow": mock_module}):
+        with patch.dict(sys.modules, {"animus_kernel.executor": mock_module}):
             result = runner.invoke(app, ["remove", "sched-123"])
             assert result.exit_code != 0
 
     def test_schedule_pause_success(self, runner, app):
         mock_module, mock_scheduler = self._mock_workflow_module()
         mock_scheduler.pause.return_value = True
-        with patch.dict(sys.modules, {"animus_forge.workflow": mock_module}):
+        with patch.dict(sys.modules, {"animus_kernel.executor": mock_module}):
             result = runner.invoke(app, ["pause", "sched-123"])
             assert result.exit_code == 0
 
     def test_schedule_pause_not_found(self, runner, app):
         mock_module, mock_scheduler = self._mock_workflow_module()
         mock_scheduler.pause.return_value = False
-        with patch.dict(sys.modules, {"animus_forge.workflow": mock_module}):
+        with patch.dict(sys.modules, {"animus_kernel.executor": mock_module}):
             result = runner.invoke(app, ["pause", "sched-123"])
             assert result.exit_code != 0
 
     def test_schedule_pause_error(self, runner, app):
         mock_module = MagicMock()
         mock_module.WorkflowScheduler.side_effect = RuntimeError("fail")
-        with patch.dict(sys.modules, {"animus_forge.workflow": mock_module}):
+        with patch.dict(sys.modules, {"animus_kernel.executor": mock_module}):
             result = runner.invoke(app, ["pause", "sched-123"])
             assert result.exit_code != 0
 
     def test_schedule_resume_success(self, runner, app):
         mock_module, mock_scheduler = self._mock_workflow_module()
         mock_scheduler.resume.return_value = True
-        with patch.dict(sys.modules, {"animus_forge.workflow": mock_module}):
+        with patch.dict(sys.modules, {"animus_kernel.executor": mock_module}):
             result = runner.invoke(app, ["resume", "sched-123"])
             assert result.exit_code == 0
 
     def test_schedule_resume_not_found(self, runner, app):
         mock_module, mock_scheduler = self._mock_workflow_module()
         mock_scheduler.resume.return_value = False
-        with patch.dict(sys.modules, {"animus_forge.workflow": mock_module}):
+        with patch.dict(sys.modules, {"animus_kernel.executor": mock_module}):
             result = runner.invoke(app, ["resume", "sched-123"])
             assert result.exit_code != 0
 
     def test_schedule_resume_error(self, runner, app):
         mock_module = MagicMock()
         mock_module.WorkflowScheduler.side_effect = RuntimeError("fail")
-        with patch.dict(sys.modules, {"animus_forge.workflow": mock_module}):
+        with patch.dict(sys.modules, {"animus_kernel.executor": mock_module}):
             result = runner.invoke(app, ["resume", "sched-123"])
             assert result.exit_code != 0
 
@@ -830,7 +830,7 @@ class TestCLISchedule:
         sched.next_run_time = None
 
         mock_module, _ = self._mock_workflow_module([sched])
-        with patch.dict(sys.modules, {"animus_forge.workflow": mock_module}):
+        with patch.dict(sys.modules, {"animus_kernel.executor": mock_module}):
             result = runner.invoke(app, ["list"])
             assert result.exit_code == 0
 
@@ -1008,7 +1008,7 @@ class TestContractEnforcer:
             "plan": [{"step": "do thing", "agent": "builder"}],
             "reasoning": "because",
         }
-        with patch("animus_forge.contracts.enforcer.get_contract") as mock_gc:
+        with patch("animus_kernel.contracts.enforcer.get_contract") as mock_gc:
             mock_contract = MagicMock()
             mock_contract.validate_output.return_value = True
             mock_gc.return_value = mock_contract
@@ -1018,7 +1018,7 @@ class TestContractEnforcer:
     def test_validate_output_violation(self, enforcer):
         from animus_forge.contracts.base import AgentRole, ContractViolation
 
-        with patch("animus_forge.contracts.enforcer.get_contract") as mock_gc:
+        with patch("animus_kernel.contracts.enforcer.get_contract") as mock_gc:
             mock_contract = MagicMock()
             mock_contract.validate_output.side_effect = ContractViolation("bad output")
             mock_gc.return_value = mock_contract
@@ -1026,7 +1026,7 @@ class TestContractEnforcer:
                 enforcer.validate_output(AgentRole.PLANNER, {})
 
     def test_validate_output_string_role(self, enforcer):
-        with patch("animus_forge.contracts.enforcer.get_contract") as mock_gc:
+        with patch("animus_kernel.contracts.enforcer.get_contract") as mock_gc:
             mock_contract = MagicMock()
             mock_contract.validate_output.return_value = True
             mock_gc.return_value = mock_contract
@@ -1037,7 +1037,7 @@ class TestContractEnforcer:
     async def test_validate_and_retry_passes_first(self, enforcer):
         from animus_forge.contracts.base import AgentRole
 
-        with patch("animus_forge.contracts.enforcer.get_contract") as mock_gc:
+        with patch("animus_kernel.contracts.enforcer.get_contract") as mock_gc:
             mock_contract = MagicMock()
             mock_contract.validate_output.return_value = True
             mock_gc.return_value = mock_contract
@@ -1060,7 +1060,7 @@ class TestContractEnforcer:
 
         call_count = 0
 
-        with patch("animus_forge.contracts.enforcer.get_contract") as mock_gc:
+        with patch("animus_kernel.contracts.enforcer.get_contract") as mock_gc:
             mock_contract = MagicMock()
 
             def validate_side_effect(output):
@@ -1089,7 +1089,7 @@ class TestContractEnforcer:
     async def test_validate_and_retry_exhausted(self, enforcer):
         from animus_forge.contracts.base import AgentRole, ContractViolation
 
-        with patch("animus_forge.contracts.enforcer.get_contract") as mock_gc:
+        with patch("animus_kernel.contracts.enforcer.get_contract") as mock_gc:
             mock_contract = MagicMock()
             mock_contract.validate_output.side_effect = ContractViolation(
                 "always bad", role="planner"
@@ -1112,7 +1112,7 @@ class TestContractEnforcer:
     async def test_validate_and_retry_callback_error(self, enforcer):
         from animus_forge.contracts.base import AgentRole, ContractViolation
 
-        with patch("animus_forge.contracts.enforcer.get_contract") as mock_gc:
+        with patch("animus_kernel.contracts.enforcer.get_contract") as mock_gc:
             mock_contract = MagicMock()
             mock_contract.validate_output.side_effect = ContractViolation("bad", role="planner")
             mock_contract.output_schema = {"required": ["plan"]}
@@ -1136,7 +1136,7 @@ class TestContractEnforcer:
             field="plan",
             details={"expected": "list"},
         )
-        with patch("animus_forge.contracts.enforcer.get_contract") as mock_gc:
+        with patch("animus_kernel.contracts.enforcer.get_contract") as mock_gc:
             mock_contract = MagicMock()
             mock_contract.output_schema = {"required": ["plan"], "properties": {"plan": {}}}
             mock_gc.return_value = mock_contract
@@ -1150,7 +1150,7 @@ class TestContractEnforcer:
         from animus_forge.contracts.base import ContractViolation
 
         violation = ContractViolation("bad", role="unknown_role")
-        with patch("animus_forge.contracts.enforcer.get_contract", side_effect=ValueError):
+        with patch("animus_kernel.contracts.enforcer.get_contract", side_effect=ValueError):
             prompt = enforcer.build_correction_prompt("do thing", violation, 0)
             assert "schema unavailable" in prompt
 
@@ -1163,7 +1163,7 @@ class TestContractEnforcer:
     def test_get_enforcement_stats_after_validations(self, enforcer):
         from animus_forge.contracts.base import AgentRole
 
-        with patch("animus_forge.contracts.enforcer.get_contract") as mock_gc:
+        with patch("animus_kernel.contracts.enforcer.get_contract") as mock_gc:
             mock_contract = MagicMock()
             mock_contract.validate_output.return_value = True
             mock_gc.return_value = mock_contract
@@ -1833,10 +1833,11 @@ class TestApprovalStore:
             timeout_hours=0,  # Immediately expired
         )
         # Force expired by setting timeout in the past
-        store.backend.execute(
-            "UPDATE approval_tokens SET timeout_at = ? WHERE token = ?",
-            ((datetime.now() - timedelta(hours=1)).isoformat(), token),
-        )
+        with store.backend.transaction():
+            store.backend.execute(
+                "UPDATE approval_tokens SET timeout_at = ? WHERE token = ?",
+                ((datetime.now() - timedelta(hours=1)).isoformat(), token),
+            )
         assert store.get_by_token(token) is None
 
     def test_create_with_preview_and_context(self, store):
@@ -1859,10 +1860,11 @@ class TestApprovalStore:
             step_id="step-1",
             next_step_id="step-2",
         )
-        store.backend.execute(
-            "UPDATE approval_tokens SET timeout_at = ? WHERE token = ?",
-            ((datetime.now() - timedelta(hours=1)).isoformat(), token),
-        )
+        with store.backend.transaction():
+            store.backend.execute(
+                "UPDATE approval_tokens SET timeout_at = ? WHERE token = ?",
+                ((datetime.now() - timedelta(hours=1)).isoformat(), token),
+            )
         count = store.expire_stale()
         assert count == 1
 
@@ -2561,10 +2563,11 @@ class TestApprovalStoreExtra:
             step_id="step-1",
             next_step_id="step-2",
         )
-        store.backend.execute(
-            "UPDATE approval_tokens SET timeout_at = ? WHERE token = ?",
-            ("not-a-date", token),
-        )
+        with store.backend.transaction():
+            store.backend.execute(
+                "UPDATE approval_tokens SET timeout_at = ? WHERE token = ?",
+                ("not-a-date", token),
+            )
         data = store.get_by_token(token)
         assert data is not None
 
@@ -2591,10 +2594,11 @@ class TestApprovalStoreExtra:
             step_id="step-1",
             next_step_id="step-2",
         )
-        store.backend.execute(
-            "UPDATE approval_tokens SET preview = ? WHERE token = ?",
-            ("not-json{", token),
-        )
+        with store.backend.transaction():
+            store.backend.execute(
+                "UPDATE approval_tokens SET preview = ? WHERE token = ?",
+                ("not-json{", token),
+            )
         tokens = store.get_by_execution("exec-1")
         assert len(tokens) == 1
         assert tokens[0]["preview"] == "not-json{"
@@ -3770,15 +3774,15 @@ class TestGraphCommands:
         mock_result.node_results = {}
 
         with (
-            patch("animus_forge.workflow.graph_executor.ReactFlowExecutor") as mock_exec_cls,
-            patch("animus_forge.workflow.graph_models.WorkflowGraph.from_dict"),
+            patch("animus_kernel.executor.graph_executor.ReactFlowExecutor") as mock_exec_cls,
+            patch("animus_kernel.executor.graph_models.WorkflowGraph.from_dict"),
         ):
             mock_exec = MagicMock()
             mock_exec.execute_async = AsyncMock(return_value=mock_result)
             mock_exec_cls.return_value = mock_exec
-            with patch("asyncio.run", return_value=mock_result):
-                result = runner.invoke(app, ["execute", str(f), "--var", "key=value", "--json"])
-                assert result.exit_code == 0
+            result = runner.invoke(app, ["execute", str(f), "--var", "key=value", "--json"])
+            assert result.exit_code == 0
+            mock_exec.execute_async.assert_awaited_once()
 
     def test_execute_invalid_var_format(self, runner, app, tmp_path):
         graph = {"nodes": [], "edges": []}
@@ -3798,7 +3802,7 @@ class TestGraphCommands:
         f.write_text(json.dumps(graph))
 
         with patch(
-            "animus_forge.workflow.graph_models.WorkflowGraph.from_dict",
+            "animus_kernel.executor.graph_models.WorkflowGraph.from_dict",
             side_effect=RuntimeError("parse error"),
         ):
             result = runner.invoke(app, ["execute", str(f)])
@@ -4253,7 +4257,7 @@ class TestRedisRateLimiter:
 
         mock_settings = MagicMock()
         mock_settings.redis_url = "redis://custom:6379/0"
-        with patch("animus_forge.config.settings.get_settings", return_value=mock_settings):
+        with patch("animus_kernel.config.settings.get_settings", return_value=mock_settings):
             limiter = RedisRateLimiter(url=None)
             assert limiter._url == "redis://custom:6379/0"
 
@@ -4270,7 +4274,7 @@ class TestRedisRateLimiter:
 
         limiter = RedisRateLimiter(url="redis://localhost:6379/0")
         key = limiter._make_key("test", 60)
-        assert key.startswith("gorgon:ratelimit:test:")
+        assert key.startswith("animus-kernel:ratelimit:test:")
 
 
 # =============================================================================
@@ -4624,20 +4628,21 @@ class TestAgentMemoryCoverage:
     def test_consolidate(self, memory):
         """Lines 338-352: Consolidate old low-importance memories."""
         # Insert old memories directly via SQL
-        memory.backend.execute(
-            """
-            INSERT INTO agent_memories (agent_id, content, memory_type, importance, access_count, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            ("a1", "old low", "learned", 0.3, 0, "2020-01-01T00:00:00"),
-        )
-        memory.backend.execute(
-            """
-            INSERT INTO agent_memories (agent_id, content, memory_type, importance, access_count, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            ("a1", "important fact", "fact", 0.9, 5, "2020-01-01T00:00:00"),
-        )
+        with memory.backend.transaction():
+            memory.backend.execute(
+                """
+                INSERT INTO agent_memories (agent_id, content, memory_type, importance, access_count, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                ("a1", "old low", "learned", 0.3, 0, "2020-01-01T00:00:00"),
+            )
+            memory.backend.execute(
+                """
+                INSERT INTO agent_memories (agent_id, content, memory_type, importance, access_count, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                ("a1", "important fact", "fact", 0.9, 5, "2020-01-01T00:00:00"),
+            )
 
         count = memory.consolidate(agent_id="a1")
         assert count >= 0  # Should delete the old low-importance learned memory
@@ -4693,7 +4698,7 @@ class TestExecutorAINonDryRun:
         host = _make_ai_host()
         step = self._make_step("claude_code", prompt="Hello", role="builder")
         with patch(
-            "animus_forge.workflow.executor_ai._get_claude_client",
+            "animus_kernel.executor.executor_ai._get_claude_client",
             return_value=None,
         ):
             with pytest.raises(RuntimeError, match="not available"):
@@ -4706,7 +4711,7 @@ class TestExecutorAINonDryRun:
         mock_client = MagicMock()
         mock_client.is_configured.return_value = False
         with patch(
-            "animus_forge.workflow.executor_ai._get_claude_client",
+            "animus_kernel.executor.executor_ai._get_claude_client",
             return_value=mock_client,
         ):
             with pytest.raises(RuntimeError, match="not configured"):
@@ -4728,7 +4733,7 @@ class TestExecutorAINonDryRun:
             "output": "response text",
         }
         with patch(
-            "animus_forge.workflow.executor_ai._get_claude_client",
+            "animus_kernel.executor.executor_ai._get_claude_client",
             return_value=mock_client,
         ):
             result = host._execute_claude_code(step, {})
@@ -4746,7 +4751,7 @@ class TestExecutorAINonDryRun:
             "error": "API down",
         }
         with patch(
-            "animus_forge.workflow.executor_ai._get_claude_client",
+            "animus_kernel.executor.executor_ai._get_claude_client",
             return_value=mock_client,
         ):
             with pytest.raises(RuntimeError, match="API down"):
@@ -4765,7 +4770,7 @@ class TestExecutorAINonDryRun:
             "output": "done",
         }
         with patch(
-            "animus_forge.workflow.executor_ai._get_claude_client",
+            "animus_kernel.executor.executor_ai._get_claude_client",
             return_value=mock_client,
         ):
             result = host._execute_claude_code(step, {})
@@ -4777,7 +4782,7 @@ class TestExecutorAINonDryRun:
         host = _make_ai_host()
         step = self._make_step("openai", prompt="Hello", model="gpt-4o-mini")
         with patch(
-            "animus_forge.workflow.executor_ai._get_openai_client",
+            "animus_kernel.executor.executor_ai._get_openai_client",
             return_value=None,
         ):
             with pytest.raises(RuntimeError, match="not available"):
@@ -4791,7 +4796,7 @@ class TestExecutorAINonDryRun:
         mock_client = MagicMock()
         mock_client.generate_completion.return_value = "OpenAI response"
         with patch(
-            "animus_forge.workflow.executor_ai._get_openai_client",
+            "animus_kernel.executor.executor_ai._get_openai_client",
             return_value=mock_client,
         ):
             result = host._execute_openai(step, {})
@@ -4837,9 +4842,9 @@ class TestSchedulerExecution:
         mock_executor = MagicMock()
         mock_executor.execute.return_value = mock_result
 
-        with patch("animus_forge.workflow.scheduler.load_workflow", return_value=mock_workflow):
+        with patch("animus_kernel.executor.scheduler.load_workflow", return_value=mock_workflow):
             with patch(
-                "animus_forge.workflow.scheduler.WorkflowExecutor", return_value=mock_executor
+                "animus_kernel.executor.scheduler.WorkflowExecutor", return_value=mock_executor
             ):
                 result = scheduler._execute(config)
                 assert result.error == "Step 3 failed"
@@ -4874,9 +4879,9 @@ class TestSchedulerExecution:
         mock_executor = MagicMock()
         mock_executor.execute.return_value = mock_result
 
-        with patch("animus_forge.workflow.scheduler.load_workflow", return_value=mock_workflow):
+        with patch("animus_kernel.executor.scheduler.load_workflow", return_value=mock_workflow):
             with patch(
-                "animus_forge.workflow.scheduler.WorkflowExecutor", return_value=mock_executor
+                "animus_kernel.executor.scheduler.WorkflowExecutor", return_value=mock_executor
             ):
                 # Should not raise despite callback failure
                 result = scheduler._execute(config)
@@ -5034,10 +5039,11 @@ class TestVersionManagerCoverage:
         # Save a version but don't activate it
         vm.save_version("wf-rb", "name: wf-rb\nsteps: []", version="1.0.0")
         # Deactivate it
-        vm.backend.execute(
-            "UPDATE workflow_versions SET is_active = 0 WHERE workflow_name = ?",
-            ("wf-rb",),
-        )
+        with vm.backend.transaction():
+            vm.backend.execute(
+                "UPDATE workflow_versions SET is_active = 0 WHERE workflow_name = ?",
+                ("wf-rb",),
+            )
         result = vm.rollback("wf-rb")
         assert result is not None
         assert result.version == "1.0.0"

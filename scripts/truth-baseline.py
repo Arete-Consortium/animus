@@ -752,7 +752,8 @@ def main() -> None:
             print(f"      → {r['message']}")
     print(f"{'-' * 60}")
     print(
-        f"Summary: {ok}/{total} passed  ({report.summary['fail']} fail, {report.summary['error']} error, {report.summary['skip']} skip)"
+        f"Summary: {ok}/{total} passed  ({report.summary['fail']} fail, "
+        f"{report.summary['error']} error, {report.summary['skip']} skip)"
     )
     print(f"Output: {out_path}")
 

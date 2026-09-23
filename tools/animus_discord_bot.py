@@ -32,19 +32,29 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import discord
+from discord import app_commands
+from discord.ext import tasks
+
 # Ensure animus core is importable when run standalone
 _CORE_DIR = os.path.join(os.path.dirname(__file__), "..", "packages", "core")
 if os.path.isdir(_CORE_DIR) and _CORE_DIR not in sys.path:
     sys.path.insert(0, os.path.realpath(_CORE_DIR))
 
-import discord
-from animus.cognitive import CognitiveLayer, ModelProvider
-from animus.cognitive import ModelConfig as CogModelConfig
-from animus.config import AnimusConfig
-from animus.infrastructure import AlreadyRunningError, LockedPidFile
-from animus.memory import MemoryLayer, MemoryType
-from discord import app_commands
-from discord.ext import tasks
+
+from animus.cognitive import (  # noqa: E402 — local package path bootstrap above
+    CognitiveLayer,
+    ModelProvider,
+)
+from animus.cognitive import (  # noqa: E402 — local package path bootstrap above
+    ModelConfig as CogModelConfig,
+)
+from animus.config import AnimusConfig  # noqa: E402 — local package path bootstrap above
+from animus.infrastructure import (  # noqa: E402 — local package path bootstrap above
+    AlreadyRunningError,
+    LockedPidFile,
+)
+from animus.memory import MemoryLayer, MemoryType  # noqa: E402 — local package path bootstrap above
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -317,7 +327,8 @@ class AnimusBot(discord.Client):
             except Exception:
                 logger.exception("Error generating chat response")
                 await message.reply(
-                    "Something went wrong processing that. Try again or use `/ask` for a memory search.",
+                    "Something went wrong processing that. "
+                    "Try again or use `/ask` for a memory search.",
                     mention_author=False,
                 )
 

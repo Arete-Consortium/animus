@@ -274,13 +274,8 @@ class MissionLedger:
     def get_ready_tasks(self, mission_id: UUID) -> list[Task]:
         """Return tasks in READY state whose dependencies are all COMPLETED."""
         all_tasks = self.list_tasks_for_mission(mission_id)
-        completed = {
-            t.task_id for t in all_tasks if t.status == TaskStatus.COMPLETED
-        }
-        return [
-            t for t in all_tasks
-            if t.status == TaskStatus.READY and t.can_start(completed)
-        ]
+        completed = {t.task_id for t in all_tasks if t.status == TaskStatus.COMPLETED}
+        return [t for t in all_tasks if t.status == TaskStatus.READY and t.can_start(completed)]
 
     def count_active_missions(self) -> int:
         """Count missions currently in RUNNING state."""
@@ -313,9 +308,19 @@ class MissionLedger:
     # Checkpoint persistence
     # =====================================================================
 
-    def save_checkpoint(self, task_id: UUID, attempt_id: UUID, stage: str, *, inputs: dict[str, Any] | None = None, outputs: dict[str, Any] | None = None, artifacts: list[dict[str, Any]] | None = None) -> None:
+    def save_checkpoint(
+        self,
+        task_id: UUID,
+        attempt_id: UUID,
+        stage: str,
+        *,
+        inputs: dict[str, Any] | None = None,
+        outputs: dict[str, Any] | None = None,
+        artifacts: list[dict[str, Any]] | None = None,
+    ) -> None:
         """Persist a checkpoint for a task attempt."""
         from animus_forge.missions.domain import Checkpoint
+
         checkpoint = Checkpoint(
             attempt_id=attempt_id,
             stage=stage,
@@ -342,7 +347,9 @@ class MissionLedger:
                 ),
             )
 
-    def get_latest_checkpoint(self, task_id: UUID, attempt_id: UUID | None = None) -> Checkpoint | None:
+    def get_latest_checkpoint(
+        self, task_id: UUID, attempt_id: UUID | None = None
+    ) -> Checkpoint | None:
         """Fetch the most recent checkpoint for a task (optionally filtered by attempt)."""
         if attempt_id:
             row = self._backend.fetchone(
@@ -381,6 +388,7 @@ class MissionLedger:
     @staticmethod
     def _parse_checkpoint_row(row: dict) -> Checkpoint:
         from animus_forge.missions.domain import Checkpoint
+
         return Checkpoint(
             checkpoint_id=UUID(row["checkpoint_id"]),
             attempt_id=UUID(row["attempt_id"]),

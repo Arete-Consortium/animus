@@ -108,4 +108,3 @@ These paths have **not** been independently reproduced against current HEAD. The
 **Critical: 0**
 **High: 0 within the independently verified normal-operation surface.**
 Unverified investigation leads remain outside that claim.
-

@@ -69,14 +69,13 @@ class MCPHandlersMixin:
         headers = self._get_mcp_auth_headers(server)
 
         # Parse stdio command vs SSE URL
-        from animus_kernel.mcp.client import call_mcp_tool
 
         server_url = server.url
         server_type = server.type
 
         start_ms = time.monotonic()
         try:
-            result = call_mcp_tool(
+            result = self._call_mcp_tool(
                 server_type=server_type,
                 server_url=server_url,
                 tool_name=tool_name,
@@ -143,15 +142,20 @@ class MCPHandlersMixin:
         # Non-string scalars (int, float, bool, None) pass through
         return arguments
 
+    def _mcp_connector_manager(self) -> Any:
+        """Applications supply their own connector/credential registry."""
+        raise RuntimeError("MCP connector registry is not configured for this executor")
+
+    def _call_mcp_tool(self, **kwargs: Any) -> dict:
+        """Applications supply an MCP transport; Kernel owns no credentials."""
+        raise RuntimeError("MCP transport is not configured for this executor")
+
     def _resolve_mcp_server(self, server_ref: str) -> Any:
         """Look up an MCP server by ID or name.
 
         Raises RuntimeError if not found.
         """
-        from animus_kernel.mcp.manager import MCPConnectorManager
-        from animus_kernel.state.database import get_database
-
-        manager = MCPConnectorManager(get_database())
+        manager = self._mcp_connector_manager()
 
         # Try by ID first (UUID pattern)
         _uuid_re = re.compile(
@@ -175,10 +179,7 @@ class MCPHandlersMixin:
         if server.authType == "none" or not server.credentialId:
             return None
 
-        from animus_kernel.mcp.manager import MCPConnectorManager
-        from animus_kernel.state.database import get_database
-
-        manager = MCPConnectorManager(get_database())
+        manager = self._mcp_connector_manager()
         value = manager.get_credential_value(server.credentialId)
         if not value:
             logger.warning(

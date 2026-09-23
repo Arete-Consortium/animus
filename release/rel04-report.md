@@ -1,8 +1,8 @@
 # REL-04 Report — Align Python Support Claims and Fix docs-deploy.yml
 
-**Repository:** `AreteDriver/animus`  
-**Date:** 2026-08-01  
-**Commit:** `712994deb4ddba359f0b0931fef131c0edeff25a`  
+**Repository:** `AreteDriver/animus`
+**Date:** 2026-08-01
+**Commit:** `712994deb4ddba359f0b0931fef131c0edeff25a`
 **Scope:** Package metadata and documentation deployment workflow.
 
 ---

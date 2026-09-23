@@ -94,6 +94,18 @@ class TaskContext(BaseModel):
     output_schema: dict[str, Any] | None = None
 
 
+class CitizenUsage(BaseModel):
+    """Provider-reported usage for one call, including its actual charge."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str = Field(min_length=1)
+    model: str = Field(min_length=1)
+    tokens_input: int = Field(ge=0, strict=True)
+    tokens_output: int = Field(ge=0, strict=True)
+    cost_usd: Decimal = Field(ge=0, allow_inf_nan=False)
+
+
 class CitizenOutput(BaseModel):
     """Structured output returned by every citizen after running a task.
 
@@ -104,6 +116,9 @@ class CitizenOutput(BaseModel):
 
     status: str  # "completed" | "failed" | "needs_repair"
     summary: str
+    usage: list[CitizenUsage] = Field(default_factory=list)
+    # False when execution ended before all provider charges could be reported.
+    usage_complete: bool = Field(default=True, strict=True)
     changed_files: list[str] = Field(default_factory=list)
     artifacts: list[Artifact] = Field(default_factory=list)
     evidence: list[dict[str, Any]] = Field(default_factory=list)

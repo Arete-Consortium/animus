@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sys
 from datetime import datetime, timedelta, timezone
+from types import ModuleType
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -655,6 +657,26 @@ class TestWatchlistTools:
             assert "Authentication required" in result[0][0].text
 
 
+@pytest.fixture
+def fake_forge_modules(monkeypatch):
+    """Mock the optional Forge boundary without installing its runtime stack."""
+    names = [
+        "animus_forge",
+        "animus_forge.agents",
+        "animus_forge.agents.provider_wrapper",
+        "animus_forge.self_improve",
+        "animus_forge.self_improve.orchestrator",
+    ]
+    modules = {name: ModuleType(name) for name in names}
+    for name, module in modules.items():
+        monkeypatch.setitem(sys.modules, name, module)
+        if "." in name:
+            parent, attr = name.rsplit(".", 1)
+            setattr(modules[parent], attr, module)
+    modules["animus_forge.agents.provider_wrapper"].create_agent_provider = MagicMock()
+    modules["animus_forge.self_improve.orchestrator"].SelfImproveOrchestrator = MagicMock()
+
+
 class TestSelfImproveTool:
     """Test animus_self_improve MCP tool."""
 
@@ -670,7 +692,7 @@ class TestSelfImproveTool:
             result = _run(server.call_tool("animus_self_improve", {"codebase_path": str(tmp_path)}))
             assert "Forge not installed" in result[0][0].text
 
-    def test_self_improve_provider_error(self, server, tmp_path):
+    def test_self_improve_provider_error(self, server, tmp_path, fake_forge_modules):
         with patch(
             "animus_forge.agents.provider_wrapper.create_agent_provider",
             side_effect=ValueError("bad provider"),
@@ -683,7 +705,7 @@ class TestSelfImproveTool:
             )
             assert "Failed to create" in result[0][0].text
 
-    def test_self_improve_success(self, server, tmp_path):
+    def test_self_improve_success(self, server, tmp_path, fake_forge_modules):
         mock_result = MagicMock()
         mock_result.stage_reached.value = "completed"
         mock_result.success = True
@@ -726,7 +748,7 @@ class TestSelfImproveTool:
             assert "Fix bare excepts" in text
             assert "passed" in text
 
-    def test_self_improve_failure(self, server, tmp_path):
+    def test_self_improve_failure(self, server, tmp_path, fake_forge_modules):
         mock_result = MagicMock()
         mock_result.stage_reached.value = "analysis"
         mock_result.success = False
@@ -763,7 +785,7 @@ class TestSelfImproveTool:
             assert "analysis" in text
             assert "No issues found" in text
 
-    def test_self_improve_exception(self, server, tmp_path):
+    def test_self_improve_exception(self, server, tmp_path, fake_forge_modules):
         mock_orch = MagicMock()
 
         async def mock_run(**kwargs):

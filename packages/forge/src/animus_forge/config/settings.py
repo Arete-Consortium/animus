@@ -167,16 +167,10 @@ class Settings(BaseSettings):
     logs_dir: Path = Field(default_factory=lambda: _PKG_RUNTIME_DIR_DEFAULTS["logs_dir"])
     prompts_dir: Path = Field(default_factory=lambda: _PACKAGE_SRC / "prompts")
     workflows_dir: Path = Field(default_factory=lambda: _PKG_RUNTIME_DIR_DEFAULTS["workflows_dir"])
-    schedules_dir: Path = Field(
-        default_factory=lambda: _PKG_RUNTIME_DIR_DEFAULTS["schedules_dir"]
-    )
-    webhooks_dir: Path = Field(
-        default_factory=lambda: _PKG_RUNTIME_DIR_DEFAULTS["webhooks_dir"]
-    )
+    schedules_dir: Path = Field(default_factory=lambda: _PKG_RUNTIME_DIR_DEFAULTS["schedules_dir"])
+    webhooks_dir: Path = Field(default_factory=lambda: _PKG_RUNTIME_DIR_DEFAULTS["webhooks_dir"])
     jobs_dir: Path = Field(default_factory=lambda: _PKG_RUNTIME_DIR_DEFAULTS["jobs_dir"])
-    plugins_dir: Path = Field(
-        default_factory=lambda: _PKG_RUNTIME_DIR_DEFAULTS["plugins_dir"]
-    )
+    plugins_dir: Path = Field(default_factory=lambda: _PKG_RUNTIME_DIR_DEFAULTS["plugins_dir"])
     skills_dir: Path = Field(
         default_factory=lambda: Path(__file__).parent.parent.parent.parent / "skills",
         description="Directory containing skill definitions (schema.yaml + SKILL.md)",

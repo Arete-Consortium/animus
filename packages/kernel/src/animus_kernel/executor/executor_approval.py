@@ -22,6 +22,9 @@ class ApprovalHandlerMixin:
     - _current_workflow_id: str | None
     """
 
+    def _approval_store(self):
+        raise RuntimeError("Approval persistence requires an application adapter")
+
     def _execute_approval(self, step: StepConfig, context: dict) -> dict:
         """Execute an approval gate step.
 
@@ -35,8 +38,6 @@ class ApprovalHandlerMixin:
         Returns:
             Dict with status="awaiting_approval", token, prompt, preview
         """
-        from animus_kernel.workflow.approval_store import get_approval_store
-
         prompt = step.params.get("prompt", "Approval required")
         timeout_hours = step.params.get("timeout_hours", 24)
 
@@ -47,7 +48,7 @@ class ApprovalHandlerMixin:
             if ref_step_id in context:
                 preview[ref_step_id] = context[ref_step_id]
 
-        store = get_approval_store()
+        store = self._approval_store()
         token = store.create_token(
             execution_id=self._execution_id or "",
             workflow_id=self._current_workflow_id or "",

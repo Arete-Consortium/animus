@@ -478,7 +478,18 @@ def create_mcp_server(policy: ToolPolicy | None = None) -> GatedFastMCP:
             create an unrestricted registry.
     """
     if FastMCP is None:
-        raise ImportError("MCP server requires the mcp SDK. Install with: pip install 'mcp>=1.0.0'")
+        from importlib.metadata import PackageNotFoundError, version
+
+        try:
+            installed = version("mcp")
+        except PackageNotFoundError:
+            detail = "MCP SDK is not installed."
+        else:
+            detail = f"Installed MCP SDK {installed} could not load the required v1 FastMCP API."
+        raise ImportError(
+            f"{detail} MCP server requires the mcp v1 SDK. "
+            "Install with: pip install 'animus-core[mcp]'"
+        )
 
     _validate_mcp_startup_config()
 

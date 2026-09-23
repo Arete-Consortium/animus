@@ -384,6 +384,7 @@ class CodebaseAnalyzer:
             tree = ast.parse(content)
         except SyntaxError:
             return suggestions
+
         class PerfVisitor(ast.NodeVisitor):
             def __init__(self):
                 self.loop_depth = 0

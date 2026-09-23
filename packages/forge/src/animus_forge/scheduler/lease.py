@@ -341,7 +341,9 @@ class LeaseManager:
                 generation=row["generation"],
                 acquired_at=datetime.fromisoformat(row["acquired_at"]),
                 expires_at=datetime.fromisoformat(row["expires_at"]),
-                heartbeat_at=datetime.fromisoformat(row["heartbeat_at"]) if row.get("heartbeat_at") else None,
+                heartbeat_at=datetime.fromisoformat(row["heartbeat_at"])
+                if row.get("heartbeat_at")
+                else None,
                 status=LeaseStatus.RELEASED,
                 attempt_id=row["attempt_id"],
                 outcome=outcome,
@@ -381,7 +383,9 @@ class LeaseManager:
                     generation=r["generation"],
                     acquired_at=datetime.fromisoformat(r["acquired_at"]),
                     expires_at=datetime.fromisoformat(r["expires_at"]),
-                    heartbeat_at=datetime.fromisoformat(r["heartbeat_at"]) if r.get("heartbeat_at") else None,
+                    heartbeat_at=datetime.fromisoformat(r["heartbeat_at"])
+                    if r.get("heartbeat_at")
+                    else None,
                     status=LeaseStatus.EXPIRED,
                     attempt_id=r["attempt_id"],
                     outcome=None,
@@ -501,6 +505,8 @@ class LeaseManager:
             acquired_at=datetime.fromisoformat(row["acquired_at"]),
             expires_at=datetime.fromisoformat(row["expires_at"]),
             status=LeaseStatus(row["status"]),
-            heartbeat_at=datetime.fromisoformat(row["heartbeat_at"]) if row.get("heartbeat_at") else None,
+            heartbeat_at=datetime.fromisoformat(row["heartbeat_at"])
+            if row.get("heartbeat_at")
+            else None,
             outcome=row.get("outcome"),
         )

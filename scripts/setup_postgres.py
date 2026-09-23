@@ -59,7 +59,10 @@ def _create_db(url: str) -> bool:
         print("  ✗ Could not extract DB name from URL")
         return False
 
-    base = f"{parsed.scheme}://{parsed.username}:{parsed.password}@{parsed.hostname}:{parsed.port or 5432}/postgres"
+    base = (
+        f"{parsed.scheme}://{parsed.username}:{parsed.password}"
+        f"@{parsed.hostname}:{parsed.port or 5432}/postgres"
+    )
     try:
         import psycopg2
 

@@ -400,7 +400,7 @@ class TestContextPropagation:
                 StepConfig(
                     id="step1",
                     type="shell",
-                    params={"command": "echo MAGIC_VALUE_42"},
+                    params={"command": "printf MAGIC_VALUE_42"},
                     outputs=["stdout"],  # Direct match to shell output key
                 ),
                 StepConfig(
@@ -648,7 +648,7 @@ class TestShellOutputMapping:
                 StepConfig(
                     id="read_file",
                     type="shell",
-                    params={"command": "echo CUSTOM_CONTENT_123"},
+                    params={"command": "printf CUSTOM_CONTENT_123"},
                     outputs=["code_content"],
                 ),
                 StepConfig(

@@ -9,9 +9,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from animus.logging import get_logger
+
+if TYPE_CHECKING:
+    from animus.mission.order import MissionOrder
 
 logger = get_logger("mission.runtime")
 

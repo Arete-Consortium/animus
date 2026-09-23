@@ -647,7 +647,9 @@ class TestBuiltinTools:
             blocked_paths=[str(tmp_path)],
             write_roots=["/tmp"],
         )
-        result = _tool_write_file({"path": str(tmp_path / "blocked.txt"), "content": "x"}, policy=policy)
+        result = _tool_write_file(
+            {"path": str(tmp_path / "blocked.txt"), "content": "x"}, policy=policy
+        )
         assert result.success is False
         assert "denied" in result.error.lower() or "blocked" in result.error.lower()
 

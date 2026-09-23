@@ -20,6 +20,7 @@ from animus_kernel.tools_core import Tool, ToolRegistry, ToolResult
 # Shared fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def head_orchestrator(tmp_path: Path) -> HeadToolOrchestrator:
     """Minimal HeadToolOrchestrator with MCP disabled."""
@@ -53,6 +54,7 @@ SECRET_SHAPES = [
 # ---------------------------------------------------------------------------
 # 1. HeadToolOrchestrator.execute() logs full arguments JSON at INFO
 # ---------------------------------------------------------------------------
+
 
 class TestHeadToolOrchestratorLogging:
     """HeadToolOrchestrator.execute() must never emit raw argument values."""
@@ -96,6 +98,7 @@ class TestHeadToolOrchestratorLogging:
 # ---------------------------------------------------------------------------
 # 2. ToolRegistry.execute() logs full params dict at DEBUG
 # ---------------------------------------------------------------------------
+
 
 class TestToolRegistryLogging:
     """ToolRegistry.execute() must never emit raw parameter values at DEBUG."""

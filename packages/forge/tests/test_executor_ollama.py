@@ -35,7 +35,7 @@ class TestOllamaClientFactory:
     """Tests for _get_ollama_provider factory."""
 
     def test_caches_provider(self):
-        import animus_forge.workflow.executor_clients as mod
+        import animus_kernel.executor.executor_clients as mod
 
         mock_provider = MagicMock()
         mod._ollama_provider = mock_provider
@@ -46,7 +46,7 @@ class TestOllamaClientFactory:
         mod._ollama_provider = None
 
     def test_returns_none_when_marked_unavailable(self):
-        import animus_forge.workflow.executor_clients as mod
+        import animus_kernel.executor.executor_clients as mod
 
         mod._ollama_provider = False  # marked unavailable
 
@@ -89,7 +89,7 @@ class TestExecuteOllamaLive:
         host = _make_ai_host()
         step = _make_step()
         with patch(
-            "animus_forge.workflow.executor_ai._get_ollama_provider",
+            "animus_kernel.executor.executor_ai._get_ollama_provider",
             return_value=None,
         ):
             with pytest.raises(RuntimeError, match="not available"):
@@ -108,7 +108,7 @@ class TestExecuteOllamaLive:
         mock_provider.complete.return_value = mock_response
 
         with patch(
-            "animus_forge.workflow.executor_ai._get_ollama_provider",
+            "animus_kernel.executor.executor_ai._get_ollama_provider",
             return_value=mock_provider,
         ):
             result = host._execute_ollama(step, {})
@@ -132,7 +132,7 @@ class TestExecuteOllamaLive:
         mock_provider.complete.return_value = mock_response
 
         with patch(
-            "animus_forge.workflow.executor_ai._get_ollama_provider",
+            "animus_kernel.executor.executor_ai._get_ollama_provider",
             return_value=mock_provider,
         ):
             host._execute_ollama(step, {})
@@ -153,7 +153,7 @@ class TestExecuteOllamaLive:
         mock_provider.complete.return_value = mock_response
 
         with patch(
-            "animus_forge.workflow.executor_ai._get_ollama_provider",
+            "animus_kernel.executor.executor_ai._get_ollama_provider",
             return_value=mock_provider,
         ):
             host._execute_ollama(step, {"code": "print('hi')"})
@@ -171,7 +171,7 @@ class TestExecuteOllamaLive:
         mock_provider.complete.side_effect = Exception("connection refused")
 
         with patch(
-            "animus_forge.workflow.executor_ai._get_ollama_provider",
+            "animus_kernel.executor.executor_ai._get_ollama_provider",
             return_value=mock_provider,
         ):
             with pytest.raises(RuntimeError, match="Ollama error"):
@@ -194,7 +194,7 @@ class TestExecuteOllamaLive:
         mock_provider.complete.return_value = mock_response
 
         with patch(
-            "animus_forge.workflow.executor_ai._get_ollama_provider",
+            "animus_kernel.executor.executor_ai._get_ollama_provider",
             return_value=mock_provider,
         ):
             host._execute_ollama(step, {})
@@ -216,7 +216,7 @@ class TestExecuteOllamaLive:
         mock_provider.complete.return_value = mock_response
 
         with patch(
-            "animus_forge.workflow.executor_ai._get_ollama_provider",
+            "animus_kernel.executor.executor_ai._get_ollama_provider",
             return_value=mock_provider,
         ):
             result = host._execute_ollama(step, {})

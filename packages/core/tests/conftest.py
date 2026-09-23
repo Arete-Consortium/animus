@@ -66,3 +66,9 @@ def mock_cognitive_factory():
         )
 
     return _make
+
+
+@pytest.fixture(autouse=True)
+def _isolate_core_home(monkeypatch, tmp_path):
+    """Default-path tests must not read or write the operator's actual memory."""
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))

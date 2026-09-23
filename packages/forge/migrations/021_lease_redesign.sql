@@ -7,6 +7,67 @@
 --
 -- Timestamps are stored as UTC ISO-8601 strings (TEXT) for SQLite/Postgres parity.
 
+-- Mission tables were previously initialized only when MissionLedger started.
+-- Create the same parents before copying leases on a fresh, FK-enforced database.
+
+CREATE TABLE IF NOT EXISTS missions (
+    mission_id TEXT PRIMARY KEY,
+    repository TEXT NOT NULL,
+    objective TEXT NOT NULL,
+    source_type TEXT NOT NULL DEFAULT 'manual',
+    source_reference TEXT,
+    risk_class TEXT NOT NULL DEFAULT 'medium',
+    status TEXT NOT NULL DEFAULT 'proposed',
+    priority INTEGER DEFAULT 50,
+    max_cost_usd TEXT DEFAULT '10.00',
+    max_runtime_seconds INTEGER DEFAULT 3600,
+    max_changed_files INTEGER DEFAULT 15,
+    allowed_paths TEXT NOT NULL DEFAULT '[]',
+    protected_paths TEXT NOT NULL DEFAULT '[]',
+    acceptance_criteria TEXT NOT NULL DEFAULT '[]',
+    merge_policy TEXT NOT NULL DEFAULT 'human_required',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    error TEXT,
+    metadata TEXT NOT NULL DEFAULT '{}'
+);
+
+CREATE TABLE IF NOT EXISTS tasks (
+    task_id TEXT PRIMARY KEY,
+    mission_id TEXT NOT NULL REFERENCES missions(mission_id) ON DELETE CASCADE,
+    citizen_role TEXT NOT NULL,
+    description TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    dependencies TEXT NOT NULL DEFAULT '[]',
+    inputs TEXT NOT NULL DEFAULT '{}',
+    outputs_schema TEXT NOT NULL DEFAULT '{}',
+    max_attempts INTEGER DEFAULT 3,
+    current_attempt INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    error TEXT,
+    metadata TEXT NOT NULL DEFAULT '{}'
+);
+
+CREATE INDEX IF NOT EXISTS idx_missions_status ON missions(status);
+CREATE INDEX IF NOT EXISTS idx_missions_priority ON missions(priority DESC);
+CREATE INDEX IF NOT EXISTS idx_tasks_mission ON tasks(mission_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+
+CREATE TABLE IF NOT EXISTS checkpoints (
+    checkpoint_id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL REFERENCES tasks(task_id) ON DELETE CASCADE,
+    attempt_id TEXT NOT NULL,
+    stage TEXT NOT NULL,
+    inputs TEXT NOT NULL DEFAULT '{}',
+    outputs TEXT NOT NULL DEFAULT '{}',
+    artifacts TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_checkpoints_task ON checkpoints(task_id);
+CREATE INDEX IF NOT EXISTS idx_checkpoints_attempt ON checkpoints(task_id, attempt_id);
+
 -- New current-lease table: exactly one active row per task at any time.
 CREATE TABLE IF NOT EXISTS task_lease_current (
     task_id TEXT PRIMARY KEY,

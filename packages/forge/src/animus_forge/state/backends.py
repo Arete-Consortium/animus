@@ -84,6 +84,7 @@ class SQLiteBackend(DatabaseBackend):
                 check_same_thread=False,
             )
             self._local.conn.row_factory = sqlite3.Row
+            self._local.conn.execute("PRAGMA foreign_keys = ON")
         return self._local.conn
 
     @property

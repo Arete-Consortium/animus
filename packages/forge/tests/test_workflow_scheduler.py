@@ -63,7 +63,7 @@ def interval_schedule_config():
 @pytest.fixture
 def scheduler(temp_data_dir):
     """Create a scheduler instance."""
-    with patch("animus_forge.workflow.scheduler.BackgroundScheduler") as mock_sched:
+    with patch("animus_kernel.executor.scheduler.BackgroundScheduler") as mock_sched:
         mock_instance = MagicMock()
         mock_instance.running = False
         # Ensure get_job returns a job with a proper datetime for next_run_time
@@ -307,7 +307,7 @@ class TestWorkflowSchedulerInit:
 
     def test_init_creates_directories(self, temp_data_dir):
         """Test initialization creates data directories."""
-        with patch("animus_forge.workflow.scheduler.BackgroundScheduler"):
+        with patch("animus_kernel.executor.scheduler.BackgroundScheduler"):
             scheduler = WorkflowScheduler(data_dir=temp_data_dir)
             assert scheduler.data_dir.exists()
             assert scheduler.logs_dir.exists()
@@ -317,7 +317,7 @@ class TestWorkflowSchedulerInit:
         checkpoint_mgr = MagicMock()
         budget_mgr = MagicMock()
 
-        with patch("animus_forge.workflow.scheduler.BackgroundScheduler"):
+        with patch("animus_kernel.executor.scheduler.BackgroundScheduler"):
             scheduler = WorkflowScheduler(
                 data_dir=temp_data_dir,
                 checkpoint_manager=checkpoint_mgr,
@@ -330,7 +330,7 @@ class TestWorkflowSchedulerInit:
         """Test initialization with execution callback."""
         callback = MagicMock()
 
-        with patch("animus_forge.workflow.scheduler.BackgroundScheduler"):
+        with patch("animus_kernel.executor.scheduler.BackgroundScheduler"):
             scheduler = WorkflowScheduler(
                 data_dir=temp_data_dir,
                 on_execution=callback,
@@ -408,7 +408,7 @@ class TestWorkflowSchedulerLifecycle:
 class TestWorkflowSchedulerAddRemove:
     """Tests for adding and removing schedules."""
 
-    @patch("animus_forge.workflow.scheduler.load_workflow")
+    @patch("animus_kernel.executor.scheduler.load_workflow")
     def test_add_schedule(self, mock_load, scheduler, schedule_config):
         """Test adding a schedule."""
         mock_load.return_value = MagicMock()
@@ -421,7 +421,7 @@ class TestWorkflowSchedulerAddRemove:
         config_path = scheduler.data_dir / "test-schedule.json"
         assert config_path.exists()
 
-    @patch("animus_forge.workflow.scheduler.load_workflow")
+    @patch("animus_kernel.executor.scheduler.load_workflow")
     def test_add_schedule_validates_workflow(self, mock_load, scheduler):
         """Test add validates workflow exists."""
         mock_load.side_effect = FileNotFoundError("Not found")
@@ -435,7 +435,7 @@ class TestWorkflowSchedulerAddRemove:
         with pytest.raises(ValueError, match="Invalid workflow"):
             scheduler.add(config)
 
-    @patch("animus_forge.workflow.scheduler.load_workflow")
+    @patch("animus_kernel.executor.scheduler.load_workflow")
     def test_add_requires_cron_or_interval(self, mock_load, scheduler):
         """Test add requires either cron or interval."""
         mock_load.return_value = MagicMock()
@@ -449,7 +449,7 @@ class TestWorkflowSchedulerAddRemove:
         with pytest.raises(ValueError, match="cron.*interval"):
             scheduler.add(config)
 
-    @patch("animus_forge.workflow.scheduler.load_workflow")
+    @patch("animus_kernel.executor.scheduler.load_workflow")
     def test_add_registers_job_when_running(self, mock_load, scheduler, schedule_config):
         """Test add registers job when scheduler is running."""
         mock_load.return_value = MagicMock()
@@ -459,7 +459,7 @@ class TestWorkflowSchedulerAddRemove:
 
         scheduler._scheduler.add_job.assert_called()
 
-    @patch("animus_forge.workflow.scheduler.load_workflow")
+    @patch("animus_kernel.executor.scheduler.load_workflow")
     def test_remove_schedule(self, mock_load, scheduler, schedule_config):
         """Test removing a schedule."""
         mock_load.return_value = MagicMock()
@@ -475,7 +475,7 @@ class TestWorkflowSchedulerAddRemove:
         result = scheduler.remove("nonexistent")
         assert result is False
 
-    @patch("animus_forge.workflow.scheduler.load_workflow")
+    @patch("animus_kernel.executor.scheduler.load_workflow")
     def test_remove_cleans_up_job(self, mock_load, scheduler, schedule_config):
         """Test remove cleans up APScheduler job."""
         mock_load.return_value = MagicMock()
@@ -495,7 +495,7 @@ class TestWorkflowSchedulerAddRemove:
 class TestWorkflowSchedulerGetList:
     """Tests for getting and listing schedules."""
 
-    @patch("animus_forge.workflow.scheduler.load_workflow")
+    @patch("animus_kernel.executor.scheduler.load_workflow")
     def test_get_schedule(self, mock_load, scheduler, schedule_config):
         """Test getting a schedule by ID."""
         mock_load.return_value = MagicMock()
@@ -511,7 +511,7 @@ class TestWorkflowSchedulerGetList:
         result = scheduler.get("nonexistent")
         assert result is None
 
-    @patch("animus_forge.workflow.scheduler.load_workflow")
+    @patch("animus_kernel.executor.scheduler.load_workflow")
     def test_list_schedules(self, mock_load, scheduler):
         """Test listing all schedules."""
         mock_load.return_value = MagicMock()
@@ -547,7 +547,7 @@ class TestWorkflowSchedulerGetList:
 class TestWorkflowSchedulerPauseResume:
     """Tests for pausing and resuming schedules."""
 
-    @patch("animus_forge.workflow.scheduler.load_workflow")
+    @patch("animus_kernel.executor.scheduler.load_workflow")
     def test_pause_schedule(self, mock_load, scheduler, schedule_config):
         """Test pausing a schedule."""
         mock_load.return_value = MagicMock()
@@ -566,7 +566,7 @@ class TestWorkflowSchedulerPauseResume:
         result = scheduler.pause("nonexistent")
         assert result is False
 
-    @patch("animus_forge.workflow.scheduler.load_workflow")
+    @patch("animus_kernel.executor.scheduler.load_workflow")
     def test_resume_schedule(self, mock_load, scheduler, schedule_config):
         """Test resuming a paused schedule."""
         mock_load.return_value = MagicMock()
@@ -583,7 +583,7 @@ class TestWorkflowSchedulerPauseResume:
         assert config.status == ScheduleStatus.ACTIVE
         scheduler._scheduler.resume_job.assert_called_with("wf_test-schedule")
 
-    @patch("animus_forge.workflow.scheduler.load_workflow")
+    @patch("animus_kernel.executor.scheduler.load_workflow")
     def test_resume_registers_job_if_missing(self, mock_load, scheduler, schedule_config):
         """Test resume registers job if not in scheduler."""
         mock_load.return_value = MagicMock()
@@ -610,8 +610,8 @@ class TestWorkflowSchedulerPauseResume:
 class TestWorkflowSchedulerTrigger:
     """Tests for manually triggering schedules."""
 
-    @patch("animus_forge.workflow.scheduler.load_workflow")
-    @patch("animus_forge.workflow.scheduler.WorkflowExecutor")
+    @patch("animus_kernel.executor.scheduler.load_workflow")
+    @patch("animus_kernel.executor.scheduler.WorkflowExecutor")
     def test_trigger_schedule(self, mock_executor_class, mock_load, scheduler, schedule_config):
         """Test manually triggering a schedule."""
         mock_load.return_value = MagicMock(steps=[])
@@ -643,8 +643,8 @@ class TestWorkflowSchedulerTrigger:
 class TestWorkflowSchedulerExecution:
     """Tests for workflow execution."""
 
-    @patch("animus_forge.workflow.scheduler.load_workflow")
-    @patch("animus_forge.workflow.scheduler.WorkflowExecutor")
+    @patch("animus_kernel.executor.scheduler.load_workflow")
+    @patch("animus_kernel.executor.scheduler.WorkflowExecutor")
     def test_execute_success(self, mock_executor_class, mock_load, scheduler, schedule_config):
         """Test successful execution."""
         mock_workflow = MagicMock()
@@ -672,8 +672,8 @@ class TestWorkflowSchedulerExecution:
         assert schedule_config.run_count == 1
         assert schedule_config.last_status == "success"
 
-    @patch("animus_forge.workflow.scheduler.load_workflow")
-    @patch("animus_forge.workflow.scheduler.WorkflowExecutor")
+    @patch("animus_kernel.executor.scheduler.load_workflow")
+    @patch("animus_kernel.executor.scheduler.WorkflowExecutor")
     def test_execute_failure(self, mock_executor_class, mock_load, scheduler, schedule_config):
         """Test execution with error."""
         mock_load.side_effect = Exception("Workflow load failed")
@@ -686,8 +686,8 @@ class TestWorkflowSchedulerExecution:
         assert schedule_config.last_status == "failed"
         assert "Workflow load failed" in schedule_config.last_error
 
-    @patch("animus_forge.workflow.scheduler.load_workflow")
-    @patch("animus_forge.workflow.scheduler.WorkflowExecutor")
+    @patch("animus_kernel.executor.scheduler.load_workflow")
+    @patch("animus_kernel.executor.scheduler.WorkflowExecutor")
     def test_execute_calls_callback(
         self, mock_executor_class, mock_load, scheduler, schedule_config
     ):
@@ -708,8 +708,8 @@ class TestWorkflowSchedulerExecution:
 
         callback.assert_called_once()
 
-    @patch("animus_forge.workflow.scheduler.load_workflow")
-    @patch("animus_forge.workflow.scheduler.WorkflowExecutor")
+    @patch("animus_kernel.executor.scheduler.load_workflow")
+    @patch("animus_kernel.executor.scheduler.WorkflowExecutor")
     def test_execute_saves_log(self, mock_executor_class, mock_load, scheduler, schedule_config):
         """Test execution saves log file."""
         mock_load.return_value = MagicMock(steps=[])
@@ -810,7 +810,7 @@ class TestWorkflowSchedulerHistory:
 class TestWorkflowSchedulerJobRegistration:
     """Tests for APScheduler job registration."""
 
-    @patch("animus_forge.workflow.scheduler.load_workflow")
+    @patch("animus_kernel.executor.scheduler.load_workflow")
     def test_register_cron_job(self, mock_load, scheduler, schedule_config):
         """Test registering a cron job."""
         mock_load.return_value = MagicMock()
@@ -823,7 +823,7 @@ class TestWorkflowSchedulerJobRegistration:
         call_kwargs = scheduler._scheduler.add_job.call_args
         assert call_kwargs[1]["id"] == "wf_test-schedule"
 
-    @patch("animus_forge.workflow.scheduler.load_workflow")
+    @patch("animus_kernel.executor.scheduler.load_workflow")
     def test_register_interval_job(self, mock_load, scheduler, interval_schedule_config):
         """Test registering an interval job."""
         mock_load.return_value = MagicMock()
@@ -864,7 +864,7 @@ class TestWorkflowSchedulerJobRegistration:
 class TestWorkflowSchedulerPersistence:
     """Tests for schedule persistence."""
 
-    @patch("animus_forge.workflow.scheduler.load_workflow")
+    @patch("animus_kernel.executor.scheduler.load_workflow")
     def test_save_schedule(self, mock_load, scheduler, schedule_config):
         """Test saving schedule to disk."""
         mock_load.return_value = MagicMock()

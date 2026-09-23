@@ -533,7 +533,7 @@ class TestRunYamlWorkflow:
             ),
             patch("animus_forge.cli.commands.dev.format_context_for_prompt", return_value="ctx"),
             patch("animus_forge.cli.commands.dev.console"),
-            patch("animus_forge.workflow.loader.load_workflow", return_value=mock_wf),
+            patch("animus_kernel.executor.loader.load_workflow", return_value=mock_wf),
             patch("pathlib.Path.exists", return_value=True),
             pytest.raises(Exit),
         ):
@@ -571,7 +571,7 @@ class TestRunYamlWorkflow:
             ),
             patch("animus_forge.cli.commands.dev.format_context_for_prompt", return_value="ctx"),
             patch("animus_forge.cli.commands.dev.console"),
-            patch("animus_forge.workflow.loader.load_workflow", return_value=mock_wf),
+            patch("animus_kernel.executor.loader.load_workflow", return_value=mock_wf),
             patch(
                 "animus_forge.cli.commands.dev.get_workflow_executor", return_value=mock_executor
             ),
@@ -619,7 +619,7 @@ class TestRunYamlWorkflow:
             ),
             patch("animus_forge.cli.commands.dev.format_context_for_prompt", return_value="ctx"),
             patch("animus_forge.cli.commands.dev.console") as mock_console,
-            patch("animus_forge.workflow.loader.load_workflow", return_value=mock_wf),
+            patch("animus_kernel.executor.loader.load_workflow", return_value=mock_wf),
             patch(
                 "animus_forge.cli.commands.dev.get_workflow_executor", return_value=mock_executor
             ),

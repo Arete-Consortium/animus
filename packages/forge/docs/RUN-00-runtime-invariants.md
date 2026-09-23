@@ -1,9 +1,9 @@
 # RUN-00 — Runtime Invariant Model and Executable Baseline
 
-**Repository:** `AreteDriver/animus`  
-**Plan:** Animus Plan 2 of 3 — Scheduler, Citizen Runtime, and Reliability Hardening  
-**Scope:** Mission scheduler, `LeaseManager`, `CitizenWorkerPool`, `MissionLedger`, `CostEnforcer`, and scheduler API routes.  
-**Date:** 2026-07-31  
+**Repository:** `AreteDriver/animus`
+**Plan:** Animus Plan 2 of 3 — Scheduler, Citizen Runtime, and Reliability Hardening
+**Scope:** Mission scheduler, `LeaseManager`, `CitizenWorkerPool`, `MissionLedger`, `CostEnforcer`, and scheduler API routes.
+**Date:** 2026-07-31
 **Status:** Baseline / design-only — production code intentionally unchanged.
 
 ---
@@ -128,51 +128,51 @@ Notes:
 
 ### Core invariants (non-negotiable)
 
-1. **At most one active lease per task.**  
+1. **At most one active lease per task.**
    Durable: the database must never contain two rows with `(task_id, status='active')`.
 
-2. **Every execution has a unique `attempt_id`.**  
+2. **Every execution has a unique `attempt_id`.**
    `attempt_id` must be generated before dispatch and must differ across retries.
 
-3. **A task in `RUNNING` has an active lease.**  
+3. **A task in `RUNNING` has an active lease.**
    Lease recovery must transition a task out of `RUNNING` when its lease expires or is released.
 
-4. **A stale worker cannot commit a result.**  
+4. **A stale worker cannot commit a result.**
    Result processing must validate the lease fencing token / generation. A result from a replaced lease is rejected or safely ignored.
 
-5. **A result and cost settlement are applied at most once.**  
+5. **A result and cost settlement are applied at most once.**
    Idempotency key prevents duplicate delivery from double-transitioning or double-spending.
 
-6. **Scheduler health reflects live supervised loops.**  
+6. **Scheduler health reflects live supervised loops.**
    `status()` must report `DEGRADED` or `FAILED` if a supervised loop dies, not rely on an event flag alone.
 
-7. **Restart reconstructs recoverable state from durable storage.**  
+7. **Restart reconstructs recoverable state from durable storage.**
    A new scheduler process must resume eligible work without loss or re-invention.
 
-8. **Budget is reserved before dispatch and settled from actual usage.**  
+8. **Budget is reserved before dispatch and settled from actual usage.**
    `can_start_task` must consider outstanding reservations; recorded cost must reflect provider/model/token usage, not a fixed estimate.
 
-9. **Mission completion requires a real review verdict.**  
+9. **Mission completion requires a real review verdict.**
    `REVIEW` is a stable waiting state. `COMPLETED` is reachable only through an accepted `ReviewVerdict`.
 
-10. **No orphan process or container remains after timeout or shutdown.**  
+10. **No orphan process or container remains after timeout or shutdown.**
     `kill_slot()` and `stop()` must terminate the process tree/container and await cleanup.
 
-11. **SQLite and PostgreSQL behavior must be defined and tested.**  
+11. **SQLite and PostgreSQL behavior must be defined and tested.**
     Concurrency-sensitive operations (leases, reservations) must be correct on both backends.
 
 ### Secondary invariants
 
-12. **Transition tables are the only valid mutation paths.**  
+12. **Transition tables are the only valid mutation paths.**
     No direct status assignment outside `transition_*` helpers.
 
-13. **API routes do not read private fields.**  
+13. **API routes do not read private fields.**
     `_stopped` is not a public interface.
 
-14. **Duplicate events are safe.**  
+14. **Duplicate events are safe.**
     Duplicate result, duplicate lease acquire attempt, duplicate review verdict: all must be idempotent or rejected cleanly.
 
-15. **Canceled required task prevents mission completion.**  
+15. **Canceled required task prevents mission completion.**
     Mission policy must define whether `CANCELLED` counts as success; default for required tasks is no.
 
 ---
