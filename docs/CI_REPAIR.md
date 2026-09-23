@@ -31,6 +31,26 @@ Sources: [upstream releases](https://github.com/chroma-core/chroma/releases),
 [authorization advisory](https://github.com/advisories/GHSA-2wm9-hf6c-p5cr),
 [RBAC advisory](https://github.com/advisories/GHSA-xph7-9rjv-w5fr).
 
+The live Discord bot runs on the Linux desktop, as confirmed by its operator.
+Its effective memory configuration and authoritative data location have not yet
+been inspected. The [Chroma retirement plan](operators/chroma-retirement-plan.md)
+documents the read-only inventory, conditional removal/migration paths, data and
+retrieval parity requirements, and rollback. This is preparation, not a cutover.
+
+## Forge coverage and rubric grading
+
+Behavioral tests now cover skill-report filters and totals, worker JSON protocol
+failures, evaluation command errors, rubric grading/export, and stored-run
+comparisons. They use local fixtures and injected providers, with no live model
+calls. The existing 95% coverage threshold and exclusions are unchanged.
+
+These tests exposed a grading defect: metrics with fixed names were not renamed
+to their rubric dimensions, so a correct result under `correctness` could be
+graded F when the metric used `exact_match`. A small metric adapter preserves
+dimension names and delegates scoring and hard-gate behavior. Regressions cover
+correct/incorrect answer grades and two independently configured dimensions using
+the same metric class. The focused suite passes all 58 cases.
+
 ## Type and secret gates
 
 `scripts/mypy-ratchet.py` runs the canonical baseline command once per package,
