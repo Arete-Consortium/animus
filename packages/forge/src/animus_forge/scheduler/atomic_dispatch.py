@@ -24,7 +24,6 @@ from typing import Any
 
 from animus_forge.missions.domain import MissionStatus, Task, TaskStatus
 from animus_forge.missions.store import MissionLedger
-from animus_forge.missions.transitions import TransitionError
 from animus_forge.scheduler.cost_enforcer import CostEnforcer
 from animus_forge.scheduler.lease import Lease, LeaseManager, LeaseStatus
 
@@ -73,6 +72,7 @@ class AtomicDispatcher:
         """
         try:
             with self._backend.transaction():
+                self.cost.lock_budget()
                 # 1. Re-read task and mission inside the transaction.
                 fresh_task = self.ledger.get_task(task.task_id)
                 if fresh_task is None:
@@ -86,11 +86,14 @@ class AtomicDispatcher:
                 if mission.status != MissionStatus.RUNNING:
                     return DispatchResult(ok=False, error="mission_not_running")
 
+                if fresh_task.current_attempt >= fresh_task.max_attempts:
+                    return DispatchResult(ok=False, error="attempts_exhausted")
+
                 # 2. Budget gate.
                 ok, reason = self.cost.can_start_task(
                     str(task.mission_id),
                     estimated_cost=estimated_cost_usd,
-                    mission_cap=default_mission_cap_usd,
+                    mission_cap=min(default_mission_cap_usd, mission.max_cost_usd),
                 )
                 if not ok:
                     return DispatchResult(ok=False, error=f"budget:{reason}")
@@ -168,19 +171,17 @@ class AtomicDispatcher:
                     ),
                 )
 
-                try:
-                    self.ledger.transition_task(
-                        task_id=task.task_id,
-                        to_status=TaskStatus.LEASED,
-                    )
-                    self.ledger.transition_task(
-                        task_id=task.task_id,
-                        to_status=TaskStatus.RUNNING,
-                    )
-                except TransitionError as exc:
-                    return DispatchResult(
-                        ok=False, error=f"transition:{exc.current}->{exc.requested}"
-                    )
+                ok, reason = self.cost.reserve(
+                    attempt_id,
+                    str(task.mission_id),
+                    estimated_cost_usd,
+                    mission_cap=min(default_mission_cap_usd, mission.max_cost_usd),
+                )
+                if not ok:
+                    raise RuntimeError(f"Budget reservation failed: {reason}")
+                self.ledger.transition_task(task_id=task.task_id, to_status=TaskStatus.LEASED)
+                self.ledger.transition_task(task_id=task.task_id, to_status=TaskStatus.RUNNING)
+                self.ledger.increment_attempt(task.task_id)
 
             logger.info(
                 "Atomically dispatched task %s attempt %s lease %s (gen %d)",
@@ -215,13 +216,22 @@ class AtomicDispatcher:
         """
         try:
             with self._backend.transaction():
+                self.cost.lock_budget()
+                current = self.lease.get_lease_for_task(lease.task_id)
+                if current is None or current.lease_id != lease.lease_id:
+                    return
                 self.lease.release(lease.lease_id, outcome=outcome)
+                self.cost.finish_reservation(lease.attempt_id, settled=False)
                 task = self.ledger.get_task_by_id(lease.task_id)
                 if task and task.status == TaskStatus.RUNNING:
                     self.ledger.transition_task(
                         task_id=task.task_id,
                         to_status=TaskStatus.READY,
                     )
+                self._backend.execute(
+                    "UPDATE tasks SET current_attempt = current_attempt - 1 WHERE task_id = ?",
+                    (lease.task_id,),
+                )
                 self._backend.execute(
                     "UPDATE task_attempts SET status = ? WHERE attempt_id = ?",
                     ("cancelled", lease.attempt_id),

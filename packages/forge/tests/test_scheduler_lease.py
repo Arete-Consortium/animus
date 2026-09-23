@@ -307,8 +307,9 @@ def test_atomic_dispatch_rejects_exhausted_budget(
     assert lease_manager.get_lease_for_task(str(sample_task.task_id)) is None
 
 
+@pytest.mark.parametrize("transition_error", [False, True])
 def test_atomic_dispatch_rollback_on_transition_failure(
-    dispatcher, ledger, sample_mission, sample_task
+    dispatcher, ledger, sample_mission, sample_task, transition_error
 ):
     ledger.create_mission(sample_mission)
     ledger.create_task(sample_task)
@@ -319,6 +320,10 @@ def test_atomic_dispatch_rollback_on_transition_failure(
 
     def failing_transition(task_id, to_status, error=None):
         if to_status == TaskStatus.RUNNING:
+            if transition_error:
+                from animus_forge.missions.transitions import TransitionError
+
+                raise TransitionError("task", "leased", "running")
             raise RuntimeError("simulated transition failure")
         return original(task_id, to_status, error)
 
@@ -335,6 +340,8 @@ def test_atomic_dispatch_rollback_on_transition_failure(
     assert not result.ok
     task = ledger.get_task(sample_task.task_id)
     assert task.status == TaskStatus.READY
+    assert task.current_attempt == 0
+    assert dispatcher.cost.reserved() == 0
     assert (
         dispatcher._backend.fetchone(
             "SELECT 1 FROM task_lease_current WHERE task_id = ?",
@@ -518,3 +525,27 @@ async def test_scheduler_stale_result_is_fenced(
         assert task.status == TaskStatus.READY
     finally:
         await scheduler.stop()
+
+
+def test_failed_pool_submit_releases_reservation_once(
+    dispatcher, ledger, sample_mission, sample_task
+):
+    ledger.create_mission(sample_mission)
+    ledger.create_task(sample_task)
+    ledger.transition_mission(sample_mission.mission_id, MissionStatus.READY)
+    ledger.transition_mission(sample_mission.mission_id, MissionStatus.RUNNING)
+    result = dispatcher.dispatch(
+        sample_task,
+        "fixture",
+        default_ttl_seconds=30,
+        default_mission_cap_usd=Decimal("10"),
+    )
+    assert result.ok
+    assert dispatcher.cost.reserved() == Decimal("0.10")
+    dispatcher.rollback_dispatch(result.lease)
+    dispatcher.rollback_dispatch(result.lease)
+    task = ledger.get_task(sample_task.task_id)
+    assert task.status == TaskStatus.READY
+    assert task.current_attempt == 0
+    assert dispatcher.cost.reserved() == 0
+    assert dispatcher.lease.get_attempt(result.attempt_id)["status"] == "cancelled"

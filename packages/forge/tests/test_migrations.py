@@ -265,3 +265,26 @@ class TestGetMigrationStatus:
                 assert result["up_to_date"] is True
                 assert result["pending"] == []
                 assert result["applied"] == []
+
+
+def test_cost_reservations_survive_migration_and_restart(tmp_path):
+    """Real migration 022 must preserve outstanding holds across manager restarts."""
+    from decimal import Decimal
+
+    from animus_forge.scheduler.cost_enforcer import CostEnforcer
+    from animus_forge.state.backends import SQLiteBackend
+
+    backend = SQLiteBackend(str(tmp_path / "migrated.db"))
+    try:
+        assert "022" in run_migrations(backend)
+        cost = CostEnforcer(backend)
+        assert cost.reserve("attempt", "mission", Decimal("0.60"), mission_cap=Decimal("1"))[0]
+        backend.close()
+        assert run_migrations(backend) == []
+        restarted = CostEnforcer(backend)
+        assert restarted.reserved("mission") == Decimal("0.60")
+        assert not restarted.reserve(
+            "second", "mission", Decimal("0.60"), mission_cap=Decimal("1")
+        )[0]
+    finally:
+        backend.close()

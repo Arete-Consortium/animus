@@ -472,7 +472,7 @@ class TestMissionScheduler:
 
         await scheduler.stop()
 
-    async def test_mission_completes_when_all_tasks_done(
+    async def test_mission_awaits_review_when_all_tasks_done(
         self, ledger, lease_manager, worker_pool, cost_enforcer, metrics, sample_mission
     ):
         ledger.create_mission(sample_mission)
@@ -510,7 +510,7 @@ class TestMissionScheduler:
         await asyncio.sleep(4.0)
 
         mission = ledger.get_mission(sample_mission.mission_id)
-        assert mission.status == MissionStatus.COMPLETED
+        assert mission.status == MissionStatus.REVIEW
 
         await scheduler.stop()
 

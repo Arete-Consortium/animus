@@ -1,9 +1,6 @@
 """RUN-00 baseline tests — reproduce known scheduler/runtime defects.
 
-These tests are intentionally expected to fail against the current codebase.
-They establish the executable baseline for Animus Plan 2 of 3.  As RUN-01
-through RUN-09 are implemented, each ``xfail`` should flip to ``xpass`` and
-the marker can be removed.
+The original expected failures are now executable regression checks.
 
 All tests use real scheduler instances, real ``SQLiteBackend``, and real
 ``CitizenWorkerPool`` where possible.  Deterministic fake clocks are not yet
@@ -43,6 +40,26 @@ from animus_forge.scheduler.metrics import SchedulerMetrics
 from animus_forge.scheduler.mission_scheduler import MissionScheduler, SchedulerConfig
 from animus_forge.scheduler.worker_pool import CitizenWorkerPool, PoolConfig
 from animus_forge.state.backends import SQLiteBackend
+
+
+def dispatch_result(scheduler, task, *, status="completed", usage=None):
+    """Dispatch without a worker so result delivery is deterministic and fenced."""
+    dispatch = scheduler.dispatcher.dispatch(
+        task,
+        "test-worker",
+        default_ttl_seconds=30,
+        default_mission_cap_usd=Decimal("10"),
+    )
+    assert dispatch.ok, dispatch.error
+    result = CitizenOutput(status=status, summary="fixture", usage=usage or []).model_dump(
+        mode="json"
+    )
+    result["_scheduler_meta"] = {
+        "lease_id": dispatch.lease.lease_id,
+        "generation": dispatch.lease.generation,
+        "attempt_id": dispatch.attempt_id,
+    }
+    return result
 
 
 @asynccontextmanager
@@ -393,9 +410,6 @@ async def test_pool_stop_start_cycle_restores_recovery(
 
 
 @pytest.mark.asyncio()
-@pytest.mark.xfail(
-    reason="RUN-00 defect #8: cost recorded without actual provider/model/token usage"
-)
 async def test_recorded_cost_reflects_actual_usage(
     ledger, lease_manager, worker_pool, cost_enforcer, metrics, sample_mission, sample_task
 ):
@@ -414,47 +428,51 @@ async def test_recorded_cost_reflects_actual_usage(
         config=SchedulerConfig(poll_interval_seconds=1.0, default_task_ttl_seconds=30),
     )
 
-    # The worker result currently carries no provider/model/token metadata,
-    # so the scheduler records a zero-cost local/default event.  The intended
-    # design propagates actual usage from the worker result.
-    async with managed_scheduler(scheduler):
-        await scheduler.run_once()
-        await asyncio.sleep(3.0)
+    result = dispatch_result(
+        scheduler,
+        sample_task,
+        usage=[
+            {
+                "provider": "openai",
+                "model": "gpt-4o",
+                "tokens_input": 1000,
+                "tokens_output": 500,
+                "cost_usd": "0.0075",
+            }
+        ],
+    )
+    await scheduler._process_result(str(sample_task.task_id), result)
+    rows = cost_enforcer._backend.fetchall(
+        "SELECT * FROM cost_events WHERE task_id = ?", (str(sample_task.task_id),)
+    )
+    assert len(rows) == 1
+    event = rows[0]
+    assert event["provider"] == "openai"
+    assert event["model"] == "gpt-4o"
+    assert event["usage_tokens_input"] == 1000
+    assert event["usage_tokens_output"] == 500
+    assert Decimal(event["cost_usd"]) == Decimal("0.0075")
+    assert cost_enforcer.reserved() == 0
 
-        rows = cost_enforcer._backend.fetchall(
-            "SELECT * FROM cost_events WHERE mission_id = ? AND task_id = ?",
-            (str(sample_mission.mission_id), str(sample_task.task_id)),
-        )
-        assert len(rows) == 1, f"expected single cost event, got {len(rows)}"
-        event = rows[0]
-        assert event["provider"] == "openai", f"provider not recorded: {event['provider']}"
-        assert event["model"] == "gpt-4o", f"model not recorded: {event['model']}"
-        assert event["usage_tokens_input"] == 1000
-        assert event["usage_tokens_output"] == 500
-        assert Decimal(event["cost_usd"]) > Decimal("0")
 
-
-@pytest.mark.xfail(reason="RUN-00 defect #9: budget reservation is not atomic")
 def test_concurrent_tasks_can_oversubscribe_budget(cost_enforcer):
     """can_start_task must consider outstanding reservations, not just past spend."""
     mission_id = "mission-1"
     cap = Decimal("1.00")
 
     # Mission has $1.00 cap. Two tasks each reserve $0.60 arrive "concurrently".
-    ok1, _ = cost_enforcer.can_start_task(
-        mission_id, estimated_cost=Decimal("0.60"), mission_cap=cap
+    ok1, _ = cost_enforcer.reserve(
+        "attempt-1", mission_id, estimated_cost=Decimal("0.60"), mission_cap=cap
     )
-    ok2, _ = cost_enforcer.can_start_task(
-        mission_id, estimated_cost=Decimal("0.60"), mission_cap=cap
+    ok2, _ = cost_enforcer.reserve(
+        "attempt-2", mission_id, estimated_cost=Decimal("0.60"), mission_cap=cap
     )
 
-    # Without reservations, both are approved even though their combined
-    # estimated cost ($1.20) exceeds the cap.
+    # The second reservation cannot claim the first attempt's budget.
     assert not (ok1 and ok2), "concurrent tasks were allowed to oversubscribe budget"
 
 
 @pytest.mark.asyncio()
-@pytest.mark.xfail(reason="RUN-00 defect #10: REVIEW is a ceremonial passthrough state")
 async def test_mission_completes_without_review_verdict(
     ledger, lease_manager, worker_pool, cost_enforcer, metrics, sample_mission, sample_task
 ):
@@ -483,7 +501,6 @@ async def test_mission_completes_without_review_verdict(
 
 
 @pytest.mark.asyncio()
-@pytest.mark.xfail(reason="RUN-00 defect #11: cancelled required task satisfies all_done")
 async def test_cancelled_required_task_allows_completion(
     ledger, lease_manager, worker_pool, cost_enforcer, metrics, sample_mission
 ):
@@ -523,13 +540,10 @@ async def test_cancelled_required_task_allows_completion(
         await asyncio.sleep(3.5)
 
         mission = ledger.get_mission(sample_mission.mission_id)
-        assert mission.status != MissionStatus.COMPLETED, (
-            "mission completed despite cancelled required task"
-        )
+        assert mission.status == MissionStatus.FAILED
 
 
 @pytest.mark.asyncio()
-@pytest.mark.xfail(reason="RUN-00 defect #12: checkpoint attempt_id is set to task_id")
 async def test_checkpoint_attempt_id_is_not_task_id(
     ledger, lease_manager, worker_pool, cost_enforcer, metrics, sample_mission, sample_task
 ):
@@ -558,7 +572,6 @@ async def test_checkpoint_attempt_id_is_not_task_id(
 
 
 @pytest.mark.asyncio()
-@pytest.mark.xfail(reason="RUN-00 defect #13: retry semantics do not create distinct attempt_id")
 async def test_retry_does_not_create_distinct_attempt_id(
     ledger, lease_manager, worker_pool, cost_enforcer, metrics, sample_mission
 ):
@@ -584,28 +597,17 @@ async def test_retry_does_not_create_distinct_attempt_id(
         config=SchedulerConfig(poll_interval_seconds=1.0, default_task_ttl_seconds=30),
     )
 
-    # Force the result to fail so a retry happens.
-    async def fake_fail_result(task_id, result_dict):
-        fail_output = CitizenOutput(
-            status="failed",
-            summary="forced failure",
-            risks=[{"severity": "high", "description": "forced"}],
-        )
-        await MissionScheduler._process_result(
-            scheduler, task_id, fail_output.model_dump(mode="json")
-        )
-
-    async with managed_scheduler(scheduler):
-        with patch.object(scheduler, "_process_result", side_effect=fake_fail_result):
-            await scheduler.run_once()
-            await asyncio.sleep(2.0)
-
-        task = ledger.get_task(task.task_id)
-        assert task.current_attempt > 0, "task was not retried"
-
-        checkpoints = ledger.list_checkpoints(task.task_id)
-        attempt_ids = {cp.attempt_id for cp in checkpoints}
-        assert len(attempt_ids) >= 2, f"retry reused the same attempt_id: {attempt_ids}"
+    for expected_attempt in (1, 2):
+        result = dispatch_result(scheduler, task, status="failed")
+        await scheduler._process_result(str(task.task_id), result)
+        assert ledger.get_task(task.task_id).current_attempt == expected_attempt
+    task = ledger.get_task(task.task_id)
+    assert task.status == TaskStatus.FAILED
+    checkpoints = ledger.list_checkpoints(task.task_id)
+    assert len({cp.attempt_id for cp in checkpoints}) == 2
+    attempts = cost_enforcer._backend.fetchall("SELECT * FROM task_attempts")
+    assert len(attempts) == 2
+    assert all(a["status"] == "failed" and a["completed_at"] for a in attempts)
 
 
 def test_api_routes_inspect_private_stopped_field():
@@ -666,7 +668,6 @@ async def test_api_with_real_scheduler_lifecycle(
 
 
 @pytest.mark.asyncio()
-@pytest.mark.xfail(reason="RUN-00 defect #16: duplicate result is not idempotent")
 async def test_duplicate_result_records_cost_twice(
     ledger, lease_manager, worker_pool, cost_enforcer, metrics, sample_mission, sample_task
 ):
@@ -684,28 +685,28 @@ async def test_duplicate_result_records_cost_twice(
         metrics=metrics,
         config=SchedulerConfig(poll_interval_seconds=1.0, default_task_ttl_seconds=30),
     )
-    async with managed_scheduler(scheduler):
-        await scheduler.run_once()
-        await asyncio.sleep(3.5)
-
-        task = ledger.get_task(sample_task.task_id)
-        assert task.status == TaskStatus.COMPLETED
-
-        # Re-deliver the exact same completed result.
-        completed_output = CitizenOutput(
-            status="completed",
-            summary="duplicate result",
-            confidence=0.9,
-        )
-        await scheduler._process_result(
-            str(sample_task.task_id), completed_output.model_dump(mode="json")
-        )
-
-        rows = cost_enforcer._backend.fetchall(
-            "SELECT * FROM cost_events WHERE mission_id = ? AND task_id = ?",
-            (str(sample_mission.mission_id), str(sample_task.task_id)),
-        )
-        assert len(rows) == 1, f"duplicate result caused {len(rows)} cost events instead of 1"
+    result = dispatch_result(
+        scheduler,
+        sample_task,
+        usage=[
+            {
+                "provider": "test",
+                "model": "fixture",
+                "tokens_input": 10,
+                "tokens_output": 5,
+                "cost_usd": "0.001",
+            }
+        ],
+    )
+    for _ in range(2):
+        await scheduler._process_result(str(sample_task.task_id), result)
+    assert "_scheduler_meta" in result  # The consumer must not mutate the envelope.
+    rows = cost_enforcer._backend.fetchall(
+        "SELECT * FROM cost_events WHERE task_id = ?", (str(sample_task.task_id),)
+    )
+    assert len(rows) == 1
+    assert cost_enforcer.mission_spend(str(sample_mission.mission_id)) == Decimal("0.001")
+    assert len(ledger.list_checkpoints(sample_task.task_id)) == 1
 
 
 @pytest.mark.asyncio()
@@ -752,3 +753,128 @@ async def test_two_schedulers_maintain_single_active_lease(
             assert len(task_leases) <= 1, (
                 f"race allowed {len(task_leases)} active leases for one task"
             )
+
+
+def test_budget_reservation_serializes_separate_connections(tmp_path):
+    """Two simultaneous writers cannot reserve the same remaining budget."""
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    path = str(tmp_path / "budget.db")
+    enforcers = [CostEnforcer(SQLiteBackend(path), global_cap_usd=Decimal("1")) for _ in range(2)]
+    barrier = Barrier(2)
+
+    def reserve(index):
+        barrier.wait(timeout=5)
+        try:
+            return enforcers[index].reserve(
+                str(index), f"mission-{index}", Decimal("0.60"), mission_cap=Decimal("1")
+            )[0]
+        finally:
+            enforcers[index]._backend.close()
+
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            assert sorted(executor.map(reserve, range(2))) == [False, True]
+        assert enforcers[0].reserved() == Decimal("0.60")
+    finally:
+        for enforcer in enforcers:
+            enforcer._backend.close()
+
+
+@pytest.mark.parametrize("amount", [Decimal("-1"), Decimal("NaN"), Decimal("Infinity")])
+def test_invalid_reservations_rejected(cost_enforcer, amount):
+    with pytest.raises(ValueError):
+        cost_enforcer.reserve("attempt", "mission", amount)
+    assert cost_enforcer.reserved() == 0
+
+
+def test_zero_cap_and_global_projected_spend(cost_enforcer):
+    assert not cost_enforcer.reserve("zero", "mission", Decimal("0.01"), mission_cap=Decimal("0"))[
+        0
+    ]
+    cost_enforcer.global_cap = Decimal("0.50")
+    cost_enforcer.record("another-mission", "fixture", cost_usd=Decimal("0.45"))
+    assert not cost_enforcer.reserve("global", "mission", Decimal("0.10"))[0]
+
+
+@pytest.mark.asyncio()
+async def test_result_transaction_rolls_back_and_accepts_redelivery(
+    ledger, lease_manager, worker_pool, cost_enforcer, sample_mission, sample_task
+):
+    ledger.create_mission(sample_mission)
+    ledger.create_task(sample_task)
+    ledger.transition_mission(sample_mission.mission_id, MissionStatus.READY)
+    ledger.transition_mission(sample_mission.mission_id, MissionStatus.RUNNING)
+    scheduler = MissionScheduler(
+        ledger=ledger,
+        lease_manager=lease_manager,
+        worker_pool=worker_pool,
+        cost_enforcer=cost_enforcer,
+    )
+    result = dispatch_result(scheduler, sample_task)
+    with patch.object(ledger, "save_checkpoint", side_effect=RuntimeError("write failed")):
+        with pytest.raises(RuntimeError, match="write failed"):
+            await scheduler._process_result(str(sample_task.task_id), result)
+    assert cost_enforcer._backend.fetchall("SELECT * FROM cost_events") == []
+    assert cost_enforcer.reserved() == Decimal("0.10")
+    assert lease_manager.get_lease_for_task(str(sample_task.task_id)) is not None
+    assert ledger.get_task(sample_task.task_id).status == TaskStatus.RUNNING
+    await scheduler._process_result(str(sample_task.task_id), result)
+    assert ledger.get_task(sample_task.task_id).status == TaskStatus.COMPLETED
+    assert len(ledger.list_checkpoints(sample_task.task_id)) == 1
+    assert cost_enforcer.reserved() == 0
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("bad_meta", [None, {}, {"attempt_id": "wrong"}])
+async def test_unfenced_result_cannot_settle_current_attempt(
+    ledger, lease_manager, worker_pool, cost_enforcer, sample_mission, sample_task, bad_meta
+):
+    ledger.create_mission(sample_mission)
+    ledger.create_task(sample_task)
+    ledger.transition_mission(sample_mission.mission_id, MissionStatus.READY)
+    ledger.transition_mission(sample_mission.mission_id, MissionStatus.RUNNING)
+    scheduler = MissionScheduler(
+        ledger=ledger,
+        lease_manager=lease_manager,
+        worker_pool=worker_pool,
+        cost_enforcer=cost_enforcer,
+    )
+    result = dispatch_result(scheduler, sample_task)
+    if bad_meta and "attempt_id" in bad_meta:
+        result["_scheduler_meta"].update(bad_meta)
+    else:
+        result["_scheduler_meta"] = bad_meta
+    await scheduler._process_result(str(sample_task.task_id), result)
+    assert ledger.get_task(sample_task.task_id).status == TaskStatus.RUNNING
+    assert ledger.list_checkpoints(sample_task.task_id) == []
+    assert cost_enforcer._backend.fetchall("SELECT * FROM cost_events") == []
+    assert cost_enforcer.reserved() == Decimal("0.10")
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("failure", ["malformed", "killed"])
+async def test_unknown_usage_retains_reservation(
+    ledger, lease_manager, worker_pool, cost_enforcer, sample_mission, sample_task, failure
+):
+    ledger.create_mission(sample_mission)
+    ledger.create_task(sample_task)
+    ledger.transition_mission(sample_mission.mission_id, MissionStatus.READY)
+    ledger.transition_mission(sample_mission.mission_id, MissionStatus.RUNNING)
+    scheduler = MissionScheduler(
+        ledger=ledger,
+        lease_manager=lease_manager,
+        worker_pool=worker_pool,
+        cost_enforcer=cost_enforcer,
+    )
+    result = dispatch_result(scheduler, sample_task, status="failed")
+    attempt_id = result["_scheduler_meta"]["attempt_id"]
+    if failure == "malformed":
+        result["usage"] = [{"provider": "missing-fields"}]
+    else:
+        result["_scheduler_meta"]["killed"] = True
+    await scheduler._process_result(str(sample_task.task_id), result)
+    assert cost_enforcer.reserved() == Decimal("0.10")
+    assert cost_enforcer._backend.fetchall("SELECT * FROM cost_events") == []
+    assert lease_manager.get_attempt(attempt_id)["cost_usd"] is None

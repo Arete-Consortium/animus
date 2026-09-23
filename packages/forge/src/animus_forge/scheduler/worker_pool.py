@@ -34,6 +34,7 @@ class WorkerSlot:
     slot_id: str
     lease_id: str | None = None
     lease_generation: int | None = None
+    attempt_id: str | None = None
     task_id: str | None = None
     citizen_role: str | None = None
     started_at: float | None = None
@@ -222,6 +223,7 @@ class CitizenWorkerPool:
 
         free_slot.lease_id = lease.lease_id
         free_slot.lease_generation = lease.generation
+        free_slot.attempt_id = lease.attempt_id
         free_slot.task_id = task_id
         free_slot.citizen_role = citizen_role
         free_slot.started_at = time.time()
@@ -466,6 +468,7 @@ class CitizenWorkerPool:
 
         lease_id = slot.lease_id
         lease_generation = slot.lease_generation
+        attempt_id = slot.attempt_id
         container_id = slot.container_id
         pid = slot.pid
 
@@ -473,7 +476,7 @@ class CitizenWorkerPool:
         self._pending.pop(task_id, None)
 
         # Embed scheduler metadata so the result consumer can fence stale results.
-        meta = {"lease_id": lease_id, "generation": lease_generation}
+        meta = {"lease_id": lease_id, "generation": lease_generation, "attempt_id": attempt_id}
         for key in ("_killed", "_timed_out", "_returncode"):
             if key in result_dict:
                 meta[key.removeprefix("_")] = result_dict.pop(key)
@@ -488,6 +491,7 @@ class CitizenWorkerPool:
     def _reset_slot(self, slot: WorkerSlot) -> None:
         slot.lease_id = None
         slot.lease_generation = None
+        slot.attempt_id = None
         slot.task_id = None
         slot.citizen_role = None
         slot.started_at = None
