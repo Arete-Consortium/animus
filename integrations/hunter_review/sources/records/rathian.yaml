@@ -1,0 +1,35 @@
+id: rathian
+name: Rathian
+record_type: monster
+game: monster_hunter_wilds
+status: verified
+verified_date: "2026-09-21"
+tags:
+  - monster
+  - flying-wyvern
+  - poison
+  - dragon
+  - thunder
+sources:
+  - document: 02_Hunter_OS_v1_Monster_Field_Manual
+    section: RATHIAN
+weakness:
+  primary: Dragon
+  secondary:
+    - Thunder
+targets:
+  hunting_horn:
+    - Head
+  sever:
+    - Tail
+control_prep:
+  - Flash
+  - Shock Trap
+  - Pitfall Trap
+status_prep:
+  - Poison preparation
+fight_plan:
+  - Pressure the head with Hunting Horn.
+  - Sever the tail when practical.
+  - Use Flash against aerial pressure.
+variant: normal
