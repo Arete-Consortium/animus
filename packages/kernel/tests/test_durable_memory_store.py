@@ -251,8 +251,10 @@ def test_foreign_identity_never_loads_or_mutates(store, field, value, historical
     assert [m.id for m in store.list_all()] == [own.id]
     assert [m.id for m in store.search("sentinel", limit=1)] == [own.id]
     assert store.get_all_tags() == {"owned": 1}
-    assert store.update(foreign) is False
-    assert store.delete(foreign.id) is False
+    updated = store.update(foreign)
+    assert updated is False
+    deleted = store.delete(foreign.id)
+    assert deleted is False
     with pytest.raises(PermissionError, match="another registry scope"):
         store.store(foreign)
 
@@ -302,11 +304,13 @@ def test_store_rejects_legacy_null_identity(tmp_path):
 
 def test_update_missing_returns_false(store: DurableMemoryStore):
     mem = _make_memory("orphan")
-    assert store.update(mem) is False
+    updated = store.update(mem)
+    assert updated is False
 
 
 def test_delete_missing_returns_false(store: DurableMemoryStore):
-    assert store.delete("nonexistent") is False
+    deleted = store.delete("nonexistent")
+    assert deleted is False
 
 
 def test_search_no_match(store: DurableMemoryStore):
