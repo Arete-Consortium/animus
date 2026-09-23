@@ -414,6 +414,7 @@ except Exception as exc:
     print(json.dumps({
         "status": "failed",
         "summary": str(exc),
+        "usage_complete": False,
         "confidence": 0.0,
     }))
 """

@@ -60,6 +60,7 @@ def test_citizen_exception_becomes_structured_failure(monkeypatch, payload):
     monkeypatch.setitem(worker_main._CITIZEN_REGISTRY, "builder", CrashingCitizen)
     output = CitizenOutput.model_validate(worker_main._run(payload))
     assert output.status == "failed" and "Worker crashed" in output.summary
+    assert output.usage_complete is False
     assert output.risks[0]["severity"] == "critical"
 
 

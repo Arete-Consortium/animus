@@ -117,6 +117,8 @@ class CitizenOutput(BaseModel):
     status: str  # "completed" | "failed" | "needs_repair"
     summary: str
     usage: list[CitizenUsage] = Field(default_factory=list)
+    # False when execution ended before all provider charges could be reported.
+    usage_complete: bool = Field(default=True, strict=True)
     changed_files: list[str] = Field(default_factory=list)
     artifacts: list[Artifact] = Field(default_factory=list)
     evidence: list[dict[str, Any]] = Field(default_factory=list)

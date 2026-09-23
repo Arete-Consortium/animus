@@ -292,6 +292,7 @@ class CitizenWorkerPool:
             result_dict = {
                 "status": "failed",
                 "summary": f"Supervisor exception: {exc}",
+                "usage_complete": False,
                 "changed_files": [],
                 "evidence": [{"type": "supervisor_error", "detail": str(exc)}],
                 "risks": [{"severity": "critical", "description": str(exc)}],
@@ -337,6 +338,7 @@ class CitizenWorkerPool:
             result_dict = {
                 "status": "failed",
                 "summary": f"Container start failed: {exc}",
+                "usage_complete": False,
                 "changed_files": [],
                 "evidence": [{"type": "container_start_error", "detail": str(exc)}],
                 "risks": [{"severity": "critical", "description": str(exc)}],
@@ -349,6 +351,7 @@ class CitizenWorkerPool:
         slot.container_task = container_task
         slot.container_id = container_task.container_id
 
+        usage_unknown = True
         try:
             stdout_b, stderr_b = await asyncio.wait_for(
                 container_task.process.communicate(),
@@ -382,6 +385,9 @@ class CitizenWorkerPool:
                 else:
                     try:
                         result_dict = json.loads(lines[-1])
+                        if not isinstance(result_dict, dict):
+                            raise ValueError("Container result must be a JSON object")
+                        usage_unknown = False
                     except json.JSONDecodeError as exc:
                         result_dict = {
                             "status": "failed",
@@ -415,18 +421,21 @@ class CitizenWorkerPool:
                 "confidence": 0.0,
             }
 
+        if usage_unknown:
+            result_dict["usage_complete"] = False
         await self._finish_task(task_id, slot_id, result_dict)
 
     def _worker_result_to_dict(self, result: Any) -> dict[str, Any]:
         from animus_forge.scheduler.worker_process import WorkerResult
 
         if isinstance(result, WorkerResult):
-            if result.ok and result.data is not None:
+            if result.ok and isinstance(result.data, dict):
                 result_dict = dict(result.data)
             else:
                 result_dict = {
                     "status": "failed",
                     "summary": result.error or "Worker failed",
+                    "usage_complete": False,
                     "changed_files": [],
                     "evidence": [{"type": "worker_error", "detail": result.error}],
                     "risks": [
@@ -443,6 +452,7 @@ class CitizenWorkerPool:
         return {
             "status": "failed",
             "summary": f"Unexpected worker result type: {type(result)}",
+            "usage_complete": False,
             "changed_files": [],
             "evidence": [],
             "risks": [

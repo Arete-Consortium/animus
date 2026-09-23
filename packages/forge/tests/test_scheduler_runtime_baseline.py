@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import io
 import json
 
 # ---------------------------------------------------------------------------
@@ -19,7 +20,7 @@ import json
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -878,3 +879,132 @@ async def test_unknown_usage_retains_reservation(
     assert cost_enforcer.reserved() == Decimal("0.10")
     assert cost_enforcer._backend.fetchall("SELECT * FROM cost_events") == []
     assert lease_manager.get_attempt(attempt_id)["cost_usd"] is None
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize("mode", ["process", "container"])
+@pytest.mark.parametrize(
+    "failure",
+    ["crash", "malformed", "empty", "non_object", "supervisor", "citizen", "known_failure", "none"],
+)
+async def test_worker_protocol_failure_preserves_unknown_cost(
+    ledger,
+    lease_manager,
+    worker_pool,
+    cost_enforcer,
+    sample_mission,
+    sample_task,
+    mode,
+    failure,
+    monkeypatch,
+    capsys,
+):
+    """Infrastructure failures cannot masquerade as a worker's zero-cost result."""
+    from animus_forge.scheduler import worker_main
+    from animus_forge.scheduler.worker_process import WorkerResult
+
+    ledger.create_mission(sample_mission)
+    ledger.create_task(sample_task)
+    ledger.transition_mission(sample_mission.mission_id, MissionStatus.READY)
+    ledger.transition_mission(sample_mission.mission_id, MissionStatus.RUNNING)
+    scheduler = MissionScheduler(ledger, lease_manager, worker_pool, cost_enforcer)
+    envelope = dispatch_result(scheduler, sample_task)
+    meta = envelope["_scheduler_meta"]
+    await worker_pool.start()
+    try:
+        slot = worker_pool._slots["0"]
+        slot.task_id = str(sample_task.task_id)
+        slot.lease_id = meta["lease_id"]
+        slot.lease_generation = meta["generation"]
+        slot.attempt_id = meta["attempt_id"]
+        data = {"status": "completed", "summary": "local"}
+        if failure in ("citizen", "known_failure"):
+
+            class FixtureCitizen:
+                def run(self, **kwargs):
+                    if failure == "citizen":
+                        raise RuntimeError("provider charge happened before crash")
+                    return CitizenOutput(status="failed", summary="local validation rejected")
+
+            monkeypatch.setitem(worker_main._CITIZEN_REGISTRY, "planner", FixtureCitizen)
+            monkeypatch.setattr(
+                worker_main.sys,
+                "stdin",
+                io.StringIO(
+                    json.dumps(
+                        {
+                            "citizen_role": "planner",
+                            "task_id": str(sample_task.task_id),
+                            "mission_id": str(sample_mission.mission_id),
+                            "context": {
+                                "mission_objective": "test",
+                                "task_description": "test",
+                                "repository": "test",
+                            },
+                        }
+                    )
+                ),
+            )
+            worker_main.main()
+            data = json.loads(capsys.readouterr().out)
+        if mode == "process":
+            result = WorkerResult(
+                ok=failure in ("none", "non_object", "citizen", "known_failure"),
+                data=[] if failure == "non_object" else data,
+                error=None if failure == "none" else "Worker protocol failure",
+                returncode=1 if failure == "crash" else 0,
+            )
+            slot.worker = SimpleNamespace(wait=AsyncMock(return_value=result))
+            if failure == "supervisor":
+                slot.worker.wait.side_effect = RuntimeError("read failed")
+            await worker_pool._supervise_process(str(sample_task.task_id), slot.slot_id)
+        else:
+            stdout = {
+                "crash": b"",
+                "malformed": b"not JSON",
+                "empty": b"",
+                "non_object": b"[]",
+                "supervisor": b"",
+                "none": b'{"status": "completed", "summary": "local"}',
+                "citizen": json.dumps(data).encode(),
+                "known_failure": json.dumps(data).encode(),
+            }[failure]
+            process = SimpleNamespace(
+                returncode=1 if failure == "crash" else 0,
+                communicate=AsyncMock(
+                    return_value=(stdout, b"fixture crash" if failure == "crash" else b"")
+                ),
+            )
+            if failure == "supervisor":
+                process.communicate.side_effect = RuntimeError("read failed")
+            worker_pool.container = SimpleNamespace(
+                run_task_async=AsyncMock(
+                    return_value=SimpleNamespace(container_id="fixture", process=process)
+                )
+            )
+            await worker_pool._supervise_container(
+                str(sample_task.task_id),
+                str(sample_mission.mission_id),
+                "planner",
+                TaskContext(mission_objective="test", task_description="test", repository="test"),
+                slot.slot_id,
+                30,
+            )
+        task_id, payload = (await worker_pool.results()).get_nowait()
+        await scheduler._process_result(task_id, payload)
+        attempt = lease_manager.get_attempt(meta["attempt_id"])
+        if failure in ("none", "known_failure"):
+            assert cost_enforcer.reserved() == 0
+            assert attempt["cost_usd"] == "0"
+            expected_status = TaskStatus.COMPLETED if failure == "none" else TaskStatus.READY
+            assert ledger.get_task(sample_task.task_id).status == expected_status
+        else:
+            assert cost_enforcer.reserved() == Decimal("0.10")
+            assert attempt["cost_usd"] is None
+            assert cost_enforcer._backend.fetchall("SELECT * FROM cost_events") == []
+            assert ledger.get_task(sample_task.task_id).status == TaskStatus.READY
+            assert (
+                ledger.get_latest_checkpoint(sample_task.task_id).outputs["usage_complete"] is False
+            )
+    finally:
+        await worker_pool.stop()
