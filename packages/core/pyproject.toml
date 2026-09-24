@@ -71,6 +71,7 @@ sync = [
     "zeroconf>=0.131.0",
 ]
 mcp = ["mcp>=1.30.0,<2"]
+discord = ["discord.py>=2.4,<3"]
 postgres = [
     "sqlalchemy>=2.0",
     "psycopg[binary]>=3.1",

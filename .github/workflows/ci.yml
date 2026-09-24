@@ -259,7 +259,7 @@ jobs:
         # animus-types is a sibling pip-installable package and is not
         # published to PyPI — pip resolves it from the local path when
         # both -e targets are part of the same install transaction.
-        run: pip install -e packages/types/ -e packages/contracts/ -e packages/kernel/ -e "packages/core/[dev,api,postgres,mcp]"
+        run: pip install -e packages/types/ -e packages/contracts/ -e packages/kernel/ -e "packages/core/[dev,api,postgres,mcp,discord]"
 
       - name: Verify MCP SDK compatibility
         run: python -c "from mcp.server.fastmcp import FastMCP; from animus.mcp_server import GatedFastMCP; assert issubclass(GatedFastMCP, FastMCP)"
@@ -271,6 +271,9 @@ jobs:
 
       - name: Test Hunter source review integration
         run: python -m pytest integrations/hunter_review/tests/ -q --tb=short
+
+      - name: Test personal Discord privacy boundary
+        run: python -m pytest tests/test_personal_discord_boundary.py -q --tb=short
 
   test-quorum:
     name: Test Quorum
