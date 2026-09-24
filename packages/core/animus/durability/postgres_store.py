@@ -467,6 +467,8 @@ class DurableObjectStore:
         event_type: str,
         record: ObjectRecord,
         parent_event_id: str | None = None,
+        *,
+        metadata: dict[str, Any] | None = None,
     ) -> str:
         """Append an immutable event to the ledger. Returns event_id."""
         event_id = _generate_id("evt")
@@ -475,6 +477,8 @@ class DurableObjectStore:
             "schema_id": record.schema_id,
             "tags": record.tags,
         }
+        if metadata is not None:
+            payload["metadata"] = metadata
         now = _now_utc()
         integrity = _sha256(
             {
