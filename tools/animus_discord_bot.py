@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Animus Discord Bot — operational intel bot with slash commands and conversational chat.
+Animus Discord Bot — private owner commands and conversational chat.
 
 Pushes harvest intel, searches Animus memory, manages watchlist,
-provides daily briefs via Discord slash commands, and responds to
-@mentions with LLM-powered conversational replies grounded in memory.
+provides daily briefs via Discord slash commands, and responds in owner DMs
+with LLM-powered conversational replies grounded in memory. Public intel is opt-in.
 
 Standalone bot — does not modify the Forge Discord bot.
 
@@ -14,7 +14,10 @@ Usage:
 Environment:
     ANIMUS_DISCORD_TOKEN    — Discord bot token (required)
     ANIMUS_DISCORD_CHANNEL  — Channel ID for auto-push intel (required for auto-push)
-    ANIMUS_CHAT_CHANNEL     — Channel ID where Animus responds to all messages (optional)
+    ANIMUS_PERSONAL_OWNER_ID — User ID allowed to use personal memory in bot DMs
+    ANIMUS_ENABLE_INTEL_PUSH — Explicit opt-in to reviewed public intel (default: off)
+    ANIMUS_DISCORD_SYNC_COMMANDS — Sync slash commands from this process (default: off)
+    ANIMUS_CHAT_CHANNEL     — Legacy setting; guild personal-memory chat is disabled
     ANIMUS_CHAT_COOLDOWN    — Per-user cooldown in seconds (default: 10)
     DISCORD_BOT_TOKEN       — Fallback token if ANIMUS_DISCORD_TOKEN not set
 """
@@ -160,7 +163,7 @@ Keep responses concise (under 2000 chars for Discord). Be conversational but sub
 If you have relevant context from memory, reference it naturally. If you don't know something, \
 say so directly — don't fabricate.
 
-You are chatting in a public Discord server. Be welcoming to newcomers."""
+You are chatting privately with the configured owner."""
 
 
 # ---------------------------------------------------------------------------
@@ -192,6 +195,33 @@ def _save_harvest_state(report: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 
+class PersonalCommandTree(app_commands.CommandTree):
+    """All personal commands share the same deny-by-default runtime boundary."""
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if self.client.personal_access(interaction.user, interaction.guild_id, interaction.channel):
+            return True
+        await interaction.response.send_message(
+            "Personal commands are available only to the configured owner in a bot DM.",
+            ephemeral=True,
+        )
+        return False
+
+    async def on_error(
+        self, interaction: discord.Interaction, error: app_commands.AppCommandError
+    ) -> None:
+        """Do not let the SDK log memory/provider exception text or tracebacks."""
+        logger.error("Personal command failed (%s)", type(error).__name__)
+        message = "The personal command could not be completed. Please try again later."
+        try:
+            if interaction.response.is_done():
+                await interaction.followup.send(message, ephemeral=True)
+            else:
+                await interaction.response.send_message(message, ephemeral=True)
+        except discord.HTTPException as reply_error:
+            logger.error("Personal command error reply failed (%s)", type(reply_error).__name__)
+
+
 class AnimusBot(discord.Client):
     """Animus operational Discord bot with slash commands and conversational chat."""
 
@@ -202,16 +232,33 @@ class AnimusBot(discord.Client):
     ) -> None:
         intents = discord.Intents.default()
         intents.message_content = True
-        super().__init__(intents=intents)
-        self.tree = app_commands.CommandTree(self)
-        self.intel_channel_id = intel_channel_id
+        super().__init__(intents=intents, allowed_mentions=discord.AllowedMentions.none())
+        owner = os.environ.get("ANIMUS_PERSONAL_OWNER_ID", "")
+        if owner and (not owner.isascii() or not owner.isdecimal() or int(owner) <= 0):
+            raise ValueError("ANIMUS_PERSONAL_OWNER_ID must be a positive Discord user ID.")
+        self.personal_owner_id = int(owner) if owner else None
+        self.tree = PersonalCommandTree(self)
+        self.intel_channel_id = (
+            intel_channel_id if os.environ.get("ANIMUS_ENABLE_INTEL_PUSH") == "true" else None
+        )
         self.chat_channel_id = chat_channel_id
         self._register_commands()
 
+    def personal_access(self, user: Any, guild_id: int | None, channel: Any) -> bool:
+        """Never expose personal memory to a guild, group DM, or unconfigured user."""
+        return (
+            self.personal_owner_id is not None
+            and user.id == self.personal_owner_id
+            and not user.bot
+            and guild_id is None
+            and isinstance(channel, discord.DMChannel)
+        )
+
     async def setup_hook(self) -> None:
-        """Sync slash commands on startup."""
-        await self.tree.sync()
-        logger.info("Slash commands synced")
+        """Only the explicitly selected command owner may replace the command tree."""
+        if os.environ.get("ANIMUS_DISCORD_SYNC_COMMANDS") == "true":
+            await self.tree.sync()
+            logger.info("Slash commands synced by the configured command owner")
 
         # Start the background harvest check loop
         if self.intel_channel_id:
@@ -231,37 +278,10 @@ class AnimusBot(discord.Client):
     # -------------------------------------------------------------------
 
     async def on_message(self, message: discord.Message) -> None:
-        # Debug: log all incoming messages
-        parent_id = getattr(message.channel, "parent_id", None)
-        logger.info(
-            "on_message: channel=%s (type=%s, parent=%s) author=%s content=%s",
-            message.channel.id,
-            type(message.channel).__name__,
-            parent_id,
-            message.author,
-            message.content[:50] if message.content else "<empty>",
-        )
-
-        # Ignore own messages and other bots
-        if message.author.bot:
-            return
-
-        # Determine if we should respond:
-        # 1. @mention in any channel
-        # 2. Any message in the designated chat channel
-        is_mention = self.user is not None and self.user.mentioned_in(message)
-        # Check if message is in the chat channel or any thread within it (forum posts)
-        is_chat_channel = False
-        if self.chat_channel_id is not None:
-            if message.channel.id == self.chat_channel_id:
-                is_chat_channel = True
-            elif (
-                hasattr(message.channel, "parent_id")
-                and message.channel.parent_id == self.chat_channel_id
-            ):
-                is_chat_channel = True
-
-        if not is_mention and not is_chat_channel:
+        # Check before logging, cooldowns, memory, model calls, or any reply.
+        if message.webhook_id is not None or not self.personal_access(
+            message.author, message.guild.id if message.guild else None, message.channel
+        ):
             return
 
         # Rate limit per user
@@ -324,8 +344,8 @@ class AnimusBot(discord.Client):
 
                 await message.reply(response, mention_author=False)
 
-            except Exception:
-                logger.exception("Error generating chat response")
+            except Exception as error:
+                logger.error("Personal chat failed (%s)", type(error).__name__)
                 await message.reply(
                     "Something went wrong processing that. "
                     "Try again or use `/ask` for a memory search.",
@@ -830,14 +850,14 @@ def main() -> None:
     bot = AnimusBot(intel_channel_id=intel_channel, chat_channel_id=chat_channel)
 
     logger.info("Starting Animus Discord bot...")
-    if intel_channel:
-        logger.info("Intel auto-push channel: %s", intel_channel)
+    if bot.intel_channel_id:
+        logger.info("Intel auto-push channel: %s", bot.intel_channel_id)
     else:
-        logger.info("No ANIMUS_DISCORD_CHANNEL set — auto-push disabled")
-    if chat_channel:
-        logger.info("Chat channel: %s (responding to all messages)", chat_channel)
+        logger.info("Intel auto-push disabled (explicit opt-in and destination required)")
+    if bot.personal_owner_id:
+        logger.info("Personal chat enabled only in the configured owner's direct messages")
     else:
-        logger.info("No ANIMUS_CHAT_CHANNEL set — responding to @mentions only")
+        logger.info("ANIMUS_PERSONAL_OWNER_ID is unset — personal commands and chat disabled")
 
     try:
         bot.run(token, log_handler=None)
