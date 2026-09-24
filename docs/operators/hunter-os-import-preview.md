@@ -103,7 +103,6 @@ isolated mode. Its two CLI runs produced byte-identical 155,731-byte reports
 
 The full local Core suite then passed **3,869 tests, with 81 skips** in 261.69 seconds. Applicable pre-commit hooks, Ruff, formatting, docs, boundary and version checks passed. The Core mypy ratchet remained within its unchanged allowance (251 / 269), with no diagnostics in the new modules. Independent review findings were fixed and the follow-up review found no remaining issues.
 
-No live migration or publication was performed. The next implementation step is the
-reviewed, atomic SQL importer with expected-version checks and repeat-apply no-op
-tests. Presenter/chat integration, source approval, Stheno access, live schema and
+No live migration or publication was performed. The [operator SQL importer](hunter-os-sql-import.md) now implements atomic candidate
+staging with expected-version/fingerprint checks and unchanged replay. Presenter/chat integration, source approval, Stheno access, live schema and
 memory-backend inspection, and the legacy Chroma audit remain cutover gates.
