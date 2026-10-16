@@ -21,7 +21,7 @@
     "@vitejs/plugin-react": "^4.3.0",
     "jsdom": "^26.0.0",
     "typescript": "^5.7.0",
-    "vitest": "^3.0.0",
+    "vitest": "^4.1.11",
     "vite": "^6.0.0",
     "vite-plugin-pwa": "^0.21.0",
     "workbox-precaching": "^7.1.0"
