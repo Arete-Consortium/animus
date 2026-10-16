@@ -446,7 +446,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install sqlalchemy alembic pytest psycopg2-binary
+          pip install sqlalchemy alembic pytest psycopg2-binary "psycopg[binary]>=3.1"
 
       - name: Test migrations (SQLite)
         working-directory: database
