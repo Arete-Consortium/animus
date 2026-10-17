@@ -207,7 +207,7 @@ packages:
       sync: ["websockets>=12.0", "zeroconf>=0.131.0"]
       mcp: ["mcp>=1.0.0"]
       postgres: ["sqlalchemy>=2.0", "psycopg[binary]>=3.1"]
-      dev: ["pytest>=8.0.0", "pytest-asyncio>=0.23.0", "pytest-benchmark>=4.0.0", "pytest-cov>=4.1.0", "ruff>=0.2.0", "mypy>=1.8.0", "pre-commit>=3.6.0", "httpx>=0.26.0"]
+      dev: ["bcrypt>=5.0.0,<6", "pytest>=8.0.0", "pytest-asyncio>=0.23.0", "pytest-benchmark>=4.0.0", "pytest-cov>=4.1.0", "ruff>=0.2.0", "mypy>=1.8.0", "pre-commit>=3.6.0", "httpx>=0.26.0"]
       all: ["animus-core[anthropic,openai,api,voice,integrations,sync,mcp,dev]"]
     internal_dependencies:
       - animus-types
