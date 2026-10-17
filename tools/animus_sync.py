@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """
-Animus Memory Sync — Claude Code → Animus ChromaDB
+Animus Memory Sync — Claude Code → supported Animus memory
 
 Parses Claude Code memory files and notes repo, deduplicates by content hash,
-and pushes structured memories into Animus via direct MemoryLayer API.
+and pushes structured memories through the configured ``MemoryLayer`` backend.
+Legacy Chroma configuration fails closed; this tool does not migrate or select a
+replacement backend.
 
 Usage:
     python tools/animus_sync.py                  # Full sync

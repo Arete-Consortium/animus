@@ -1,4 +1,4 @@
-"""JSON-file-backed memory store — fallback when ChromaDB is unavailable."""
+"""JSON-file-backed memory store used by the default supported Core backend."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ class LocalMemoryStore(MemoryStore):
     """
     Simple local file-based memory store.
 
-    Uses substring matching for search. Fallback when ChromaDB unavailable.
+    Uses substring matching for search.
     """
 
     def __init__(self, data_dir: Path):

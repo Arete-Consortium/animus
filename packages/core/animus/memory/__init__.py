@@ -7,7 +7,7 @@ split into:
 
     types     — Memory / MemoryType / MemorySource / SemanticFact /
                 Procedure / Message / Conversation
-    stores/   — MemoryStore ABC + LocalMemoryStore + ChromaMemoryStore
+    stores/   — supported stores plus the legacy migration-only Chroma adapter
     fusion    — _rrf_fuse (Reciprocal Rank Fusion)
     layer     — MemoryLayer façade
 

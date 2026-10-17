@@ -52,7 +52,7 @@ graph TD
     subgraph Memory["MEMORY LAYER"]
         Kernel[Builder Engine]
         Episodic[(Episodic SQLite)]
-        Semantic[(Semantic ChromaDB)]
+        Semantic[(Kernel Semantic ChromaDB)]
         Procedural[(Procedural Memory)]
     end
 
@@ -147,7 +147,10 @@ Decentralized multi-agent coordination without a supervisor bottleneck. Agents r
 
 ### Core — Personal AI Assistant
 
-Persistent memory (episodic, semantic, procedural via ChromaDB), 40+ CLI commands, integrations (Google Calendar, Todoist, filesystem, webhooks), and an inference layer supporting Anthropic, OpenAI, and Ollama with native tool use.
+Persistent episodic, semantic, and procedural memory through local JSON or a
+configured durable SQL store, 40+ CLI commands, integrations (Google Calendar,
+Todoist, filesystem, webhooks), and an inference layer supporting Anthropic,
+OpenAI, and Ollama with native tool use.
 
 [`packages/core/`](packages/core/) | `import animus`
 
@@ -167,7 +170,10 @@ These are visible in the code, not aspirational:
 - **Token budgets per agent** — Every agent declaration includes a `budget` field. The executor enforces it. No surprise API bills. See `packages/forge/workflows/*.yml` for examples.
 - **Quality gates before merge** — Deterministic scoring (tool/completeness/structure) with adversarial test harness. A feature doesn't ship unless the gate passes. Implemented in `packages/forge/src/animus_forge/gates/`.
 - **Provider-agnostic dispatch** — LLM calls go through a shared interface. Swap Claude for OpenAI or Ollama without touching agent code. Native tool use dispatches by provider. See `packages/core/animus/inference/`.
-- **Local-first memory** — Episodic, semantic, and procedural memory via ChromaDB/SQLite. Your data stays on your hardware unless you configure a PostgreSQL backend. No cloud dependency for personal use.
+- **Local-first memory** — Core stores episodic, semantic, and procedural memory
+  in local JSON by default. Deployments can configure the durable SQL backend
+  after completing its setup. Legacy Core Chroma data requires the documented
+  migration process and is not opened by the supported runtime.
 
 ---
 

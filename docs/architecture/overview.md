@@ -59,12 +59,16 @@ What makes it *yours* over time. Memory, knowledge, and reasoning.
 
 | Type | What it stores | Backend |
 |---|---|---|
-| **Episodic** | Conversations, events, decisions | SQLite / ChromaDB |
-| **Semantic** | Facts, preferences, relationships | ChromaDB / Weaviate |
-| **Procedural** | Workflows, patterns, how you work | SQLite + learned embeddings |
-| **Reflection** | Feedback loop outcomes, improvement history | SQLite |
+| **Episodic** | Conversations, events, decisions | Core local JSON / durable SQL |
+| **Semantic** | Facts, preferences, relationships | Core local JSON / durable SQL |
+| **Procedural** | Workflows, patterns, how you work | Core local JSON / durable SQL |
+| **Reflection** | Feedback loop outcomes, improvement history | Package-specific stores |
 
-**Implementation**: Default is SQLite for portability. ChromaDB and Weaviate are optional backends via `memory.backend` config.
+**Implementation**: Core defaults to the local JSON backend and supports a
+separately configured durable SQL backend. Its legacy Chroma adapter is retained
+only for isolated migration verification and cannot be selected by `MemoryLayer`.
+Other packages have separate backend contracts; their names must not be used as
+Core `memory.backend` values.
 
 ### Identity
 
@@ -283,7 +287,8 @@ Feedback / Citizen Proposal
 ### Privacy Guarantees
 
 1. **No telemetry without consent** — Nothing phones home by default
-2. **Local memory** — SQLite/ChromaDB on your machine
+2. **Local memory** — Core local JSON on your machine, or durable SQL when
+   explicitly configured
 3. **Explicit sharing only** — Data leaves device only when you choose
 4. **Audit trail** — You can see everything that happened
 

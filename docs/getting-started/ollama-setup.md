@@ -142,81 +142,25 @@ Status: RevenueCat configured, deployment needs healthcheck fix.
 
 ---
 
-## RAG Setup (Optional — For Deep Project Context)
+## Project-context retrieval (optional)
 
-The system prompt gives the LLM your high-level context. For deep project knowledge (file contents, architecture details, conversation history), add a RAG pipeline:
+The system prompt gives the LLM your high-level context. Core's supported local
+store provides substring retrieval; the durable SQL store is available for
+deployments that have completed its setup. A separate vector RAG service must be
+independently selected, secured, and maintained.
 
-### Quick RAG with ChromaDB
+The former Chroma quickstart is retired because Core has no supported Chroma
+dependency and no patched upstream release was available at retirement time. Do
+not install Chroma as a Core backend or point a Core service at the old example.
+For existing Animus Chroma data, follow the
+[retirement plan](../operators/chroma-retirement-plan.md).
 
-```bash
-pip install chromadb sentence-transformers
-```
-
-```python
-# index_projects.py — Run once, re-run when projects change
-import chromadb
-from pathlib import Path
-
-client = chromadb.PersistentClient(path="~/.animus/chromadb")
-collection = client.get_or_create_collection("project_docs")
-
-# Index your CLAUDE.md files
-docs_to_index = [
-    "~/repos/Animus/CLAUDE.md",
-    "~/repos/LinuxTools/CLAUDE.md",
-    "~/repos/EVE_Collection/CLAUDE.md",
-    "~/repos/BenchGoblins/CLAUDE.md",
-    # Add READMEs, design docs, etc.
-]
-
-for doc_path in docs_to_index:
-    path = Path(doc_path).expanduser()
-    if path.exists():
-        content = path.read_text()
-        # Chunk by sections (split on ## headers)
-        sections = content.split("\n## ")
-        for i, section in enumerate(sections):
-            collection.add(
-                documents=[section],
-                ids=[f"{path.stem}_{i}"],
-                metadatas=[{"source": str(path), "section": i}]
-            )
-
-print(f"Indexed {collection.count()} chunks")
-```
-
-```python
-# query_rag.py — Use before each Ollama call
-import chromadb
-
-client = chromadb.PersistentClient(path="~/.animus/chromadb")
-collection = client.get_collection("project_docs")
-
-def get_context(query: str, n_results: int = 5) -> str:
-    results = collection.query(query_texts=[query], n_results=n_results)
-    context = "\n\n---\n\n".join(results["documents"][0])
-    return f"Relevant project context:\n\n{context}"
-
-# Inject into Ollama call
-import requests
-
-user_query = "How does the Forge checkpoint system work?"
-context = get_context(user_query)
-
-response = requests.post("http://localhost:11434/api/chat", json={
-    "model": "animus",
-    "messages": [
-        {"role": "user", "content": f"{context}\n\nQuestion: {user_query}"}
-    ]
-})
-```
-
-### What This Gets You
+### What a separate RAG service adds
 
 | Layer | Coverage | Source |
 |-------|----------|--------|
 | System prompt | Identity, style, project summaries, preferences | Modelfile (baked in) |
-| RAG | Deep project details, architecture docs, file contents | ChromaDB (queried per-request) |
+| RAG | Deep project details, architecture docs, file contents | Independently managed retrieval service |
 | Conversation | Current session context | Ollama chat history (ephemeral) |
 
 This is ~70-80% of what I (Claude) have. The remaining gap is:

@@ -114,10 +114,12 @@ class TestMarkdownRoundtrip:
         original = OgmaOutput(
             **_valid_kwargs(
                 animus_gap="PARTIAL",
-                animus_gap_notes="See packages/core/animus/memory.py:42-58 (ChromaDB retrieval).",
+                animus_gap_notes=(
+                    "See packages/core/animus/memory/layer.py:39-82 (supported retrieval)."
+                ),
                 sources_cited=[
                     "https://arxiv.org/abs/2501.00663",
-                    "packages/core/animus/memory.py:42-58",
+                    "packages/core/animus/memory/layer.py:39-82",
                 ],
             )
         )
@@ -125,8 +127,8 @@ class TestMarkdownRoundtrip:
             original.to_markdown(), source_id=original.source_id, item_id=original.item_id
         )
         assert parsed.animus_gap == "PARTIAL"
-        assert "memory.py:42-58" in parsed.animus_gap_notes
-        assert "packages/core/animus/memory.py:42-58" in parsed.sources_cited
+        assert "memory/layer.py:39-82" in parsed.animus_gap_notes
+        assert "packages/core/animus/memory/layer.py:39-82" in parsed.sources_cited
 
     def test_missing_section_raises_parse_error(self):
         # Strip the ## Concept section, parse should fail.

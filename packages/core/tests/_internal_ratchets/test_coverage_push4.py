@@ -900,14 +900,13 @@ class TestLocalMemoryStoreCoverage:
 
 
 class TestMemoryLayerCoverage:
-    def test_missing_chroma_does_not_open_a_different_store(self, tmp_path):
-        """A missing optional backend must not silently hide existing memories."""
+    def test_retired_chroma_does_not_open_a_different_store(self, tmp_path):
+        """A legacy backend setting must not silently hide existing memories."""
         from animus.memory import MemoryLayer
 
         with (
-            patch("animus.memory.ChromaMemoryStore", side_effect=ImportError("no chroma")),
             patch("animus.memory.LocalMemoryStore") as local_store,
-            pytest.raises(RuntimeError, match="no fallback store was opened"),
+            pytest.raises(RuntimeError, match="Chroma memory backend is retired"),
         ):
             MemoryLayer(tmp_path, backend="chroma")
         local_store.assert_not_called()

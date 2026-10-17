@@ -14,7 +14,7 @@ v1 scope:
     mer      — EVE Online Monthly Economic Report availability tracker
 
 v2 (not yet wired):
-    ChromaDB write path, MCP tool surface, cron integration.
+    Supported Core memory write path, MCP tool surface, cron integration.
 """
 
 from __future__ import annotations

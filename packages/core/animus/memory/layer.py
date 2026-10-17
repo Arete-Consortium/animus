@@ -39,7 +39,7 @@ class MemoryLayer:
     def __init__(
         self,
         data_dir: Path,
-        backend: str = "chroma",
+        backend: str = "local",
         entity_memory: EntityMemory | None = None,
         auto_discover_entities: bool = False,
     ):
@@ -48,22 +48,19 @@ class MemoryLayer:
         self.entity_memory = entity_memory
         self.auto_discover_entities = auto_discover_entities
 
-        # Resolve store classes via the package namespace so test mocks like
-        # `patch("animus.memory.ChromaMemoryStore")` hit the name MemoryLayer
-        # actually reads (the classic "patch where it's looked up" rule).
+        # Resolve store classes via the package namespace so optional durable
+        # dependencies remain lazy and base installs stay lightweight.
         import animus.memory as _memory
 
         self.store: MemoryProvider
         if backend == "chroma":
-            try:
-                self.store = _memory.ChromaMemoryStore(data_dir)
-            except ImportError as exc:
-                raise RuntimeError(
-                    "The configured Chroma memory backend is unavailable. "
-                    "Install animus-core[chroma] for an existing Chroma deployment, "
-                    "or explicitly configure a different backend for a new installation. "
-                    "Existing memories have not been migrated; no fallback store was opened."
-                ) from exc
+            raise RuntimeError(
+                "The Chroma memory backend is retired from the Core runtime because no "
+                "patched Chroma release is available. Existing memories have not been "
+                "migrated and no fallback store was opened. Complete the documented backup, "
+                "migration rehearsal, and retrieval-parity checks before changing "
+                "ANIMUS_MEMORY_BACKEND to local or durable."
+            )
         elif backend == "durable":
             if _memory.DurableMemoryStore is None:
                 raise RuntimeError(
@@ -73,8 +70,14 @@ class MemoryLayer:
             # or ObjectStoreConfig; data_dir is ignored.
             self.store = _memory.DurableMemoryStore()
             self.store.create_tables()
-        else:
+        elif backend in {"local", "json"}:
             self.store = _memory.LocalMemoryStore(data_dir)
+        else:
+            raise ValueError(
+                f"Unsupported memory backend {backend!r}. Choose 'local' (or its 'json' "
+                "alias) or 'durable'. Legacy Chroma data requires the documented migration "
+                "process before selecting a supported backend."
+            )
 
         self.tier_manager = TierManager(self)
         logger.info(f"MemoryLayer initialized with {type(self.store).__name__}")

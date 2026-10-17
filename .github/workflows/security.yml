@@ -14,16 +14,12 @@ permissions:
 
 jobs:
   pip-audit:
-    name: Dependency Audit (${{ matrix.package }}${{ matrix.extra && format('[ {0} ]', matrix.extra) || '' }})
+    name: Dependency Audit (${{ matrix.package }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         package: [core, forge, kernel, contracts, quorum, bootstrap]
-        extra: [""]
-        include:
-          - package: core
-            extra: chroma
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v6
@@ -41,8 +37,12 @@ jobs:
             pip install -e "packages/kernel/[dev]"
           fi
           pip install -e "packages/${{ matrix.package }}/" pip-audit
-          if [[ "${{ matrix.extra }}" == "chroma" ]]; then
-            pip install -e "packages/core/[chroma]"
+      - name: Verify retired Core dependency is absent
+        if: matrix.package == 'core'
+        run: |
+          if python -m pip show chromadb >/dev/null 2>&1; then
+            echo "chromadb must not be installed by the supported Core runtime" >&2
+            exit 1
           fi
       - name: Upgrade vulnerable transitive deps to fix versions
         # These are pulled in transitively (via pip-audit and dev tooling);
@@ -58,7 +58,4 @@ jobs:
       - name: Run pip-audit
         # CVE-2026-3219 has no fix version available in pip itself.
         # Re-evaluate when upstream ships a fix.
-        # Chroma is an optional legacy profile. Audit it explicitly: the
-        # HttpClient path means an embedded-only exception is not valid.
-        # This profile remains blocked until upstream supplies a verified fix.
         run: pip-audit --ignore-vuln CVE-2026-3219

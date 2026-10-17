@@ -9,15 +9,16 @@ backend. It provides:
 - Outbox integration: async consumers can react to memory changes
 - Schema validation: optional contract validation on write
 
-Trade-offs compared to ChromaDB:
+Retrieval trade-offs:
 
 - **No vector search**: ``search`` uses substring matching (like
   :class:`LocalMemoryStore`), not semantic similarity.
 - **No BM25 hybrid**: Keyword ranking is basic.
 - **Durability wins**: Every mutation is ledgered, versioned, and recoverable.
 
-Best used when auditability and durability matter more than semantic
-retrieval — or as a **mirror** of the ChromaDB store for audit trail.
+Best used when auditability and durability matter more than semantic retrieval.
+Semantic/vector retrieval, if required, must be provided by an independently
+managed service rather than the retired Core Chroma adapter.
 """
 
 from __future__ import annotations
@@ -278,7 +279,8 @@ class DurableMemoryStore(MemoryStore):
 
            This backend does **not** support semantic/vector search.
            Results are ranked by substring match position only.
-           For semantic retrieval, use :class:`ChromaMemoryStore`.
+           Semantic/vector retrieval requires a separately selected and managed
+           retrieval service; the supported Core stores do not provide it.
         """
         records = self._backend.list_current(artifact_type=ObjectType.MEMORY.value)
         query_lower = query.lower()

@@ -289,7 +289,7 @@ class TestRunWorkflow:
         with patch("animus.mcp_server.AnimusConfig") as mock_config_cls:
             mock_config = MagicMock()
             mock_config.data_dir = tmp_path
-            mock_config.memory.backend = "dict"
+            mock_config.memory.backend = "local"
             mock_config_cls.load.return_value = mock_config
             from animus.mcp_server import create_mcp_server
 
@@ -449,7 +449,7 @@ class TestMCPAuth:
             with patch("animus.mcp_server.AnimusConfig") as mock_config_cls:
                 mock_config = MagicMock()
                 mock_config.data_dir = tmp_path
-                mock_config.memory.backend = "sqlite"
+                mock_config.memory.backend = "local"
                 mock_config_cls.load.return_value = mock_config
 
                 from animus.mcp_server import create_mcp_server

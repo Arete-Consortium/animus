@@ -156,7 +156,7 @@ class TestChromaMemoryStoreInit:
 
     def test_init_import_error(self, tmp_data_dir):
         with patch.dict(sys.modules, {"chromadb": None}):
-            with pytest.raises(ImportError, match="ChromaDB not installed"):
+            with pytest.raises(ImportError, match="not part of the supported Core runtime"):
                 ChromaMemoryStore(tmp_data_dir)
 
     def test_init_generic_error(self, tmp_data_dir):

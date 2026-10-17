@@ -44,8 +44,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Legacy memory backend; audited separately while upstream advisories remain open.
-chroma = ["chromadb>=0.4.22"]
 anthropic = ["anthropic>=0.18.0"]
 openai = ["openai>=1.12.0"]
 hybrid-search = ["rank-bm25>=0.2.2"]
@@ -87,7 +85,7 @@ dev = [
     "pre-commit>=3.6.0",
     "httpx>=0.26.0",
 ]
-all = ["animus-core[anthropic,openai,api,voice,integrations,sync,mcp,chroma,dev]"]
+all = ["animus-core[anthropic,openai,api,voice,integrations,sync,mcp,dev]"]
 
 [project.scripts]
 animus = "animus.__main__:main"

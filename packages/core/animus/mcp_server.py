@@ -261,7 +261,7 @@ def _scrub_egress(text: str) -> tuple[str, int]:
     catches:
       - legacy memories written before Stage 1 redaction was deployed
       - PII patterns added to the redaction set after the memory was stored
-      - any leak path that bypasses ingest (e.g., direct ChromaDB writes)
+      - any leak path that bypasses ingest (for example, direct store writes)
 
     Returns ``(scrubbed_text, redaction_count)``.
     """

@@ -31,13 +31,13 @@ ollama list     # Verify models installed
 
 ## Memory Backend Errors
 
-**Symptom**: ChromaDB connection fails or returns empty results
+**Symptom**: Core reports that the configured Chroma backend is retired
 
-**Fix**: Switch to SQLite:
-```bash
-animus-bootstrap config set memory.backend sqlite
-animus-bootstrap restart
-```
+**Fix**: Keep the service stopped and follow the
+[Chroma retirement plan](chroma-retirement-plan.md). Inventory and back up the
+actual store, rehearse migration, verify retrieval parity, and obtain cutover
+authorization before changing configuration or restarting the service. A new
+Core installation with no legacy data can use the default `local` backend.
 
 ## Forge Budget Exceeded
 

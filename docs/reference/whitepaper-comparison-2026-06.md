@@ -21,13 +21,16 @@ Status is honest: ✅ closed, ◐ partial (closed in mechanism, gap remains), �
 | 8 | Expand integrity baseline | ✅ | Self-hash + cross-package primitive (A6) **+ C5**: forge enforcement modules (`network.egress`, `providers.base`, `providers.router`) now tracked; baseline regenerated. *(Operators re-baseline on deploy — `animus.integrity.cli regenerate`.)* |
 | 9 | EventLog wiring enforced | ✗ | Not started (D6 tail). |
 | 10 | `StabilityScorer` protocol | ✅ | B7; review confirmed byte-identical default + injectable seam **+ C13** falsy-scorer-drop fix. |
-| 11 | BM25 incremental index | ✗ | Phase E (E1). |
-| 12 | `ChromaMemoryStore` RAM | ✗ | Phase E (E2). |
+| 11 | Indexed retrieval for the supported local store | ✗ | Phase E (E1). |
+| 12 | Bound local-store RAM and full-file rewrite costs | ✗ | Phase E (E2). |
 | 13 | Quality-gate YAML parsing | ✗ | Phase E (E5). |
 | 14 | Per-install encryption salt | ✅ | A7; review confirmed (no legacy data, zero-cost). |
 | 15 | Gorgon rename + gitignore db | ✅ | `gorgon.yaml` removed **+ C12**: stale 2024 `CostTracker.PRICING` refreshed to Claude 4.x / GPT-4.1; false "single source" docstring corrected. |
 
-**§6 score: 11 closed, 0 partial, 4 open** (of 15) — open: #9 EventLog, #11 BM25, #12 ChromaRAM, #13 quality-gate YAML (all Phase D/E). Up from 0 at whitepaper time; the entire P0–P3 enforcement backlog is now closed.
+**§6 score: 11 closed, 0 partial, 4 open** (of 15) — open: #9 EventLog,
+#11 supported-local retrieval indexing, #12 supported-local scaling, and #13
+quality-gate YAML (all Phase D/E). Up from 0 at whitepaper time; the entire
+P0–P3 enforcement backlog is now closed.
 
 ## §7 Future Work
 

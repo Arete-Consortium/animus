@@ -4,38 +4,39 @@ The Hunter persistence and repository changes depend on CI repairs for MCP v1
 compatibility, dependency installation, Docker image loading, test isolation,
 formatting, and type-gate execution.
 
-## Memory compatibility and remaining security gate
+## Memory runtime retirement and deployment gate
 
-Core's base and `[postgres]` installs exclude ChromaDB. Chroma is a legacy opt-in
-`[chroma]` extra (also included in `[all]` for compatibility). The default configured
-backend is unchanged. If it is Chroma and the dependency is absent, startup fails
-with an actionable error; it must never silently show a different memory store.
-For a new JSON-based installation explicitly set `ANIMUS_MEMORY_BACKEND=json`.
-Hunter SQL repositories do not instantiate the personal memory layer.
+Core no longer publishes or installs a `[chroma]` extra, including through `[all]`.
+New configuration and `MemoryLayer` instances default to local JSON storage. A
+legacy `chroma` setting fails closed with a migration-required diagnostic and never
+opens a different empty store. Core also stops creating a Chroma directory for new
+installations. Hunter SQL repositories do not instantiate the personal memory layer.
+Existing config files that omitted the backend retain the former implicit `chroma`
+selection and therefore fail closed after upgrade. After migration acceptance, an
+explicit `ANIMUS_MEMORY_BACKEND` override has precedence over the legacy file value.
 
-Existing Chroma installations must retain their dependency and data until a
-separate migration is planned. Do not change an existing backend to clear CI.
-No live memory settings or stored records were modified by this repair.
-The existing HTTP-first/embedded-fallback behavior is retained for compatibility;
-it is not an embedded-only deployment, and loopback is not proof of safety.
+The security matrix audits the supported Core install and explicitly fails if it
+installs `chromadb`. This replaces the legacy opt-in audit only because that install
+profile is no longer published or accepted by the Core runtime; no vulnerability
+ignore was added. Chroma 1.5.9 still has open advisories and no verified patched
+release at the time of this repair.
 
-The security matrix audits both Core base and Core with Chroma. Chroma 1.5.9 has
-open advisories and no verified patched release at the time of this repair.
-The extra's audit remains blocking, with no new ignores. Before a production
-migration, inventory the active client/server mode and data location, back up the
-source, export/import with record-count and representative-retrieval verification,
-and retain a tested rollback. A base-profile pass does not clear the legacy profile.
+Existing Chroma data remains a deployment gate. No live setting, stored record,
+service, or database was changed by this code repair. Before changing a production
+backend, inventory the active client/server mode and data location, back up the
+source, rehearse export/import with record-count and retrieval-parity verification,
+and retain a tested rollback.
 
 Sources: [upstream releases](https://github.com/chroma-core/chroma/releases),
 [RCE advisory](https://github.com/advisories/GHSA-f4j7-r4q5-qw2c),
 [authorization advisory](https://github.com/advisories/GHSA-2wm9-hf6c-p5cr),
 [RBAC advisory](https://github.com/advisories/GHSA-xph7-9rjv-w5fr).
 
-The live Discord bot runs on the Linux desktop, as confirmed by its operator.
-Its effective memory configuration and authoritative data location have not yet
-been inspected. The [Chroma retirement plan](operators/chroma-retirement-plan.md)
-documents the read-only inventory, conditional removal/migration paths, data and
-retrieval parity requirements, and rollback. This is preparation, not a cutover.
+The live Discord bot runs on the Linux desktop. Read-only inspection found a legacy
+Chroma configuration and preserved data, while the service was stopped for a
+separate missing-environment blocker. The [Chroma retirement plan](operators/chroma-retirement-plan.md)
+documents the remaining backup, migration rehearsal, data and retrieval parity,
+and rollback gates. This code change is preparation, not a cutover.
 
 ## Forge coverage and rubric grading
 

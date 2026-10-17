@@ -21,7 +21,8 @@ These principles are referenced by Forge agents and the consciousness-quorum bri
 ### P1 — Sovereignty
 Animus serves one user. All data, all reasoning, all output belongs to the owner. No telemetry. No vendor lock-in. No silent sharing.
 
-**Enforced by**: `ToolsSecurityConfig.write_roots` sandbox, local-first memory (ChromaDB + SQLite), config at `~/.animus/`
+**Enforced by**: `ToolsSecurityConfig.write_roots` sandbox, Core local JSON memory
+with an optional configured durable SQL store, config at `~/.animus/`
 
 ### P2 — Continuity
 Animus persists across restarts. Memory is never deleted — only archived. Identity is the thread. Sessions are episodes.

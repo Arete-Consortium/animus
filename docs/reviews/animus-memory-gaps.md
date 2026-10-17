@@ -1,9 +1,13 @@
 # Animus Memory Architecture — Gap Specs
 
-> ⚠️ **Review needed**: This document was last updated before 2026-04-01. Contents may be outdated.
+> **SUPERSEDED — historical design only.** Do not use this document as a
+> current implementation plan. Its original ChromaDB directions were retired
+> from supported Core. Current work must target the supported local JSON or
+> durable SQL stores described in `docs/architecture/memory.md` and
+> `docs/roadmap/roadmap-to-10.md`.
 
 
-**Status:** Draft
+**Status:** Superseded historical draft
 **Scope:** Two missing specs identified via competitive analysis (OpenClaw 3-tier memory)
 **Author:** ARETE
 
@@ -30,8 +34,8 @@ Memory tier assignment is governed by three signals:
 | Tier | Storage | TTL Before Review | Promotion Trigger | Demotion Trigger |
 |---|---|---|---|---|
 | **HOT** | Active context window | Current session | N/A (entry point) | Session end → WARM or discard |
-| **WARM** | ChromaDB, fast retrieval | 30 days idle | Accessed 3+ times in 7 days OR explicit tag | 30 days no access → COLD |
-| **COLD** | ChromaDB, archival collection | Indefinite | Explicit retrieval request | N/A — permanent unless deleted |
+| **WARM** | Supported configured store | 30 days idle | Accessed 3+ times in 7 days OR explicit tag | 30 days no access → COLD |
+| **COLD** | Supported configured store | Indefinite | Explicit retrieval request | N/A — permanent unless deleted |
 
 ### Promotion Flow
 
@@ -174,7 +178,7 @@ This is the honest version of what OpenClaw calls "lossless." Summaries lose nua
 
 Both specs require:
 
-1. ChromaDB running locally with collection separation (HOT/WARM/COLD as distinct collections)
+1. A supported `MemoryLayer` store (`local`/`json` or explicitly configured `durable`) with tier metadata
 2. Utrennyaya as an active agent process (not just a model label) — **deferred until Mac Studio**
 3. Quorum signal bus for compaction event logging — **deferred until Quorum build sprint**
 
@@ -182,7 +186,7 @@ Both specs require:
 
 Before Mac Studio, a simplified version is buildable:
 
-- Promotion: cron script reads ChromaDB access logs, moves nodes by threshold
+- Promotion: scheduled code reads supported-store access metadata and moves nodes by threshold
 - Compaction: single-model summary call at 75% context, store result, clear old turns
 - No Zorya required — just scheduled Python scripts
 

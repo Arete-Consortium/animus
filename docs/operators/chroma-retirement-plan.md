@@ -1,28 +1,33 @@
 # Legacy Chroma: inventory and retirement plan
 
-Status: prepared for Stheno, the Linux desktop that runs the live Discord bot. No live
-memory export, backend change, dependency removal, or data deletion has occurred.
+Status: Core runtime retirement is staged for review. Stheno still has a legacy
+Chroma configuration and preserved data. No live memory export, backend change,
+service change, migration, cutover, or data deletion has occurred.
 
 ## Evidence and remaining uncertainty
 
-- The operator confirmed that the Discord bot runs on the Linux desktop Stheno
-  and that Chroma was built into Animus as storage. A read-only SSH attempt from
-  the Mac to Stheno timed out on port 22. This session has not inspected that
-  host's running service, effective configuration, or data.
+- Authorized read-only Stheno inspection found the Discord checkout configured
+  for Chroma, Chroma 1.5.2 installed, and an existing Chroma SQLite file. The bot
+  service had no PID because its required private environment file was missing;
+  no listener on 8787 or 5432 was observed. Effective exposure after service
+  restoration and the memory contents remain unverified.
 - The checked-in `tools/animus-discord.service` runs the Core bot as `arete` from
   `/home/arete/projects/animus`. This is a deployment template, not proof of the
   installed service. Its environment file must not be printed into logs/chat.
 - `tools/animus_discord_bot.py` lazily constructs `MemoryLayer` using the configured
-  backend and data directory. Core still defaults to `chroma`; its default data
-  directory is `~/.animus`. The live environment may override that selection.
-- Core's Chroma adapter tries HTTP at `localhost:8787`, then embedded storage at
+  backend and data directory. The staged Core change defaults new installations
+  to `local` and fails closed on a legacy `chroma` value; Stheno must not receive
+  it until migration acceptance and an authorized configuration cutover.
+  Existing config files that omitted a backend retain the former implicit Chroma
+  selection and also fail closed, preventing a silent empty-local-store upgrade.
+- The retained migration-only Chroma adapter tries HTTP at `localhost:8787`, then embedded storage at
   `<data_dir>/chroma`. Kernel's adapter uses embedded storage. A server can use a
   different persistence directory; backing up only the client's directory is
   insufficient. Both adapters can create directories/collections on construction.
 - On the Mac, Docker metadata showed no Chroma container, and neither default
   Animus directory contained a `chroma` directory. This says nothing about the
   Linux desktop, custom paths, or another server.
-- The legacy Core `[chroma]` audit resolves Chroma 1.5.9 and fails. The checked
+- The removed Core `[chroma]` profile resolved Chroma 1.5.9 and failed. The checked
   [code-injection advisory](https://github.com/advisories/GHSA-f4j7-r4q5-qw2c)
   lists affected versions through 1.5.9 and no patched version. Recheck the
   advisory and [upstream releases](https://github.com/chroma-core/chroma/releases)
@@ -97,16 +102,19 @@ Hunter's SQL source-review service does not require personal Chroma memory.
    a final consistent export/delta, revalidate, then switch one service. Keep
    writes disabled during initial acceptance; if writes resume, reconcile them
    before rollback so restoring the old source does not lose new memories.
-7. Remove Chroma from the supported runtime only after acceptance. Rebuild fresh
-   environments and run dependency audits for every supported profile, plus the
-   memory, bot, and Hunter regressions. Keep the preserved source/backup until a
-   separate retention decision; no automatic deletion is part of retirement.
+7. The Core runtime removal can be reviewed and merged before deployment, but it
+   must not be deployed to a service still configured for Chroma. Rebuild fresh
+   environments and run dependency audits plus the memory, bot, and Hunter
+   regressions. Keep the preserved source/backup until a separate retention
+   decision; no automatic deletion is part of retirement.
 
 ## Merge and deployment gates
 
-Coverage repair is independent of memory retirement. Keep the legacy audit
-blocking while vulnerable Chroma remains a supported dependency; do not add an
-ignore or merely delete the failing job. A passing Core base audit does not clear
-the Chroma profile. Production cutover requires the completed inventory,
-successful rehearsal evidence, a chosen retrieval contract, and authorization
-for the concrete service/data change.
+Coverage repair is independent of memory retirement. Before this retirement,
+the vulnerable Chroma dependency required a blocking audit and could not be
+waived. The retired Core runtime instead gates supported installs by auditing the
+base dependencies and verifying that `chromadb` is absent. The retained adapter
+source is migration-only and has no supported dependency profile. Production
+cutover still requires the completed inventory, successful rehearsal evidence, a
+chosen retrieval contract, and authorization for the concrete service/data
+change.

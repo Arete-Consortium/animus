@@ -4,24 +4,28 @@ Steps for the predictable disaster cases. Not a substitute for the
 broader [`../reference/threat-model.md`](../reference/threat-model.md) which describes what each
 gate defends against and how.
 
-## At-rest-encrypted memory: rollback to unencrypted
+## At-rest-encrypted supported memory: rollback to unencrypted
 
-Performed by `scripts/setup-gocryptfs-vault.sh`. The script's Phase 5
-renames the original dirs to `chroma.unencrypted-backup.YYYYMMDD-HHMMSS/`
-and `memory.unencrypted-backup.YYYYMMDD-HHMMSS/` before installing
-symlinks to the encrypted view. **Those backup dirs are not removed
-automatically.** Until you remove them (a separate manual step), full
-rollback is one command per dir.
+Performed by `scripts/setup-gocryptfs-vault.sh`, which now handles only the
+supported local/json memory directory and refuses other effective backends.
+Older script versions may also have created historical
+`chroma.unencrypted-backup.YYYYMMDD-HHMMSS/` directories. Chroma backups are
+legacy migration inputs: preserve them offline and follow the
+[Chroma retirement plan](chroma-retirement-plan.md). Do not restore a Chroma
+directory into the live Core path or restart Core against it.
+
+For a supported local-memory rollback, first verify that the effective Core
+backend is `local` or `json` and that the selected backup contains the expected
+`memories.json`. Then restore only the supported memory directory:
 
 ```bash
 # 1. Stop the daemon
 systemctl --user stop animus.service
 
-# 2. Remove the symlinks
-rm -f ~/.animus/chroma ~/.animus/memory
+# 2. Remove the supported-memory symlink
+rm -f ~/.animus/memory
 
-# 3. Restore the originals (use the most recent backup suffix from `ls`)
-mv ~/.animus/chroma.unencrypted-backup.* ~/.animus/chroma
+# 3. Restore the supported-memory original (select one exact backup path)
 mv ~/.animus/memory.unencrypted-backup.* ~/.animus/memory
 
 # 4. Unmount the vault (best-effort)
@@ -31,12 +35,14 @@ fusermount -u ~/.animus/_secure 2>/dev/null
 cp ~/.config/systemd/user/animus.service.bak.* ~/.config/systemd/user/animus.service
 systemctl --user daemon-reload
 
-# 6. Restart
+# 6. Restart only after confirming the effective backend is local/json
 systemctl --user start animus.service
 ```
 
 The vault dir at `~/.animus/_vault/` can stay (it's just data the daemon
 no longer touches) or be removed to free disk — `rm -rf ~/.animus/_vault`.
+Keep every legacy Chroma backup until migration parity and rollback acceptance
+are complete and a separate retention decision is authorized.
 
 ## TPM unseal failed (after motherboard change, BIOS reset, etc.)
 
@@ -65,10 +71,11 @@ Restic.
 
 ## Restic restore (full memory dir from snapshot)
 
-The three repos at `~/backups-local/`:
+The repositories at `~/backups-local/` include:
 - `animus-state` — `~/.animus/` (excluding hot caches), hourly
 - `animus-memory` — `~/.claude/projects/.../memory/` (Claude memory), hourly
-- `animus-chroma` — `~/.animus/chroma/` quiesced (daemon stopped), daily
+- `animus-chroma` — preserved legacy `~/.animus/chroma/`, captured while
+  quiesced; restore only into an isolated migration/retrieval-verification area
 
 ```bash
 # Source the env (sets RESTIC_PASSWORD_FILE + repo paths)
@@ -82,16 +89,18 @@ restic snapshots
 mkdir -p /tmp/animus-restore
 restic restore <snapshot-id> --target /tmp/animus-restore
 
-# Compare, then move into place
-diff -r /tmp/animus-restore/home/arete/.animus/chroma/ ~/.animus/chroma/
-# If satisfied:
-systemctl --user stop animus.service
-mv ~/.animus/chroma ~/.animus/chroma.pre-restore-backup
-cp -a /tmp/animus-restore/home/arete/.animus/chroma ~/.animus/chroma
-systemctl --user start animus.service
+# Verify that the isolated restore is complete. Do not copy it over a live path.
+find /tmp/animus-restore/home/arete/.animus/chroma -maxdepth 2 -type f -print
 ```
 
-Repeat with `RESTIC_REPO_STATE` / `RESTIC_REPO_MEMORY` as needed.
+Stop here for a legacy Chroma snapshot. Inventory it and perform backup,
+migration rehearsal, retrieval parity, and rollback checks in the isolated
+environment described by the retirement plan. A production configuration change
+and service restart require separate cutover authorization.
+
+Use `RESTIC_REPO_STATE` / `RESTIC_REPO_MEMORY` for supported state and memory
+recovery as needed, with their own content verification before replacing live
+paths.
 
 ## Daemon won't start after a security feature change
 

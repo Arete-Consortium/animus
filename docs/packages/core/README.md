@@ -4,7 +4,8 @@ Personal AI exocortex with persistent memory, multi-model cognitive layer, and M
 
 ## Features
 
-- **Persistent memory** — episodic, semantic, procedural (ChromaDB or SQLite)
+- **Persistent memory** — episodic, semantic, and procedural through local JSON
+  or a configured durable SQL store
 - **Multi-model cognitive layer** — Ollama, Anthropic, OpenAI with streaming
 - **Dual-model routing** — Claude brain + Ollama hands (auto-detected)
 - **40+ CLI commands** — memory, tasks, entities, learning, integrations
@@ -32,6 +33,12 @@ python -m animus
 # MCP server for Claude Code
 python -m animus.mcp_server
 ```
+
+Legacy Core Chroma configurations fail closed because no patched upstream
+release is available. Existing data must follow the
+[Chroma retirement plan](../../operators/chroma-retirement-plan.md) before an
+operator selects a supported backend; Core does not silently open an empty
+replacement store.
 
 ## Part of the Animus Monorepo
 
