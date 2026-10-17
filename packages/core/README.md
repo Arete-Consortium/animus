@@ -4,7 +4,7 @@ Personal AI exocortex with persistent memory, multi-model cognitive layer, and M
 
 ## Features
 
-- **Persistent memory** — episodic, semantic, procedural (ChromaDB or SQLite)
+- **Persistent memory** — episodic, semantic, procedural (local JSON or durable SQL)
 - **Multi-model cognitive layer** — Ollama, Anthropic, OpenAI with streaming
 - **Dual-model routing** — Claude brain + Ollama hands (auto-detected)
 - **40+ CLI commands** — memory, tasks, entities, learning, integrations
@@ -16,12 +16,23 @@ Personal AI exocortex with persistent memory, multi-model cognitive layer, and M
 
 ```bash
 pip install animus-core
+# Local JSON memory is the default and has no external database dependency.
 ```
 
 With optional providers:
 ```bash
-pip install "animus[anthropic,openai,mcp,api]"
+pip install "animus-core[anthropic,openai,mcp,api]"
 ```
+
+ChromaDB is retired from the supported Core runtime because no patched upstream
+release is available. A legacy `memory.backend: chroma` setting fails closed and
+does not open an empty replacement store. Preserve the source data and follow the
+[retirement plan](../../docs/operators/chroma-retirement-plan.md) before changing
+the configured backend; changing the setting alone is not a migration.
+
+The SQL/Hunter profile uses `animus-core[postgres]`. Core's security job verifies
+that a supported base install does not reintroduce the retired `chromadb` package;
+see [the CI repair notes](../../docs/CI_REPAIR.md).
 
 ## Usage
 

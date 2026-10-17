@@ -34,6 +34,7 @@ class WorkerSlot:
     slot_id: str
     lease_id: str | None = None
     lease_generation: int | None = None
+    attempt_id: str | None = None
     task_id: str | None = None
     citizen_role: str | None = None
     started_at: float | None = None
@@ -133,9 +134,7 @@ class CitizenWorkerPool:
             return
 
         logger.info("Draining %d active worker(s) with %.1fs timeout", len(active_slots), timeout)
-        pending_tasks: list[asyncio.Task] = [
-            t for t in self._background_tasks if not t.done()
-        ]
+        pending_tasks: list[asyncio.Task] = [t for t in self._background_tasks if not t.done()]
         if pending_tasks:
             await asyncio.wait(pending_tasks, timeout=timeout)
 
@@ -186,6 +185,10 @@ class CitizenWorkerPool:
             logger.debug("Pool is stopping; rejecting task %s", task_id)
             return None
 
+        if self.config.isolation_mode == "container" and self.container is None:
+            logger.error("Container isolation requested without a container manager")
+            return None
+
         # Find a free slot
         if slot_id is not None:
             free_slot = self._slots.get(slot_id)
@@ -220,6 +223,7 @@ class CitizenWorkerPool:
 
         free_slot.lease_id = lease.lease_id
         free_slot.lease_generation = lease.generation
+        free_slot.attempt_id = lease.attempt_id
         free_slot.task_id = task_id
         free_slot.citizen_role = citizen_role
         free_slot.started_at = time.time()
@@ -288,6 +292,7 @@ class CitizenWorkerPool:
             result_dict = {
                 "status": "failed",
                 "summary": f"Supervisor exception: {exc}",
+                "usage_complete": False,
                 "changed_files": [],
                 "evidence": [{"type": "supervisor_error", "detail": str(exc)}],
                 "risks": [{"severity": "critical", "description": str(exc)}],
@@ -333,6 +338,7 @@ class CitizenWorkerPool:
             result_dict = {
                 "status": "failed",
                 "summary": f"Container start failed: {exc}",
+                "usage_complete": False,
                 "changed_files": [],
                 "evidence": [{"type": "container_start_error", "detail": str(exc)}],
                 "risks": [{"severity": "critical", "description": str(exc)}],
@@ -345,6 +351,7 @@ class CitizenWorkerPool:
         slot.container_task = container_task
         slot.container_id = container_task.container_id
 
+        usage_unknown = True
         try:
             stdout_b, stderr_b = await asyncio.wait_for(
                 container_task.process.communicate(),
@@ -378,6 +385,9 @@ class CitizenWorkerPool:
                 else:
                     try:
                         result_dict = json.loads(lines[-1])
+                        if not isinstance(result_dict, dict):
+                            raise ValueError("Container result must be a JSON object")
+                        usage_unknown = False
                     except json.JSONDecodeError as exc:
                         result_dict = {
                             "status": "failed",
@@ -411,21 +421,26 @@ class CitizenWorkerPool:
                 "confidence": 0.0,
             }
 
+        if usage_unknown:
+            result_dict["usage_complete"] = False
         await self._finish_task(task_id, slot_id, result_dict)
 
     def _worker_result_to_dict(self, result: Any) -> dict[str, Any]:
         from animus_forge.scheduler.worker_process import WorkerResult
 
         if isinstance(result, WorkerResult):
-            if result.ok and result.data is not None:
+            if result.ok and isinstance(result.data, dict):
                 result_dict = dict(result.data)
             else:
                 result_dict = {
                     "status": "failed",
                     "summary": result.error or "Worker failed",
+                    "usage_complete": False,
                     "changed_files": [],
                     "evidence": [{"type": "worker_error", "detail": result.error}],
-                    "risks": [{"severity": "critical", "description": result.error or "Worker failed"}],
+                    "risks": [
+                        {"severity": "critical", "description": result.error or "Worker failed"}
+                    ],
                     "confidence": 0.0,
                 }
             result_dict["_killed"] = result.killed
@@ -437,9 +452,15 @@ class CitizenWorkerPool:
         return {
             "status": "failed",
             "summary": f"Unexpected worker result type: {type(result)}",
+            "usage_complete": False,
             "changed_files": [],
             "evidence": [],
-            "risks": [{"severity": "critical", "description": f"Unexpected worker result type: {type(result)}"}],
+            "risks": [
+                {
+                    "severity": "critical",
+                    "description": f"Unexpected worker result type: {type(result)}",
+                }
+            ],
             "confidence": 0.0,
         }
 
@@ -449,12 +470,15 @@ class CitizenWorkerPool:
 
         # Guard against double completion (timeout + natural finish).
         if slot.handled:
-            logger.debug("Task %s already handled in slot %s; ignoring duplicate finish", task_id, slot_id)
+            logger.debug(
+                "Task %s already handled in slot %s; ignoring duplicate finish", task_id, slot_id
+            )
             return
         slot.handled = True
 
         lease_id = slot.lease_id
         lease_generation = slot.lease_generation
+        attempt_id = slot.attempt_id
         container_id = slot.container_id
         pid = slot.pid
 
@@ -462,7 +486,10 @@ class CitizenWorkerPool:
         self._pending.pop(task_id, None)
 
         # Embed scheduler metadata so the result consumer can fence stale results.
-        meta = {"lease_id": lease_id, "generation": lease_generation}
+        meta = {"lease_id": lease_id, "generation": lease_generation, "attempt_id": attempt_id}
+        for key in ("_killed", "_timed_out", "_returncode"):
+            if key in result_dict:
+                meta[key.removeprefix("_")] = result_dict.pop(key)
         if container_id:
             meta["container_id"] = container_id
         if pid:
@@ -474,6 +501,7 @@ class CitizenWorkerPool:
     def _reset_slot(self, slot: WorkerSlot) -> None:
         slot.lease_id = None
         slot.lease_generation = None
+        slot.attempt_id = None
         slot.task_id = None
         slot.citizen_role = None
         slot.started_at = None

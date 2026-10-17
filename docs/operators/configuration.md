@@ -34,7 +34,7 @@ model:
   openai_base_url: null
 
 memory:
-  backend: chroma
+  backend: local
   collection_name: animus_memories
 
 api:
@@ -168,12 +168,15 @@ tools_security:
 
 | Field | Default | Description |
 |---|---|---|
-| `backend` | `chroma` | Storage backend: `chroma` or `json` |
-| `collection_name` | `animus_memories` | ChromaDB collection name |
+| `backend` | `local` | Storage backend: `local`/`json` or `durable` |
+| `collection_name` | `animus_memories` | Legacy collection name retained for migration inventory |
 
 **Backends:**
-- `chroma` — Vector semantic search (requires `chromadb` package)
-- `json` — Simple file-based fallback
+- `local` / `json` — Simple file-based storage
+- `durable` — SQL-backed storage after its deployment setup is complete
+
+Legacy `chroma` values fail closed. Complete the Chroma retirement plan before
+changing an existing deployment's backend setting.
 
 ### API Server Settings (`api`)
 

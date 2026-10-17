@@ -34,7 +34,8 @@
 
 ### What Works
 
-- **Core exocortex**: CLI (`python -m animus`), memory tiers (SQLite/ChromaDB), identity, proactive tasks
+- **Core exocortex**: CLI (`python -m animus`), memory tiers over local JSON or
+  configured durable SQL, identity, proactive tasks
 - **Bootstrap**: Install daemon, onboarding wizard, FastAPI+HTMX dashboard (`localhost:7700`), Ollama health checks
 - **Forge**: Multi-agent YAML workflows, 10 archetypes, token budgets, checkpoint/resume, SQLite state, adversarial test harness, governance plane
 - **Quorum**: Rust intent graph + Python bindings, stigmergy coordination, signal bus, triumvirate voting

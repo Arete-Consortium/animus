@@ -96,7 +96,9 @@ steps:
   - id: run_tests
     type: shell
     params:
-      command: "cd ${codebase_path} && ${test_command}"
+      command: "${test_command}"
+      working_directory: "${codebase_path}"
+      escape_variables: false
       allow_failure: false
     outputs:
       - test_results

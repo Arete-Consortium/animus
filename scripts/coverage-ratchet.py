@@ -62,7 +62,30 @@ def run_coverage(package_dir: str, source: str) -> float:
     return 0.0
 
 
+def report_coverage(path: Path) -> float:
+    """Read the report from the preceding successful test step."""
+    data = json.loads(path.read_text())
+    totals = data["totals"]
+    covered = totals["covered_lines"]
+    total = totals["num_statements"]
+    if (
+        not isinstance(total, int)
+        or not isinstance(covered, int)
+        or not 0 <= covered <= total
+        or total == 0
+    ):
+        raise ValueError("Invalid coverage totals")
+    return round(covered / total * 100, 1)
+
+
 def main(argv: list[str]) -> int:
+    report = None
+    if argv and argv[0] == "--report":
+        if len(argv) != 3:
+            print("Usage: coverage-ratchet.py --report REPORT.json PACKAGE")
+            return 1
+        report = Path(argv[1])
+        argv = argv[2:]
     if not BASELINE_FILE.exists():
         print(f"Baseline file not found: {BASELINE_FILE}")
         print("Create it with: python scripts/coverage-ratchet.py --init")
@@ -88,7 +111,14 @@ def main(argv: list[str]) -> int:
         allowed = float(cfg["allowed"])
         directory = str(cfg["directory"])
         source = str(cfg.get("source", "."))
-        actual = run_coverage(directory, source)
+        try:
+            actual = (
+                report_coverage(report) if report is not None else run_coverage(directory, source)
+            )
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            print(f"[FAIL] {pkg}: invalid or missing coverage report: {exc}")
+            failed = True
+            continue
         delta = actual - allowed
         if actual < allowed:
             print(f"[FAIL] {pkg}: {actual:.1f}% coverage (allowed {allowed:.1f}%, {delta:+.1f}%)")

@@ -288,8 +288,8 @@ Slot in opportunistically; none blocks the above. Includes the Qwen net-new item
 
 | ID | Item | Source | Effort |
 |---|---|---|---|
-| E1 | BM25 incremental index (no O(N) re-tokenize per write) | §6 #11 | M |
-| E2 | ChromaMemoryStore: drop the full in-RAM mirror | §6 #12 | L |
+| E1 | Indexed retrieval for the supported local store (preserve filter semantics) | §6 #11 | M |
+| E2 | Bound local-store full-corpus RAM and rewrite costs; measure durable routing | §6 #12 | L |
 | E3 | LLM-summarized consolidation (not first-tag concat) | appendix (memory) | M |
 | E4 | Sync: conflict-surfacing (not silent last-write-wins) | appendix (memory) | M |
 | E5 | Quality-gate YAML parsing reconcile (or remove the README example) | §6 #13 | M |
@@ -470,13 +470,13 @@ Session 7. The rest cluster into three optional sessions below. Same rule: a
 #### Session 8 — Memory scaling & correctness (E1–E4)
 Lifts the memory layer off its scaling ceilings and removes silent data loss.
 Best done when the memory store is otherwise quiet (no concurrent migrations).
-- [ ] **E1** BM25 index updates incrementally on store/delete (no full O(N)
-      re-tokenize per write). *Done when:* a write does not rebuild the whole
-      corpus (assert via a spy/counter); retrieval results unchanged.
-- [ ] **E2** `ChromaMemoryStore` stops holding a full second in-RAM dict; hydrate
-      `Memory` objects on demand, keep only an id→metadata index for BM25.
-      *Done when:* memory footprint scales sub-linearly in a large-corpus test;
-      all store contract tests still pass. (L — the heaviest Phase E item.)
+- [ ] **E1** Add measured indexed retrieval to the supported local store without
+      changing filter or ordering semantics. *Done when:* large-corpus queries avoid
+      a full scan and the existing store contract tests return identical results.
+- [ ] **E2** Bound `LocalMemoryStore` full-corpus RAM and full-file rewrite costs,
+      or route measured large-corpus deployments to the durable store.
+      *Done when:* a large-corpus test meets an explicit memory/write budget and
+      all supported store contract tests still pass. (L — the heaviest Phase E item.)
 - [ ] **E3** `consolidate()` summarizes via the cognitive layer instead of
       first-tag 150-char concat. *Done when:* a consolidated memory is a real
       summary (LLM in test = mock returning a marker), originals untouched

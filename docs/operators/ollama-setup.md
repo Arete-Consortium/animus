@@ -1,5 +1,10 @@
 # Ollama Agent Handoff — Animus
 
+> **Archived deployment handoff. Do not execute it as a current runbook.** This
+> February 2026 snapshot predates the Core Chroma retirement and other repository
+> changes. Use the current operator documentation and the
+> [Chroma retirement plan](chroma-retirement-plan.md) for any legacy memory data.
+
 **Purpose:** Instructions and prompts for a local Ollama agent to deploy, harden, and self-improve the Animus exocortex.
 **Last Updated:** 2026-02-20
 **Version:** v2.0.0
@@ -36,7 +41,7 @@ You are an autonomous agent running via Ollama on this machine. Animus is a pers
 |-- packages/core/                    <- Animus Core v1.0.0
 |   |-- animus/                       <- import animus
 |   |   |-- cognitive.py              <- LLM interface (Ollama/Anthropic/OpenAI/Mock)
-|   |   |-- memory.py                 <- ChromaDB episodic/semantic/procedural
+|   |   |-- memory.py                 <- Local JSON or configured durable SQL memory
 |   |   |-- proactive.py              <- Nudges, briefings, deadline awareness
 |   |   |-- autonomous.py             <- Autonomous executor
 |   |   |-- api.py                    <- Optional FastAPI server
@@ -458,7 +463,7 @@ When the priority queue is exhausted:
 ```
 You are an AI systems architect working on Animus, a personal AI exocortex.
 The system has three layers:
-- Core: Identity, memory (ChromaDB), proactive engine, CLI
+- Core: Identity, memory (local JSON or configured durable SQL), proactive engine, CLI
 - Forge: Multi-agent orchestration, workflow execution, budget management
 - Quorum: Coordination protocol, intent graphs, voting, stigmergy
 

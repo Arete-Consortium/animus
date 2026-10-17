@@ -89,10 +89,10 @@ class TestExecuteShellExtended:
             with pytest.raises(ValueError, match="requires 'command' parameter"):
                 exe._execute_shell(step, {})
 
-    @patch("animus_forge.workflow.executor_integrations.subprocess.run")
+    @patch("animus_kernel.executor.executor_integrations.subprocess.run")
     @patch("animus_forge.config.get_settings")
-    @patch("animus_forge.utils.validation.validate_shell_command")
-    @patch("animus_forge.utils.validation.substitute_shell_variables")
+    @patch("animus_kernel.utils.validation.validate_shell_command")
+    @patch("animus_kernel.utils.validation.substitute_shell_variables")
     def test_allowed_commands_whitelist_passes(self, mock_sub, mock_val, mock_settings, mock_run):
         """Command in whitelist is allowed."""
         mock_settings.return_value = self._settings_mock(shell_allowed_commands="echo,ls,cat")
@@ -115,10 +115,10 @@ class TestExecuteShellExtended:
         with pytest.raises(ValueError, match="not in allowed list"):
             exe._execute_shell(step, {})
 
-    @patch("animus_forge.workflow.executor_integrations.subprocess.run")
+    @patch("animus_kernel.executor.executor_integrations.subprocess.run")
     @patch("animus_forge.config.get_settings")
-    @patch("animus_forge.utils.validation.validate_shell_command")
-    @patch("animus_forge.utils.validation.substitute_shell_variables")
+    @patch("animus_kernel.utils.validation.validate_shell_command")
+    @patch("animus_kernel.utils.validation.substitute_shell_variables")
     def test_allow_failure_non_zero_exit(self, mock_sub, mock_val, mock_settings, mock_run):
         """Non-zero exit with allow_failure=True returns without raising."""
         mock_settings.return_value = self._settings_mock()
@@ -133,10 +133,10 @@ class TestExecuteShellExtended:
         assert out["returncode"] == 1
         assert out["stderr"] == "expected error"
 
-    @patch("animus_forge.workflow.executor_integrations.subprocess.run")
+    @patch("animus_kernel.executor.executor_integrations.subprocess.run")
     @patch("animus_forge.config.get_settings")
-    @patch("animus_forge.utils.validation.validate_shell_command")
-    @patch("animus_forge.utils.validation.substitute_shell_variables")
+    @patch("animus_kernel.utils.validation.validate_shell_command")
+    @patch("animus_kernel.utils.validation.substitute_shell_variables")
     def test_stderr_truncation(self, mock_sub, mock_val, mock_settings, mock_run):
         """Stderr exceeding max_output_bytes is truncated."""
         mock_settings.return_value = self._settings_mock(shell_max_output_bytes=20)
@@ -150,10 +150,10 @@ class TestExecuteShellExtended:
         out = exe._execute_shell(step, {})
         assert "[OUTPUT TRUNCATED]" in out["stderr"]
 
-    @patch("animus_forge.workflow.executor_integrations.subprocess.run")
+    @patch("animus_kernel.executor.executor_integrations.subprocess.run")
     @patch("animus_forge.config.get_settings")
-    @patch("animus_forge.utils.validation.validate_shell_command")
-    @patch("animus_forge.utils.validation.substitute_shell_variables")
+    @patch("animus_kernel.utils.validation.validate_shell_command")
+    @patch("animus_kernel.utils.validation.substitute_shell_variables")
     def test_step_level_timeout_override(self, mock_sub, mock_val, mock_settings, mock_run):
         """Step-level timeout_seconds overrides global setting."""
         mock_settings.return_value = self._settings_mock(shell_timeout_seconds=300)
@@ -169,10 +169,10 @@ class TestExecuteShellExtended:
         _, kwargs = mock_run.call_args
         assert kwargs["timeout"] == 60
 
-    @patch("animus_forge.workflow.executor_integrations.subprocess.run")
+    @patch("animus_kernel.executor.executor_integrations.subprocess.run")
     @patch("animus_forge.config.get_settings")
-    @patch("animus_forge.utils.validation.validate_shell_command")
-    @patch("animus_forge.utils.validation.substitute_shell_variables")
+    @patch("animus_kernel.utils.validation.validate_shell_command")
+    @patch("animus_kernel.utils.validation.substitute_shell_variables")
     def test_timeout_expired_with_partial_output(self, mock_sub, mock_val, mock_settings, mock_run):
         """TimeoutExpired error includes partial stdout/stderr when available."""
         mock_settings.return_value = self._settings_mock()
@@ -1368,8 +1368,8 @@ class TestExecuteParallelGroup:
             auto_parallel_max_workers=max_workers,
         )
 
-    @patch("animus_forge.workflow.executor_parallel_exec.get_parallel_tracker")
-    @patch("animus_forge.workflow.executor_parallel_exec.ParallelExecutor")
+    @patch("animus_kernel.executor.executor_parallel_exec.get_parallel_tracker")
+    @patch("animus_kernel.executor.executor_parallel_exec.ParallelExecutor")
     def test_non_ai_steps_use_threading_executor(self, MockPE, mock_tracker):
         """Non-AI steps use ParallelExecutor with THREADING strategy."""
         tracker = MagicMock()
@@ -1397,8 +1397,8 @@ class TestExecuteParallelGroup:
         # Should use ParallelExecutor (not RateLimitedParallelExecutor)
         MockPE.assert_called_once()
 
-    @patch("animus_forge.workflow.executor_parallel_exec.get_parallel_tracker")
-    @patch("animus_forge.workflow.executor_parallel_exec.RateLimitedParallelExecutor")
+    @patch("animus_kernel.executor.executor_parallel_exec.get_parallel_tracker")
+    @patch("animus_kernel.executor.executor_parallel_exec.RateLimitedParallelExecutor")
     def test_ai_steps_use_rate_limited_executor(self, MockRLE, mock_tracker):
         """AI steps (claude_code, openai) use RateLimitedParallelExecutor."""
         tracker = MagicMock()
@@ -1428,8 +1428,8 @@ class TestExecuteParallelGroup:
         call_kwargs = MockRLE.call_args[1]
         assert call_kwargs["adaptive"] is True
 
-    @patch("animus_forge.workflow.executor_parallel_exec.get_parallel_tracker")
-    @patch("animus_forge.workflow.executor_parallel_exec.ParallelExecutor")
+    @patch("animus_kernel.executor.executor_parallel_exec.get_parallel_tracker")
+    @patch("animus_kernel.executor.executor_parallel_exec.ParallelExecutor")
     def test_failed_step_triggers_abort(self, MockPE, mock_tracker):
         """When a step fails and _handle_step_failure returns 'abort',
         result.status is set to 'failed'."""
@@ -1460,8 +1460,8 @@ class TestExecuteParallelGroup:
         assert result.status == "failed"
         tracker.fail_execution.assert_called_once()
 
-    @patch("animus_forge.workflow.executor_parallel_exec.get_parallel_tracker")
-    @patch("animus_forge.workflow.executor_parallel_exec.ParallelExecutor")
+    @patch("animus_kernel.executor.executor_parallel_exec.get_parallel_tracker")
+    @patch("animus_kernel.executor.executor_parallel_exec.ParallelExecutor")
     def test_failed_step_skip_still_stores_outputs(self, MockPE, mock_tracker):
         """When _handle_step_failure returns 'skip', outputs are NOT stored
         for that step (action == 'skip' falls through without storing)."""
@@ -1492,8 +1492,8 @@ class TestExecuteParallelGroup:
         # With "skip", _store_step_outputs should not be called
         exe._store_step_outputs.assert_not_called()
 
-    @patch("animus_forge.workflow.executor_parallel_exec.get_parallel_tracker")
-    @patch("animus_forge.workflow.executor_parallel_exec.ParallelExecutor")
+    @patch("animus_kernel.executor.executor_parallel_exec.get_parallel_tracker")
+    @patch("animus_kernel.executor.executor_parallel_exec.ParallelExecutor")
     def test_on_error_callback_creates_failed_result(self, MockPE, mock_tracker):
         """on_error callback creates a FAILED StepResult."""
         tracker = MagicMock()
@@ -1524,8 +1524,8 @@ class TestExecuteParallelGroup:
         assert step_result.status == StepStatus.FAILED
         assert "handler crashed" in step_result.error
 
-    @patch("animus_forge.workflow.executor_parallel_exec.get_parallel_tracker")
-    @patch("animus_forge.workflow.executor_parallel_exec.ParallelExecutor")
+    @patch("animus_kernel.executor.executor_parallel_exec.get_parallel_tracker")
+    @patch("animus_kernel.executor.executor_parallel_exec.ParallelExecutor")
     def test_successful_execution_completes_tracking(self, MockPE, mock_tracker):
         """Successful execution calls tracker.complete_execution."""
         tracker = MagicMock()
@@ -1555,8 +1555,8 @@ class TestExecuteParallelGroup:
         tracker.complete_execution.assert_called_once()
         tracker.fail_execution.assert_not_called()
 
-    @patch("animus_forge.workflow.executor_parallel_exec.get_parallel_tracker")
-    @patch("animus_forge.workflow.executor_parallel_exec.RateLimitedParallelExecutor")
+    @patch("animus_kernel.executor.executor_parallel_exec.get_parallel_tracker")
+    @patch("animus_kernel.executor.executor_parallel_exec.RateLimitedParallelExecutor")
     def test_rate_limit_stats_captured(self, MockRLE, mock_tracker):
         """Rate limit stats from AI executor are captured by tracker."""
         tracker = MagicMock()
@@ -1718,8 +1718,8 @@ class TestExecuteParallelGroupAsync:
 class TestExecuteWithAutoParallel:
     """_execute_with_auto_parallel: group orchestration logic."""
 
-    @patch("animus_forge.workflow.executor_parallel_exec.find_parallel_groups")
-    @patch("animus_forge.workflow.executor_parallel_exec.build_dependency_graph")
+    @patch("animus_kernel.executor.executor_parallel_exec.find_parallel_groups")
+    @patch("animus_kernel.executor.executor_parallel_exec.build_dependency_graph")
     def test_empty_steps_sets_success(self, mock_build, mock_find):
         """Empty step list immediately sets result to success."""
         exe = _bare_executor()
@@ -1737,8 +1737,8 @@ class TestExecuteWithAutoParallel:
         assert result.status == "success"
         mock_build.assert_not_called()
 
-    @patch("animus_forge.workflow.executor_parallel_exec.find_parallel_groups")
-    @patch("animus_forge.workflow.executor_parallel_exec.build_dependency_graph")
+    @patch("animus_kernel.executor.executor_parallel_exec.find_parallel_groups")
+    @patch("animus_kernel.executor.executor_parallel_exec.build_dependency_graph")
     def test_single_step_group_executes_directly(self, mock_build, mock_find):
         """Single-step groups execute via _execute_step directly."""
         mock_build.return_value = MagicMock()
@@ -1771,8 +1771,8 @@ class TestExecuteWithAutoParallel:
         exe._execute_step.assert_called_once_with(step, "wf-1")
         exe._store_step_outputs.assert_called_once()
 
-    @patch("animus_forge.workflow.executor_parallel_exec.find_parallel_groups")
-    @patch("animus_forge.workflow.executor_parallel_exec.build_dependency_graph")
+    @patch("animus_kernel.executor.executor_parallel_exec.find_parallel_groups")
+    @patch("animus_kernel.executor.executor_parallel_exec.build_dependency_graph")
     def test_single_step_failure_aborts(self, mock_build, mock_find):
         """Failed single step with abort action aborts execution."""
         mock_build.return_value = MagicMock()
@@ -1804,8 +1804,8 @@ class TestExecuteWithAutoParallel:
         # Aborted — result.status not set to "success"
         assert result.status != "success"
 
-    @patch("animus_forge.workflow.executor_parallel_exec.find_parallel_groups")
-    @patch("animus_forge.workflow.executor_parallel_exec.build_dependency_graph")
+    @patch("animus_kernel.executor.executor_parallel_exec.find_parallel_groups")
+    @patch("animus_kernel.executor.executor_parallel_exec.build_dependency_graph")
     def test_budget_exceeded_returns_early(self, mock_build, mock_find):
         """Budget exceeded in group returns early without executing."""
         mock_build.return_value = MagicMock()
@@ -1831,8 +1831,8 @@ class TestExecuteWithAutoParallel:
 
         exe._execute_step.assert_not_called()
 
-    @patch("animus_forge.workflow.executor_parallel_exec.find_parallel_groups")
-    @patch("animus_forge.workflow.executor_parallel_exec.build_dependency_graph")
+    @patch("animus_kernel.executor.executor_parallel_exec.find_parallel_groups")
+    @patch("animus_kernel.executor.executor_parallel_exec.build_dependency_graph")
     def test_multi_step_group_calls_parallel_group(self, mock_build, mock_find):
         """Multi-step group dispatches to _execute_parallel_group."""
         mock_build.return_value = MagicMock()
@@ -1862,8 +1862,8 @@ class TestExecuteWithAutoParallel:
         assert len(call_args[0]) == 2  # 2 steps
         assert call_args[1] == "wf-1"  # workflow_id
 
-    @patch("animus_forge.workflow.executor_parallel_exec.find_parallel_groups")
-    @patch("animus_forge.workflow.executor_parallel_exec.build_dependency_graph")
+    @patch("animus_kernel.executor.executor_parallel_exec.find_parallel_groups")
+    @patch("animus_kernel.executor.executor_parallel_exec.build_dependency_graph")
     def test_multi_step_group_failure_aborts(self, mock_build, mock_find):
         """Multi-step group that sets result.status='failed' aborts."""
         mock_build.return_value = MagicMock()
@@ -1893,8 +1893,8 @@ class TestExecuteWithAutoParallel:
 
         assert result.status == "failed"
 
-    @patch("animus_forge.workflow.executor_parallel_exec.find_parallel_groups")
-    @patch("animus_forge.workflow.executor_parallel_exec.build_dependency_graph")
+    @patch("animus_kernel.executor.executor_parallel_exec.find_parallel_groups")
+    @patch("animus_kernel.executor.executor_parallel_exec.build_dependency_graph")
     def test_single_step_failure_skip_no_store(self, mock_build, mock_find):
         """Single step failure with 'skip' does NOT call _store_step_outputs."""
         mock_build.return_value = MagicMock()
@@ -1926,8 +1926,8 @@ class TestExecuteWithAutoParallel:
         # "skip" means no output storage
         exe._store_step_outputs.assert_not_called()
 
-    @patch("animus_forge.workflow.executor_parallel_exec.find_parallel_groups")
-    @patch("animus_forge.workflow.executor_parallel_exec.build_dependency_graph")
+    @patch("animus_kernel.executor.executor_parallel_exec.find_parallel_groups")
+    @patch("animus_kernel.executor.executor_parallel_exec.build_dependency_graph")
     def test_single_step_failure_continue_stores(self, mock_build, mock_find):
         """Single step failure with non-skip/non-abort stores outputs."""
         mock_build.return_value = MagicMock()
@@ -1959,8 +1959,8 @@ class TestExecuteWithAutoParallel:
         # "continue" stores outputs
         exe._store_step_outputs.assert_called_once()
 
-    @patch("animus_forge.workflow.executor_parallel_exec.find_parallel_groups")
-    @patch("animus_forge.workflow.executor_parallel_exec.build_dependency_graph")
+    @patch("animus_kernel.executor.executor_parallel_exec.find_parallel_groups")
+    @patch("animus_kernel.executor.executor_parallel_exec.build_dependency_graph")
     def test_start_index_slices_steps(self, mock_build, mock_find):
         """start_index > 0 skips earlier steps."""
         mock_build.return_value = MagicMock()
@@ -2007,8 +2007,8 @@ class TestExecuteWithAutoParallel:
 class TestExecuteWithAutoParallelAsync:
     """_execute_with_auto_parallel_async: async orchestration."""
 
-    @patch("animus_forge.workflow.executor_parallel_exec.find_parallel_groups")
-    @patch("animus_forge.workflow.executor_parallel_exec.build_dependency_graph")
+    @patch("animus_kernel.executor.executor_parallel_exec.find_parallel_groups")
+    @patch("animus_kernel.executor.executor_parallel_exec.build_dependency_graph")
     def test_empty_steps_sets_success(self, mock_build, mock_find):
         exe = _bare_executor()
         wf = WorkflowConfig(
@@ -2024,8 +2024,8 @@ class TestExecuteWithAutoParallelAsync:
 
         assert result.status == "success"
 
-    @patch("animus_forge.workflow.executor_parallel_exec.find_parallel_groups")
-    @patch("animus_forge.workflow.executor_parallel_exec.build_dependency_graph")
+    @patch("animus_kernel.executor.executor_parallel_exec.find_parallel_groups")
+    @patch("animus_kernel.executor.executor_parallel_exec.build_dependency_graph")
     def test_single_step_async_success(self, mock_build, mock_find):
         """Single-step group uses _execute_step_async."""
         mock_build.return_value = MagicMock()
@@ -2056,8 +2056,8 @@ class TestExecuteWithAutoParallelAsync:
 
         assert result.status == "success"
 
-    @patch("animus_forge.workflow.executor_parallel_exec.find_parallel_groups")
-    @patch("animus_forge.workflow.executor_parallel_exec.build_dependency_graph")
+    @patch("animus_kernel.executor.executor_parallel_exec.find_parallel_groups")
+    @patch("animus_kernel.executor.executor_parallel_exec.build_dependency_graph")
     def test_single_step_async_failure_abort(self, mock_build, mock_find):
         """Failed async single step with abort returns early."""
         mock_build.return_value = MagicMock()
@@ -2088,8 +2088,8 @@ class TestExecuteWithAutoParallelAsync:
 
         assert result.status != "success"
 
-    @patch("animus_forge.workflow.executor_parallel_exec.find_parallel_groups")
-    @patch("animus_forge.workflow.executor_parallel_exec.build_dependency_graph")
+    @patch("animus_kernel.executor.executor_parallel_exec.find_parallel_groups")
+    @patch("animus_kernel.executor.executor_parallel_exec.build_dependency_graph")
     def test_multi_step_async_dispatches(self, mock_build, mock_find):
         """Multi-step async group dispatches to _execute_parallel_group_async."""
         mock_build.return_value = MagicMock()
@@ -2116,8 +2116,8 @@ class TestExecuteWithAutoParallelAsync:
 
         exe._execute_parallel_group_async.assert_called_once()
 
-    @patch("animus_forge.workflow.executor_parallel_exec.find_parallel_groups")
-    @patch("animus_forge.workflow.executor_parallel_exec.build_dependency_graph")
+    @patch("animus_kernel.executor.executor_parallel_exec.find_parallel_groups")
+    @patch("animus_kernel.executor.executor_parallel_exec.build_dependency_graph")
     def test_budget_exceeded_async_returns_early(self, mock_build, mock_find):
         """Budget exceeded returns early without executing async."""
         mock_build.return_value = MagicMock()
@@ -2143,8 +2143,8 @@ class TestExecuteWithAutoParallelAsync:
 
         exe._execute_step_async.assert_not_called()
 
-    @patch("animus_forge.workflow.executor_parallel_exec.find_parallel_groups")
-    @patch("animus_forge.workflow.executor_parallel_exec.build_dependency_graph")
+    @patch("animus_kernel.executor.executor_parallel_exec.find_parallel_groups")
+    @patch("animus_kernel.executor.executor_parallel_exec.build_dependency_graph")
     def test_multi_step_async_failure_aborts(self, mock_build, mock_find):
         """Multi-step async group failure aborts remaining groups."""
         mock_build.return_value = MagicMock()
@@ -2179,8 +2179,8 @@ class TestExecuteWithAutoParallelAsync:
         # Only first group executed
         assert exe._execute_parallel_group_async.call_count == 1
 
-    @patch("animus_forge.workflow.executor_parallel_exec.find_parallel_groups")
-    @patch("animus_forge.workflow.executor_parallel_exec.build_dependency_graph")
+    @patch("animus_kernel.executor.executor_parallel_exec.find_parallel_groups")
+    @patch("animus_kernel.executor.executor_parallel_exec.build_dependency_graph")
     def test_single_step_async_failure_skip(self, mock_build, mock_find):
         """Single step async failure with 'skip' does not store outputs."""
         mock_build.return_value = MagicMock()
@@ -2211,8 +2211,8 @@ class TestExecuteWithAutoParallelAsync:
 
         exe._store_step_outputs.assert_not_called()
 
-    @patch("animus_forge.workflow.executor_parallel_exec.find_parallel_groups")
-    @patch("animus_forge.workflow.executor_parallel_exec.build_dependency_graph")
+    @patch("animus_kernel.executor.executor_parallel_exec.find_parallel_groups")
+    @patch("animus_kernel.executor.executor_parallel_exec.build_dependency_graph")
     def test_single_step_async_failure_continue_stores(self, mock_build, mock_find):
         """Single step async failure with 'continue' stores outputs (line 301)."""
         mock_build.return_value = MagicMock()
@@ -2254,8 +2254,8 @@ class TestParallelGroupHandlerClosure:
     """Exercise the inner handler() closure inside _execute_parallel_group
     to cover tracker.start_branch, complete_branch, fail_branch paths."""
 
-    @patch("animus_forge.workflow.executor_parallel_exec.get_parallel_tracker")
-    @patch("animus_forge.workflow.executor_parallel_exec.ParallelExecutor")
+    @patch("animus_kernel.executor.executor_parallel_exec.get_parallel_tracker")
+    @patch("animus_kernel.executor.executor_parallel_exec.ParallelExecutor")
     def test_handler_success_calls_complete_branch(self, MockPE, mock_tracker):
         """Successful handler calls tracker.complete_branch."""
         tracker = MagicMock()
@@ -2291,8 +2291,8 @@ class TestParallelGroupHandlerClosure:
         call_args = tracker.complete_branch.call_args[0]
         assert call_args[2] == 42  # tokens
 
-    @patch("animus_forge.workflow.executor_parallel_exec.get_parallel_tracker")
-    @patch("animus_forge.workflow.executor_parallel_exec.ParallelExecutor")
+    @patch("animus_kernel.executor.executor_parallel_exec.get_parallel_tracker")
+    @patch("animus_kernel.executor.executor_parallel_exec.ParallelExecutor")
     def test_handler_failed_step_calls_fail_branch(self, MockPE, mock_tracker):
         """Failed step result calls tracker.fail_branch."""
         tracker = MagicMock()
@@ -2328,8 +2328,8 @@ class TestParallelGroupHandlerClosure:
         assert fail_args[1] == "s1"
         assert "step failed" in fail_args[2]
 
-    @patch("animus_forge.workflow.executor_parallel_exec.get_parallel_tracker")
-    @patch("animus_forge.workflow.executor_parallel_exec.ParallelExecutor")
+    @patch("animus_kernel.executor.executor_parallel_exec.get_parallel_tracker")
+    @patch("animus_kernel.executor.executor_parallel_exec.ParallelExecutor")
     def test_handler_exception_calls_fail_branch_and_raises(self, MockPE, mock_tracker):
         """Exception in handler calls tracker.fail_branch then re-raises."""
         tracker = MagicMock()
@@ -2365,8 +2365,8 @@ class TestParallelGroupHandlerClosure:
         fail_args = tracker.fail_branch.call_args[0]
         assert "exploded" in fail_args[2]
 
-    @patch("animus_forge.workflow.executor_parallel_exec.get_parallel_tracker")
-    @patch("animus_forge.workflow.executor_parallel_exec.ParallelExecutor")
+    @patch("animus_kernel.executor.executor_parallel_exec.get_parallel_tracker")
+    @patch("animus_kernel.executor.executor_parallel_exec.ParallelExecutor")
     def test_handler_none_result_zero_tokens(self, MockPE, mock_tracker):
         """Handler returning result with tokens_used=0 still works."""
         tracker = MagicMock()

@@ -1,4 +1,11 @@
-# Recipe: Secure, Code-Aware Episodic Memory with Chroma
+# Archived recipe: Secure, Code-Aware Episodic Memory with Chroma
+
+> **Unsupported migration/reference material.** Chroma is retired from the
+> supported Animus Core runtime because no patched upstream release is
+> available. This standalone recipe requires an independently reviewed Chroma
+> installation and must not be used to configure a Core service. Existing
+> Animus Chroma data should follow the
+> [retirement plan](../operators/chroma-retirement-plan.md).
 
 **Goal:** Build a persistent memory system for AI-assisted development that:
 - Remembers your codebase at function/class granularity (not just files)
@@ -18,11 +25,9 @@ pip install chromadb
 pip install pyyaml
 ```
 
-If you are running this inside the Animus repo, you already have everything:
-
-```bash
-pip install -e packages/core
-```
+The Animus Core package does not install Chroma or expose a Chroma optional
+dependency. Installing Core alone is therefore insufficient for this archived
+standalone example.
 
 ---
 

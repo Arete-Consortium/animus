@@ -392,7 +392,7 @@ class TestExecutorParallelContext:
                             {
                                 "id": "producer",
                                 "type": "shell",
-                                "params": {"command": "echo produced_value"},
+                                "params": {"command": "printf produced_value"},
                                 "outputs": ["stdout"],
                             },
                         ],

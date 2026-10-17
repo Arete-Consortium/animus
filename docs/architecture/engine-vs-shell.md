@@ -51,7 +51,7 @@ These are the *primitives* that any autonomous builder needs. Already built, tes
 | **Provider Abstraction** (`providers/base.py`, `providers/router.py`) | ~2,000 | 8 providers, tier routing, streaming, tool use | Model-agnostic execution. Swaps Claude ↔ Ollama ↔ OpenRouter without agent code changes. Critical for cost optimization. |
 | **SupervisorAgent** (`agents/supervisor.py`) | ~1,800 | Multi-agent delegation: Planner, Builder, Tester, Reviewer, Architect, Documenter | **This is the closest thing to an autonomous builder already in the repo.** The 6-role delegation pattern, agent prompts, and convergence checking are the heart of an OpenClaw system. |
 | **IntentGraph** (Quorum) (`python/convergent/intent.py`) | ~2,500 | Typed interfaces, constraints, evidence kinds, structural overlap | For multi-agent systems, agents need to negotiate capabilities. Intent graphs + InterfaceSpecs are the right primitive. |
-| **Memory Tiering** (`core/animus/memory/`) | ~3,000 | HOT/WARM/COLD + access tracking + BM25 + ChromaDB | Portfolio-scale builders need project memory. The tiering mechanism is a competitive advantage. |
+| **Memory Tiering** (`core/animus/memory/`) | ~3,000 | HOT/WARM/COLD + access tracking over supported Core stores | Portfolio-scale builders need project memory. The tiering mechanism is a competitive advantage. |
 | **MCP Bridge** (`self_improve/executor_mcp.py`, `api.py`) | ~800 | Tool dispatch, contract validation, execution | The agent-tool interface pattern. MCP is becoming an industry standard. |
 
 **Total engine: ~15,000 lines.**
@@ -160,7 +160,10 @@ These are the gaps between "what exists" and "what OpenClaw does":
 
 ### Arguments AGAINST building on Animus
 
-1. **The personal-tool assumptions are baked in everywhere.** ChromaDB stores *user* memories, not *project* memories. The MCP server is tied to `~/.claude/mcp.json`. The dashboard assumes a single user on `localhost:7700`. De-assuming these is rewrite-level work.
+1. **The personal-tool assumptions are baked in everywhere.** Core stores *user*
+   memories rather than *project* memories. The MCP server is tied to
+   `~/.claude/mcp.json`. The dashboard assumes a single user on
+   `localhost:7700`. De-assuming these is rewrite-level work.
 2. **The engine and shell are tightly coupled.** The SupervisorAgent references the Dashboard. The MCP server imports Bootstrap runtime. Separating the kernel from the chrome would require significant refactoring.
 3. **The codebase is 60% irrelevant to the new vision.** Maintaining the Discord bot, the PWA, the persona engine, and the reflection loop while trying to build a builder engine is drag.
 4. **The self-improvement framework never produced.** Having the infrastructure but no fruit means we don't actually know if the loop works in practice.

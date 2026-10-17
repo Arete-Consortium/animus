@@ -85,16 +85,12 @@ animus.__main__:main
 
 ### Core
 - ollama
--
-- chromadb
 - pyyaml
--
 - pydantic
--
 - rich
--
 - prompt-toolkit
--
+- cryptography
+- animus-types
 
 ### Dev
 - pytest

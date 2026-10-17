@@ -62,6 +62,12 @@ class HandoffPayload:
 class AgentStepHandlerMixin:
     """Mixin providing autonomy and handoff workflow step handlers."""
 
+    dry_run: bool
+    budget_manager: Any
+
+    def _create_autonomy_loop(self, **kwargs):
+        raise RuntimeError("Autonomy execution requires an application adapter")
+
     def _execute_autonomy(self, step: Any, context: dict) -> dict:
         """Execute an autonomy loop step.
 
@@ -118,9 +124,7 @@ class AgentStepHandlerMixin:
                 "error": "Provider not configured",
             }
 
-        from animus_kernel.agents.autonomy import AutonomyLoop
-
-        loop = AutonomyLoop(
+        loop = self._create_autonomy_loop(
             provider=provider,
             max_iterations=max_iterations,
             budget_manager=self.budget_manager,

@@ -67,7 +67,7 @@ dependencies = [
 
 [project.optional-dependencies]
 postgres = ["psycopg2-binary>=2.9.0"]
-mcp = ["mcp>=1.0.0"]
+mcp = ["mcp>=1.30.0,<2"]
 messaging = ["python-telegram-bot>=22.0", "discord-py>=2.3.0"]
 browser = ["playwright>=1.40.0"]
 local = ["httpx>=0.28.0", "psutil>=7.0.0"]

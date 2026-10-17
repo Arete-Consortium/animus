@@ -333,7 +333,7 @@ class TestContractEnforcer:
             "tasks": [{"id": "1", "title": "Do thing", "description": "Details"}],
             "summary": "Plan summary",
         }
-        with patch("animus_forge.contracts.enforcer.get_contract") as mock_get:
+        with patch("animus_kernel.contracts.enforcer.get_contract") as mock_get:
             mock_contract = MagicMock()
             mock_contract.validate_output.return_value = None  # no exception = valid
             mock_get.return_value = mock_contract
@@ -345,7 +345,7 @@ class TestContractEnforcer:
         from animus_forge.contracts.base import ContractViolation
 
         enforcer = ContractEnforcer()
-        with patch("animus_forge.contracts.enforcer.get_contract") as mock_get:
+        with patch("animus_kernel.contracts.enforcer.get_contract") as mock_get:
             mock_contract = MagicMock()
             mock_contract.validate_output.side_effect = ContractViolation(
                 "Missing required field", role="planner", field="tasks"
@@ -357,7 +357,7 @@ class TestContractEnforcer:
 
     def test_enforcement_stats(self):
         enforcer = ContractEnforcer()
-        with patch("animus_forge.contracts.enforcer.get_contract") as mock_get:
+        with patch("animus_kernel.contracts.enforcer.get_contract") as mock_get:
             mock_contract = MagicMock()
             mock_contract.validate_output.return_value = None
             mock_get.return_value = mock_contract
@@ -376,7 +376,7 @@ class TestContractEnforcer:
         enforcer = ContractEnforcer()
         violation = ContractViolation("Missing tasks", role="planner", field="tasks")
 
-        with patch("animus_forge.contracts.enforcer.get_contract") as mock_get:
+        with patch("animus_kernel.contracts.enforcer.get_contract") as mock_get:
             mock_contract = MagicMock()
             mock_contract.output_schema = {"type": "object", "required": ["tasks"]}
             mock_get.return_value = mock_contract
@@ -544,8 +544,8 @@ class TestWorkflowComposer:
         mock_result.steps = []
         mock_result.error = None
 
-        with patch("animus_forge.workflow.composer.load_workflow", return_value=mock_config):
-            with patch("animus_forge.workflow.composer.WorkflowExecutor") as MockExecutor:
+        with patch("animus_kernel.executor.composer.load_workflow", return_value=mock_config):
+            with patch("animus_kernel.executor.composer.WorkflowExecutor") as MockExecutor:
                 instance = MockExecutor.return_value
                 instance.execute.return_value = mock_result
                 instance.checkpoint_manager = None
@@ -578,7 +578,7 @@ class TestWorkflowComposer:
                 cfg.steps = []
             return cfg
 
-        with patch("animus_forge.workflow.composer.load_workflow", side_effect=mock_load):
+        with patch("animus_kernel.executor.composer.load_workflow", side_effect=mock_load):
             with pytest.raises(ValueError, match="Circular"):
                 composer.resolve_workflow_graph("a")
 
@@ -597,6 +597,6 @@ class TestWorkflowComposer:
                 cfg.steps = []
             return cfg
 
-        with patch("animus_forge.workflow.composer.load_workflow", side_effect=mock_load):
+        with patch("animus_kernel.executor.composer.load_workflow", side_effect=mock_load):
             result = composer.resolve_workflow_graph("a")
             assert result == ["a", "b"]

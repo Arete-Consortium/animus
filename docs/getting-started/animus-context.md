@@ -1,6 +1,8 @@
 # Animus Context — ARETE
 
-> ⚠️ **Review needed**: This document was last updated before 2026-04-01. Contents may be outdated.
+> ⚠️ **Archived context**: This document was last updated before 2026-04-01.
+> Chroma references describe the historical implementation and must not be used
+> as current Core deployment guidance.
 
 
 > This file is the system context for Animus, your personal AI exocortex.
@@ -196,7 +198,7 @@ ARETE is building a three-layer open-source AI system. Each layer is an independ
 
 1. **Finish Gorgon integration** — wire up Ollama provider, Convergent bridge, end-to-end test
 2. **Fix BenchGoblins OAuth** — get it fully functional
-3. **Scaffold Animus** — basic CLI + ChromaDB memory + Ollama integration
+3. **Scaffold Animus** — basic CLI + local memory + Ollama integration
 4. **Push everything to GitHub** — clean READMEs, passing tests, visible progress
 5. **Post to X / Reddit / LinkedIn** — build-in-public content from the integration work
 6. **Continue job search** — applications out, portfolio presentable

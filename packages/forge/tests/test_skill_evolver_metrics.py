@@ -61,29 +61,30 @@ def _insert_outcome(
 ):
     ts = (datetime.now(UTC) - timedelta(days=days_ago)).isoformat()
     sid = str(uuid.uuid4())
-    backend.execute(
-        "INSERT INTO outcome_records "
-        "(step_id, workflow_id, agent_role, provider, model, success, "
-        "quality_score, cost_usd, tokens_used, latency_ms, metadata, timestamp, "
-        "skill_name, skill_version) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (
-            sid,
-            "w1",
-            agent_role,
-            "openai",
-            "gpt-4o",
-            success,
-            quality,
-            cost,
-            1000,
-            latency,
-            "{}",
-            ts,
-            skill_name,
-            skill_version,
-        ),
-    )
+    with backend.transaction():
+        backend.execute(
+            "INSERT INTO outcome_records "
+            "(step_id, workflow_id, agent_role, provider, model, success, "
+            "quality_score, cost_usd, tokens_used, latency_ms, metadata, timestamp, "
+            "skill_name, skill_version) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                sid,
+                "w1",
+                agent_role,
+                "openai",
+                "gpt-4o",
+                success,
+                quality,
+                cost,
+                1000,
+                latency,
+                "{}",
+                ts,
+                skill_name,
+                skill_version,
+            ),
+        )
 
 
 class TestGetSkillMetrics:

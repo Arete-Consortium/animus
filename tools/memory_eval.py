@@ -7,9 +7,9 @@ fixture at packages/core/tests/fixtures/memory_eval_corpus.json. Prints
 aggregate precision@k / recall@k / MRR plus per-query breakdown.
 
 Usage:
-    python tools/memory_eval.py                    # Local + Chroma if available
+    python tools/memory_eval.py                    # Supported local backend
     python tools/memory_eval.py --backend local    # Just Local
-    python tools/memory_eval.py --backend chroma   # Just Chroma
+    python tools/memory_eval.py --backend chroma   # Legacy isolated migration check
     python tools/memory_eval.py --json             # Machine-readable output
     python tools/memory_eval.py --show-queries     # Per-query detail
 """
@@ -61,8 +61,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument(
         "--backend",
         choices=["local", "chroma", "both"],
-        default="both",
-        help="Which store to evaluate (default: both when available)",
+        default="local",
+        help="Store to evaluate (default: supported local backend; Chroma is migration-only)",
     )
     ap.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
     ap.add_argument("--show-queries", action="store_true", help="Include per-query breakdown")

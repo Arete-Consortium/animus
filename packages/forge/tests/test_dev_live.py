@@ -16,7 +16,7 @@ class TestDoTaskLiveFlag:
     @patch("animus_forge.cli.commands.dev.get_workflow_executor")
     @patch("animus_forge.cli.commands.dev.format_context_for_prompt", return_value="ctx")
     @patch("animus_forge.cli.commands.dev.detect_codebase_context")
-    @patch("animus_forge.workflow.loader.load_workflow")
+    @patch("animus_kernel.executor.loader.load_workflow")
     def test_live_flag_accepted(self, mock_load, mock_ctx, mock_fmt, mock_exec):
         """--live flag is accepted without error."""
         mock_ctx.return_value = {"path": "/tmp", "language": "python"}
@@ -40,7 +40,7 @@ class TestDoTaskLiveFlag:
     @patch("animus_forge.cli.commands.dev.get_workflow_executor")
     @patch("animus_forge.cli.commands.dev.format_context_for_prompt", return_value="ctx")
     @patch("animus_forge.cli.commands.dev.detect_codebase_context")
-    @patch("animus_forge.workflow.loader.load_workflow")
+    @patch("animus_kernel.executor.loader.load_workflow")
     def test_live_creates_execution_manager(self, mock_load, mock_ctx, mock_fmt, mock_exec):
         """--live creates an execution manager and attaches it to executor."""
         mock_ctx.return_value = {"path": "/tmp", "language": "python"}
@@ -73,7 +73,7 @@ class TestDoTaskLiveFlag:
     @patch("animus_forge.cli.commands.dev.get_workflow_executor")
     @patch("animus_forge.cli.commands.dev.format_context_for_prompt", return_value="ctx")
     @patch("animus_forge.cli.commands.dev.detect_codebase_context")
-    @patch("animus_forge.workflow.loader.load_workflow")
+    @patch("animus_kernel.executor.loader.load_workflow")
     def test_without_live_uses_status_spinner(self, mock_load, mock_ctx, mock_fmt, mock_exec):
         """Without --live, uses the traditional console.status spinner."""
         mock_ctx.return_value = {"path": "/tmp", "language": "python"}

@@ -53,6 +53,7 @@ async def test_supervisor_start_stop_transitions():
 @pytest.mark.asyncio()
 async def test_supervisor_idempotent_start_stop():
     """Multiple start/stop calls are safe."""
+
     async def body():
         while True:
             try:
@@ -112,6 +113,7 @@ async def test_supervisor_restarts_failed_loop():
 @pytest.mark.asyncio()
 async def test_supervisor_reports_failure_when_restarts_exhausted():
     """After max_restarts the supervisor enters FAILED."""
+
     async def always_fails():
         raise RuntimeError("boom")
 
@@ -138,6 +140,7 @@ async def test_supervisor_reports_failure_when_restarts_exhausted():
 @pytest.mark.asyncio()
 async def test_supervisor_never_restart_policy():
     """NEVER restart policy marks the loop FAILED on first failure."""
+
     async def always_fails():
         raise RuntimeError("boom")
 
@@ -164,6 +167,7 @@ async def test_supervisor_never_restart_policy():
 @pytest.mark.asyncio()
 async def test_supervisor_snapshot_includes_all_loops():
     """snapshot() exposes per-loop state and aggregate tick/error info."""
+
     async def body():
         while True:
             try:

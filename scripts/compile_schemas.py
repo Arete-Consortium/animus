@@ -25,9 +25,7 @@ import tempfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent.resolve()
-CONTRACTS_DIR = (
-    REPO_ROOT / "packages" / "contracts" / "src" / "animus_contracts" / "schemas"
-)
+CONTRACTS_DIR = REPO_ROOT / "packages" / "contracts" / "src" / "animus_contracts" / "schemas"
 TYPES_DIR = REPO_ROOT / "packages" / "types" / "src" / "animus_types"
 
 

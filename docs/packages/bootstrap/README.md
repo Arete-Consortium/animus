@@ -75,7 +75,7 @@ Config lives at `~/.config/animus/config.toml` (chmod 600).
 | `forge` | `enabled` | `false` | Connect to Animus Forge |
 | `forge` | `host` | `localhost` | Forge API host |
 | `forge` | `port` | `8000` | Forge API port |
-| `memory` | `backend` | `sqlite` | sqlite / chroma / weaviate |
+| `memory` | `backend` | `sqlite` | Bootstrap backend selector: sqlite / chroma / weaviate; separate from Core backend values |
 | `memory` | `path` | `~/.local/share/animus/memory.db` | Memory database path |
 | `memory` | `max_context_tokens` | `100000` | Max context window |
 | `identity` | `name` | `""` | What Animus calls you |
@@ -151,7 +151,9 @@ Your data stays on your machine. No telemetry by default. No cloud sync.
 Single-user by design. Works fully offline after install.
 
 ### Persistence
-Animus remembers every interaction via ChromaDB vector memory.
+Bootstrap persists interactions through its configured memory backend. Its
+backend contract is separate from Animus Core, where Chroma is retired from the
+supported runtime.
 Identity files accumulate context over time. Nothing is forgotten
 unless you delete it.
 

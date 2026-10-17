@@ -1826,7 +1826,7 @@ class TestExecutorStepCoverage:
         result = StepResult(step_id="step-1", status=StepStatus.PENDING)
 
         with patch(
-            "animus_forge.workflow.executor_step.get_circuit_breaker",
+            "animus_kernel.executor.executor_step.get_circuit_breaker",
             return_value=mock_cb,
         ):
             handler, cb, error = ex._check_step_preconditions(step, result)
@@ -1843,7 +1843,7 @@ class TestExecutorStepCoverage:
         step = self._make_step(max_retries=0)
 
         with patch(
-            "animus_forge.workflow.executor_step.get_circuit_breaker",
+            "animus_kernel.executor.executor_step.get_circuit_breaker",
             return_value=None,
         ):
             result = ex._execute_step(step)
@@ -1862,7 +1862,7 @@ class TestExecutorStepCoverage:
         step = self._make_step(params={"role": "builder"}, max_retries=0)
 
         with patch(
-            "animus_forge.workflow.executor_step.get_circuit_breaker",
+            "animus_kernel.executor.executor_step.get_circuit_breaker",
             return_value=None,
         ):
             result = ex._execute_step(step)
@@ -1880,7 +1880,7 @@ class TestExecutorStepCoverage:
 
         async def run():
             with patch(
-                "animus_forge.workflow.executor_step.get_circuit_breaker",
+                "animus_kernel.executor.executor_step.get_circuit_breaker",
                 return_value=None,
             ):
                 return await ex._execute_step_async(step)
@@ -1917,7 +1917,7 @@ class TestExecutorStepCoverage:
         )
 
         with patch(
-            "animus_forge.workflow.executor_step.get_circuit_breaker",
+            "animus_kernel.executor.executor_step.get_circuit_breaker",
             return_value=None,
         ):
             result = ex._execute_fallback(step, "error", "wf-1")

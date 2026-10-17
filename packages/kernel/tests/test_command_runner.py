@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import shlex
+import sys
 
 import pytest
 
@@ -109,7 +111,7 @@ class TestRun:
 
     def test_env_passed(self, tmp_path):
         result = run(
-            "python3 -c \"import os; print(os.environ.get('TEST_VAR'))\"",
+            f"{shlex.quote(sys.executable)} -c \"import os; print(os.environ.get('TEST_VAR'))\"",
             cwd=str(tmp_path),
             env={"TEST_VAR": "42"},
         )

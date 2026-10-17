@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """
-Animus Memory Sync — Claude Code → Animus ChromaDB
+Animus Memory Sync — Claude Code → supported Animus memory
 
 Parses Claude Code memory files and notes repo, deduplicates by content hash,
-and pushes structured memories into Animus via direct MemoryLayer API.
+and pushes structured memories through the configured ``MemoryLayer`` backend.
+Legacy Chroma configuration fails closed; this tool does not migrate or select a
+replacement backend.
 
 Usage:
     python tools/animus_sync.py                  # Full sync
@@ -31,8 +33,8 @@ _CORE_DIR = os.path.join(os.path.dirname(__file__), "..", "packages", "core")
 if os.path.isdir(_CORE_DIR) and _CORE_DIR not in sys.path:
     sys.path.insert(0, os.path.realpath(_CORE_DIR))
 
-from animus.config import AnimusConfig
-from animus.memory import MemoryLayer, MemoryType
+from animus.config import AnimusConfig  # noqa: E402 — local package path bootstrap above
+from animus.memory import MemoryLayer, MemoryType  # noqa: E402 — local package path bootstrap above
 
 # --- Paths ---
 

@@ -27,7 +27,12 @@ def adapter() -> WebChatAdapter:
 @pytest.fixture()
 def client() -> TestClient:
     """TestClient wired to the dashboard app."""
-    return TestClient(app)
+    client = TestClient(app)
+    client.get("/health")
+    token = client.cookies.get("animus_csrf")
+    assert token is not None
+    client.headers["X-CSRF-Token"] = token
+    return client
 
 
 # ------------------------------------------------------------------

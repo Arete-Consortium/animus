@@ -1,9 +1,9 @@
 # RUN-02 Implementation Plan — Lease Redesign and Atomic Dispatch
 
-**Repository:** `AreteDriver/animus`  
-**Depends on:** RUN-00 (runtime invariant model + baseline tests), RUN-01 (supervised scheduler lifecycle)  
-**Primary invariant:** At most one active lease per task; task and lease state cannot diverge through partial commit (RUN-00 §3, §4).  
-**Date:** 2026-07-31  
+**Repository:** `AreteDriver/animus`
+**Depends on:** RUN-00 (runtime invariant model + baseline tests), RUN-01 (supervised scheduler lifecycle)
+**Primary invariant:** At most one active lease per task; task and lease state cannot diverge through partial commit (RUN-00 §3, §4).
+**Date:** 2026-07-31
 **Status:** Implemented and verified
 
 ---

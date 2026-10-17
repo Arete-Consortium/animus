@@ -494,9 +494,11 @@ class TestIdentityPageRoutes:
 
     @pytest.fixture()
     def identity_app(self) -> FastAPI:
+        from animus_bootstrap.dashboard.app import templates
         from animus_bootstrap.dashboard.routers.identity_page import router
 
         _app = FastAPI()
+        _app.state.templates = templates
         _app.include_router(router)
         return _app
 
@@ -601,7 +603,7 @@ class TestHomePageComponents:
         _app = FastAPI()
         _app.include_router(router)
         tpl_dir = (
-            Path(__file__).resolve().parent.parent
+            Path(__file__).resolve().parents[2]
             / "src"
             / "animus_bootstrap"
             / "dashboard"

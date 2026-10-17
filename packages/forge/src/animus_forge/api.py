@@ -203,7 +203,11 @@ async def lifespan(app: FastAPI):
         container_cfg = ContainerConfig(image=os.getenv("ANIMUS_CITIZEN_IMAGE", "python:3.12-slim"))
         container_mgr = ContainerManager(container_cfg)
         pool_cfg = PoolConfig(max_workers=4)
-        if container_mgr.is_available() and os.getenv("ANIMUS_CONTAINER_MODE", "").lower() in ("1", "true", "yes"):
+        if container_mgr.is_available() and os.getenv("ANIMUS_CONTAINER_MODE", "").lower() in (
+            "1",
+            "true",
+            "yes",
+        ):
             pool_cfg.isolation_mode = "container"
             logger.info("Container isolation enabled for citizen workers")
         else:

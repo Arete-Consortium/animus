@@ -1,4 +1,9 @@
-"""ChromaDB-backed memory store with optional BM25 hybrid search."""
+"""Legacy ChromaDB adapter retained only for isolated migration verification.
+
+The supported Core runtime no longer selects this adapter or publishes its
+dependency. Operators may use it against a restored backup in an isolated
+environment while proving export and retrieval parity before a cutover.
+"""
 
 from __future__ import annotations
 
@@ -16,7 +21,7 @@ logger = get_logger("memory")
 
 class ChromaMemoryStore(MemoryStore):
     """
-    Vector-based memory store using ChromaDB with optional BM25 hybrid search.
+    Legacy migration adapter using ChromaDB with optional BM25 hybrid search.
 
     Provides semantic search using embeddings, optionally fused with BM25
     keyword search via Reciprocal Rank Fusion (RRF).
@@ -98,7 +103,11 @@ class ChromaMemoryStore(MemoryStore):
                 f"ChromaDB ready at {self.chroma_dir} with {self.collection.count()} documents"
             )
         except ImportError as e:
-            raise ImportError("ChromaDB not installed. Install with: pip install chromadb") from e
+            raise ImportError(
+                "ChromaDB is not part of the supported Core runtime. Use this legacy "
+                "adapter only in an isolated migration environment with a separately "
+                "installed, reviewed Chroma dependency."
+            ) from e
         except Exception as e:
             logger.error(f"Failed to initialize ChromaDB: {e}")
             raise
