@@ -205,9 +205,9 @@ packages:
       voice: ["openai-whisper>=20231117", "pyttsx3>=2.90", "sounddevice>=0.4.6", "soundfile>=0.12.1"]
       integrations: ["google-api-python-client>=2.100.0", "google-auth>=2.20.0", "google-auth-oauthlib>=1.0.0", "todoist-api-python>=2.0.0"]
       sync: ["websockets>=12.0", "zeroconf>=0.131.0"]
-      mcp: ["mcp>=1.0.0"]
+      mcp: ["mcp>=1.30.0,<2"]
       postgres: ["sqlalchemy>=2.0", "psycopg[binary]>=3.1"]
-      dev: ["bcrypt>=5.0.0,<6", "pytest>=8.0.0", "pytest-asyncio>=0.23.0", "pytest-benchmark>=4.0.0", "pytest-cov>=4.1.0", "ruff>=0.2.0", "mypy>=1.8.0", "pre-commit>=3.6.0", "httpx>=0.26.0"]
+      dev: ["numpy>=1.26,<3", "alembic>=1.13,<2", "bcrypt>=5.0.0,<6", "pytest>=8.0.0", "pytest-asyncio>=0.23.0", "pytest-benchmark>=4.0.0", "pytest-cov>=4.1.0", "ruff>=0.2.0", "mypy>=1.8.0", "pre-commit>=3.6.0", "httpx>=0.26.0"]
       all: ["animus-core[anthropic,openai,api,voice,integrations,sync,mcp,dev]"]
     internal_dependencies:
       - animus-types
