@@ -178,8 +178,17 @@ op = "=="
 type = "regex_match"
 name = "multiarch_docker"
 file = ".github/workflows/ci.yml"
-pattern = "platforms: linux/amd64,linux/arm64"
-expected = "platforms: linux/amd64,linux/arm64"
+pattern = 'arch: \[(amd64, arm64)\]'
+expected = "amd64, arm64"
+op = "=="
+
+[[checks]]
+type = "regex_match"
+name = "multiarch_docker_platform_binding"
+file = ".github/workflows/ci.yml"
+pattern = 'platforms: linux/\$\{\{ matrix\.arch \}\}'
+group = 0
+expected = 'platforms: linux/${{ matrix.arch }}'
 op = "=="
 
 [[checks]]
