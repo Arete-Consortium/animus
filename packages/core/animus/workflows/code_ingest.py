@@ -1,7 +1,9 @@
 """``animus.workflows.code_ingest`` — local codebase → semantic memory pipeline.
 
-Extracted from memboot's indexing layer. Replaces memboot's SQLite+TF-IDF
-backend with Animus ``ChromaMemoryStore`` (dense + BM25 hybrid search).
+Extracted from memboot's indexing layer. Stores chunks through the supported
+Animus ``MemoryLayer`` interface. Retrieval behavior follows the explicitly
+selected supported backend; this workflow does not select or install a vector
+store.
 
 Usage::
 

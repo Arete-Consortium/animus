@@ -29,6 +29,17 @@ class IntegrationHandlersMixin:
     - fallback_callbacks: dict
     """
 
+    dry_run: bool
+
+    def _integration_dependency(self, module: str, name: str):
+        """Resolve an application-owned integration dependency."""
+        raise RuntimeError(f"Integration {module}.{name} requires an application adapter")
+
+    def _integration_settings(self):
+        from animus_kernel.config import get_settings
+
+        return get_settings()
+
     def _get_var_dir(self, step: StepConfig) -> Path:
         """Per-execution temp directory for ${name.file} payloads.
 
@@ -59,13 +70,12 @@ class IntegrationHandlersMixin:
         - Output size: SHELL_MAX_OUTPUT_BYTES (default: 10MB)
         - Command whitelist: SHELL_ALLOWED_COMMANDS (optional)
         """
-        from animus_kernel.config import get_settings
         from animus_kernel.utils.validation import (
             substitute_shell_variables,
             validate_shell_command,
         )
 
-        settings = get_settings()
+        settings = self._integration_settings()
         command = step.params.get("command", "")
         if not command:
             raise ValueError("Shell step requires 'command' parameter")
@@ -150,10 +160,22 @@ class IntegrationHandlersMixin:
             command[:200],
         )
 
+        working_directory = step.params.get("working_directory")
+        if working_directory is not None:
+            if not isinstance(working_directory, str):
+                raise ValueError("working_directory must be a string")
+            for key, value in context.items():
+                if isinstance(value, (str, Path)):
+                    working_directory = working_directory.replace(f"${{{key}}}", str(value))
+            working_directory = Path(working_directory).expanduser().resolve(strict=True)
+            if not working_directory.is_dir():
+                raise ValueError("working_directory must name a directory")
+
         try:
             result = subprocess.run(
                 argv,
                 shell=False,
+                cwd=working_directory,
                 capture_output=True,
                 text=True,
                 timeout=timeout,
@@ -212,7 +234,8 @@ class IntegrationHandlersMixin:
             message: Commit message for commit_file
             branch: Branch name (default: main)
         """
-        from animus_kernel.api_clients import GitHubClient
+        if not self.dry_run:
+            GitHubClient = self._integration_dependency("api_clients", "GitHubClient")
 
         action = step.params.get("action", "get_repo_info")
         repo = step.params.get("repo", "")
@@ -316,7 +339,8 @@ class IntegrationHandlersMixin:
             sorts: Query sorts list
             query: Search query string
         """
-        from animus_kernel.api_clients import NotionClientWrapper
+        if not self.dry_run:
+            NotionClientWrapper = self._integration_dependency("api_clients", "NotionClientWrapper")
 
         action = step.params.get("action", "search")
 
@@ -435,7 +459,8 @@ class IntegrationHandlersMixin:
             query: Gmail search query
             message_id: Message ID for get_message
         """
-        from animus_kernel.api_clients import GmailClient
+        if not self.dry_run:
+            GmailClient = self._integration_dependency("api_clients", "GmailClient")
 
         action = step.params.get("action", "list_messages")
 
@@ -504,7 +529,9 @@ class IntegrationHandlersMixin:
             ts: Message timestamp for updates/reactions
             emoji: Emoji name for reactions
         """
-        from animus_kernel.api_clients.slack_client import MessageType, SlackClient
+        if not self.dry_run:
+            MessageType = self._integration_dependency("api_clients.slack_client", "MessageType")
+            SlackClient = self._integration_dependency("api_clients.slack_client", "SlackClient")
 
         action = step.params.get("action", "send_message")
         channel = step.params.get("channel", "")
@@ -524,9 +551,7 @@ class IntegrationHandlersMixin:
             }
 
         # Get Slack token from settings
-        from animus_kernel.config import get_settings
-
-        settings = get_settings()
+        settings = self._integration_settings()
         token = settings.slack_token if hasattr(settings, "slack_token") else None
 
         if not token:
@@ -647,7 +672,13 @@ class IntegrationHandlersMixin:
         """
         from datetime import datetime, timedelta
 
-        from animus_kernel.api_clients.calendar_client import CalendarClient, CalendarEvent
+        if not self.dry_run:
+            CalendarClient = self._integration_dependency(
+                "api_clients.calendar_client", "CalendarClient"
+            )
+            CalendarEvent = self._integration_dependency(
+                "api_clients.calendar_client", "CalendarEvent"
+            )
 
         action = step.params.get("action", "list_events")
         calendar_id = step.params.get("calendar_id", "primary")
@@ -810,7 +841,9 @@ class IntegrationHandlersMixin:
             headless: Run headless (default: True)
             full_page: Full page screenshot (default: False)
         """
-        from animus_kernel.browser import BrowserAutomation, BrowserConfig
+        if not self.dry_run:
+            BrowserAutomation = self._integration_dependency("browser", "BrowserAutomation")
+            BrowserConfig = self._integration_dependency("browser", "BrowserConfig")
 
         action = step.params.get("action", "navigate")
         url = step.params.get("url", "")

@@ -273,6 +273,7 @@ class TestPushRouter:
     def test_send_test_delivers_and_prunes(
         self, tmp_path, monkeypatch, restore_push_store: None
     ) -> None:  # type: ignore[no-untyped-def]
+        monkeypatch.setattr("animus_bootstrap.config.manager._CONFIG_DIR", tmp_path / "config")
         # Build a fake pywebpush module.
         fake = types.ModuleType("pywebpush")
 

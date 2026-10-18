@@ -56,8 +56,8 @@ class TestSignalAudit:
         result = executor.execute(workflow)
         assert result.status == "failed"
 
-    @patch("animus_forge.workflow.executor_arete.HAS_SIGNAL", True)
-    @patch("animus_forge.workflow.executor_arete.run_quality_audit", create=True)
+    @patch("animus_kernel.executor.executor_arete.HAS_SIGNAL", True)
+    @patch("animus_kernel.executor.executor_arete.run_quality_audit", create=True)
     def test_direct_import_path(self, mock_audit):
         mock_audit.return_value = {
             "score": 92,
@@ -75,8 +75,8 @@ class TestSignalAudit:
         assert output["dimensions"] == {"clarity": 95}
         mock_audit.assert_called_once_with("src/main.py")
 
-    @patch("animus_forge.workflow.executor_arete.HAS_SIGNAL", True)
-    @patch("animus_forge.workflow.executor_arete.run_quality_audit", create=True)
+    @patch("animus_kernel.executor.executor_arete.HAS_SIGNAL", True)
+    @patch("animus_kernel.executor.executor_arete.run_quality_audit", create=True)
     def test_min_score_pass(self, mock_audit):
         mock_audit.return_value = {"score": 80, "grade": "B", "dimensions": {}, "flags": []}
         executor = _make_executor()
@@ -85,8 +85,8 @@ class TestSignalAudit:
         assert result.status == "success"
         assert result.steps[0].output["score"] == 80
 
-    @patch("animus_forge.workflow.executor_arete.HAS_SIGNAL", True)
-    @patch("animus_forge.workflow.executor_arete.run_quality_audit", create=True)
+    @patch("animus_kernel.executor.executor_arete.HAS_SIGNAL", True)
+    @patch("animus_kernel.executor.executor_arete.run_quality_audit", create=True)
     def test_min_score_fail(self, mock_audit):
         mock_audit.return_value = {"score": 50, "grade": "F", "dimensions": {}, "flags": []}
         executor = _make_executor()
@@ -94,8 +94,8 @@ class TestSignalAudit:
         result = executor.execute(workflow)
         assert result.status == "failed"
 
-    @patch("animus_forge.workflow.executor_arete.HAS_SIGNAL", False)
-    @patch("animus_forge.workflow.executor_arete._run_subprocess")
+    @patch("animus_kernel.executor.executor_arete.HAS_SIGNAL", False)
+    @patch("animus_kernel.executor.executor_arete._run_subprocess")
     def test_subprocess_fallback(self, mock_sub):
         mock_sub.return_value = {
             "score": 75,
@@ -110,8 +110,8 @@ class TestSignalAudit:
         assert result.steps[0].output["score"] == 75
         mock_sub.assert_called_once()
 
-    @patch("animus_forge.workflow.executor_arete.HAS_SIGNAL", False)
-    @patch("animus_forge.workflow.executor_arete._run_subprocess")
+    @patch("animus_kernel.executor.executor_arete.HAS_SIGNAL", False)
+    @patch("animus_kernel.executor.executor_arete._run_subprocess")
     def test_subprocess_failure_propagates(self, mock_sub):
         mock_sub.side_effect = RuntimeError("Subprocess signal-audit failed (exit 1): error")
         executor = _make_executor()
@@ -126,8 +126,8 @@ class TestSignalAudit:
         output = executor._execute_signal_audit(step, context)
         assert output["file"] == "resolved.py"
 
-    @patch("animus_forge.workflow.executor_arete.HAS_SIGNAL", True)
-    @patch("animus_forge.workflow.executor_arete.run_quality_audit", create=True)
+    @patch("animus_kernel.executor.executor_arete.HAS_SIGNAL", True)
+    @patch("animus_kernel.executor.executor_arete.run_quality_audit", create=True)
     def test_output_includes_all_fields(self, mock_audit):
         mock_audit.return_value = {
             "score": 88,
@@ -140,8 +140,8 @@ class TestSignalAudit:
         output = executor._execute_signal_audit(step, {})
         assert set(output.keys()) == {"score", "grade", "dimensions", "flags", "file"}
 
-    @patch("animus_forge.workflow.executor_arete.HAS_SIGNAL", True)
-    @patch("animus_forge.workflow.executor_arete.run_quality_audit", create=True)
+    @patch("animus_kernel.executor.executor_arete.HAS_SIGNAL", True)
+    @patch("animus_kernel.executor.executor_arete.run_quality_audit", create=True)
     def test_missing_keys_in_result_default_gracefully(self, mock_audit):
         mock_audit.return_value = {}  # no keys
         executor = _make_executor()
@@ -174,8 +174,8 @@ class TestAutopsyAnalyze:
         result = executor.execute(workflow)
         assert result.status == "failed"
 
-    @patch("animus_forge.workflow.executor_arete.HAS_AUTOPSY", True)
-    @patch("animus_forge.workflow.executor_arete.analyze_failure", create=True)
+    @patch("animus_kernel.executor.executor_arete.HAS_AUTOPSY", True)
+    @patch("animus_kernel.executor.executor_arete.analyze_failure", create=True)
     def test_direct_import_path(self, mock_analyze):
         mock_analyze.return_value = {
             "failure_type": "tool_loop",
@@ -196,8 +196,8 @@ class TestAutopsyAnalyze:
         assert output["workflow_id"] == "wf-123"
         mock_analyze.assert_called_once_with("RuntimeError: max retries", workflow_id="wf-123")
 
-    @patch("animus_forge.workflow.executor_arete.HAS_AUTOPSY", False)
-    @patch("animus_forge.workflow.executor_arete.subprocess")
+    @patch("animus_kernel.executor.executor_arete.HAS_AUTOPSY", False)
+    @patch("animus_kernel.executor.executor_arete.subprocess")
     def test_subprocess_fallback(self, mock_subprocess):
         mock_proc = MagicMock()
         mock_proc.returncode = 0
@@ -216,8 +216,8 @@ class TestAutopsyAnalyze:
         assert result.status == "success"
         assert result.steps[0].output["failure_type"] == "overconfidence"
 
-    @patch("animus_forge.workflow.executor_arete.HAS_AUTOPSY", False)
-    @patch("animus_forge.workflow.executor_arete.subprocess")
+    @patch("animus_kernel.executor.executor_arete.HAS_AUTOPSY", False)
+    @patch("animus_kernel.executor.executor_arete.subprocess")
     def test_subprocess_nonzero_exit(self, mock_subprocess):
         mock_proc = MagicMock()
         mock_proc.returncode = 1
@@ -239,8 +239,8 @@ class TestAutopsyAnalyze:
         output = executor._execute_autopsy_analyze(step, context)
         assert "build_step" in output["error_chain"][0]
 
-    @patch("animus_forge.workflow.executor_arete.HAS_AUTOPSY", True)
-    @patch("animus_forge.workflow.executor_arete.analyze_failure", create=True)
+    @patch("animus_kernel.executor.executor_arete.HAS_AUTOPSY", True)
+    @patch("animus_kernel.executor.executor_arete.analyze_failure", create=True)
     def test_default_workflow_id_empty(self, mock_analyze):
         mock_analyze.return_value = {
             "failure_type": "unknown",
@@ -253,8 +253,8 @@ class TestAutopsyAnalyze:
         output = executor._execute_autopsy_analyze(step, {})
         assert output["workflow_id"] == ""
 
-    @patch("animus_forge.workflow.executor_arete.HAS_AUTOPSY", True)
-    @patch("animus_forge.workflow.executor_arete.analyze_failure", create=True)
+    @patch("animus_kernel.executor.executor_arete.HAS_AUTOPSY", True)
+    @patch("animus_kernel.executor.executor_arete.analyze_failure", create=True)
     def test_output_fields(self, mock_analyze):
         mock_analyze.return_value = {
             "failure_type": "goal_necrosis",
@@ -299,8 +299,8 @@ class TestVerdictCapture:
         result = executor.execute(workflow)
         assert result.status == "failed"
 
-    @patch("animus_forge.workflow.executor_arete.HAS_VERDICT", True)
-    @patch("animus_forge.workflow.executor_arete.DecisionStore", create=True)
+    @patch("animus_kernel.executor.executor_arete.HAS_VERDICT", True)
+    @patch("animus_kernel.executor.executor_arete.DecisionStore", create=True)
     def test_direct_import_path(self, mock_store_cls):
         mock_store = MagicMock()
         mock_store.record.return_value = {
@@ -330,8 +330,8 @@ class TestVerdictCapture:
             category="architecture",
         )
 
-    @patch("animus_forge.workflow.executor_arete.HAS_VERDICT", False)
-    @patch("animus_forge.workflow.executor_arete._run_subprocess")
+    @patch("animus_kernel.executor.executor_arete.HAS_VERDICT", False)
+    @patch("animus_kernel.executor.executor_arete._run_subprocess")
     def test_subprocess_fallback(self, mock_sub):
         mock_sub.return_value = {"id": "dec-002", "review_date": "2026-05-01"}
         executor = _make_executor()
@@ -375,8 +375,8 @@ class TestVerdictCapture:
         output = executor._execute_verdict_capture(step, {})
         assert output["title"] == "Test"
 
-    @patch("animus_forge.workflow.executor_arete.HAS_VERDICT", False)
-    @patch("animus_forge.workflow.executor_arete._run_subprocess")
+    @patch("animus_kernel.executor.executor_arete.HAS_VERDICT", False)
+    @patch("animus_kernel.executor.executor_arete._run_subprocess")
     def test_subprocess_failure_propagates(self, mock_sub):
         mock_sub.side_effect = RuntimeError("Subprocess verdict failed")
         executor = _make_executor()
@@ -446,7 +446,7 @@ class TestSubstituteContext:
 class TestRunSubprocess:
     """Tests for the subprocess fallback helper."""
 
-    @patch("animus_forge.workflow.executor_arete.subprocess.run")
+    @patch("animus_kernel.executor.executor_arete.subprocess.run")
     def test_success_parses_json(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0, stdout='{"key": "value"}', stderr="")
         from animus_forge.workflow.executor_arete import _run_subprocess
@@ -454,7 +454,7 @@ class TestRunSubprocess:
         result = _run_subprocess(["test-cmd", "arg"])
         assert result == {"key": "value"}
 
-    @patch("animus_forge.workflow.executor_arete.subprocess.run")
+    @patch("animus_kernel.executor.executor_arete.subprocess.run")
     def test_nonzero_exit_raises(self, mock_run):
         mock_run.return_value = MagicMock(returncode=1, stdout="", stderr="error msg")
         from animus_forge.workflow.executor_arete import _run_subprocess
@@ -462,7 +462,7 @@ class TestRunSubprocess:
         with pytest.raises(RuntimeError, match="exit 1"):
             _run_subprocess(["test-cmd"])
 
-    @patch("animus_forge.workflow.executor_arete.subprocess.run")
+    @patch("animus_kernel.executor.executor_arete.subprocess.run")
     def test_invalid_json_raises(self, mock_run):
         mock_run.return_value = MagicMock(returncode=0, stdout="not json", stderr="")
         from animus_forge.workflow.executor_arete import _run_subprocess

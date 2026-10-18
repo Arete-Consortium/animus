@@ -3,6 +3,12 @@
 Status: living document. Last updated 2026-05-26 alongside the 10/10
 polish pass (post-Stage 3.D + sibling adopters + systemd narrowing).
 
+> **Legacy deployment scope:** Chroma paths and controls below describe the
+> preserved pre-retirement deployment that remains at risk until its data is
+> inventoried and migrated. Chroma is not a supported Core runtime backend. See
+> the [retirement plan](../operators/chroma-retirement-plan.md); this threat
+> evidence does not authorize a configuration or data cutover.
+
 This document captures what the [hardening
 pass](https://github.com/your-org/animus/blob/main/packages/core/animus/scripts/verify_hardening.py) defends
 against, the adversaries it considers, the assumptions it relies on,
@@ -23,7 +29,8 @@ gate, Stage 2.C MCP scope pin):
 | `CONFIDENTIAL` | TIAID client material, Toyota litigation context, NAVEX application | 4 |
 | `SECRET` | Credentials, financial, MUST NOT cross boundaries | 0 in live store; gate present |
 
-Storage location: `~/.animus/chroma/` (ChromaDB), `~/.animus/audit/`
+Storage location at the 2026-05-26 snapshot: `~/.animus/chroma/` (legacy
+ChromaDB), `~/.animus/audit/`
 (append-only JSONL), `~/.local/share/animus/` (SQLite for automations +
 feedback), `~/.config/animus/` (config + identity proposals).
 

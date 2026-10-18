@@ -467,7 +467,7 @@ class TestPathValidator:
 
             validator = PathValidator(base)
             result = validator.validate_identifier_as_path("my_template", ".json")
-            assert result == base / "my_template.json"
+            assert result == (base / "my_template.json").resolve()
 
             # Invalid identifier rejected
             with pytest.raises(ValidationError):

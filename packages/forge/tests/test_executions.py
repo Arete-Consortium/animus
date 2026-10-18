@@ -514,10 +514,11 @@ class TestExecutionManager:
 
         # Manually backdate the completed_at
         old_time = (datetime.now() - timedelta(hours=200)).isoformat()
-        backend.execute(
-            "UPDATE executions SET completed_at = ? WHERE id = ?",
-            (old_time, execution.id),
-        )
+        with backend.transaction():
+            backend.execute(
+                "UPDATE executions SET completed_at = ? WHERE id = ?",
+                (old_time, execution.id),
+            )
 
         # Cleanup (168 hours = 7 days)
         deleted = manager.cleanup_old_executions(max_age_hours=168)

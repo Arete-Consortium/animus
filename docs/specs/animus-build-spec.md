@@ -1,6 +1,12 @@
 # Animus — Complete Build Specification
 
-> ⚠️ **Review needed**: This document was last updated before 2026-04-01. Contents may be outdated.
+> **SUPERSEDED — historical design only. DO NOT IMPLEMENT.** This March 2026
+> build plan predates the current package layout and security boundary. Its
+> ChromaDB instructions describe a retired Core runtime and must not be used for
+> new code, dependencies, configuration, or tests. Current Core work follows
+> `docs/architecture/memory.md`, `docs/operators/chroma-retirement-plan.md`, and
+> `docs/roadmap/roadmap-to-10.md`; supported storage is local JSON or explicitly
+> configured durable SQL. The legacy Chroma adapter is migration-only.
 
 **For:** Claude Code / Animus self-directed development
 **Repo:** `your-org/Animus` (private → alpha on Phase 1b completion)

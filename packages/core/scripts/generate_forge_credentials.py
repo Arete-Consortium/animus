@@ -13,6 +13,9 @@ Or add to your .env file:
 
 The Commissioner uses FORGE_API_USER and FORGE_API_PASS env vars to
 authenticate with Forge at commission time.
+
+Prefer the secure prompt: command-line passwords can appear in shell history
+and process listings. Plaintext passwords are never included in the output.
 """
 
 from __future__ import annotations
@@ -23,7 +26,7 @@ import sys
 import bcrypt
 
 
-def main():
+def main() -> None:
     if len(sys.argv) < 2:
         print(f"Usage: {sys.argv[0]} <username> [password]")
         print("If password is omitted, you will be prompted securely.")
@@ -45,7 +48,7 @@ def main():
     print(f"  API_CREDENTIALS='{username}:{hashed}'")
     print("\nCommissioner environment variables:")
     print(f"  FORGE_API_USER='{username}'")
-    print(f"  FORGE_API_PASS='{pw}'")
+    print("  Set FORGE_API_PASS to the same password through your secret manager.")
     print("\nOr export directly before starting Forge:")
     print(f"  export API_CREDENTIALS='{username}:{hashed}'")
 

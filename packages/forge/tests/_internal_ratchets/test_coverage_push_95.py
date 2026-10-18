@@ -506,7 +506,7 @@ class TestGraphExecutorCoverage:
 
         # Mock the walker's evaluate_branch
         with patch(
-            "animus_forge.workflow.graph_walker.GraphWalker.evaluate_branch",
+            "animus_kernel.executor.graph_walker.GraphWalker.evaluate_branch",
             return_value="true",
         ):
             nodes = [self._make_node("b1", "branch")]
@@ -570,7 +570,7 @@ class TestGraphExecutorCoverage:
         graph = self._make_graph(nodes, edges)
 
         with patch(
-            "animus_forge.workflow.graph_walker.GraphWalker.detect_cycles",
+            "animus_kernel.executor.graph_walker.GraphWalker.detect_cycles",
             return_value=[["a", "b"]],
         ):
             result = await ex.execute_async(graph)
@@ -584,11 +584,11 @@ class TestGraphExecutorCoverage:
 
         with (
             patch(
-                "animus_forge.workflow.graph_walker.GraphWalker.should_continue_loop",
+                "animus_kernel.executor.graph_walker.GraphWalker.should_continue_loop",
                 side_effect=[True, True, False],
             ),
             patch(
-                "animus_forge.workflow.graph_walker.GraphWalker.get_loop_item",
+                "animus_kernel.executor.graph_walker.GraphWalker.get_loop_item",
                 side_effect=["a", "b", None],
             ),
         ):
@@ -5451,7 +5451,8 @@ class TestLoaderExtendedCoverage:
     """Cover more loader edge cases."""
 
     def test_load_workflow_not_found(self, tmp_path):
-        from animus_forge.errors import ValidationError
+        from animus_kernel.errors import ValidationError
+
         from animus_forge.workflow.loader import load_workflow
 
         with pytest.raises((FileNotFoundError, ValidationError)):
@@ -6576,11 +6577,11 @@ class TestLoaderValidationCoverage:
         with pytest.raises(ValidationError):
             validate_safe_path("/etc/passwd", "/app/data", allow_absolute=False)
 
-    def test_path_validation_valid(self):
+    def test_path_validation_valid(self, tmp_path):
         from animus_forge.utils.validation import validate_safe_path
 
-        result = validate_safe_path("templates/test.yaml", "/tmp")
-        assert str(result).startswith("/tmp")
+        result = validate_safe_path("templates/test.yaml", tmp_path)
+        assert result == (tmp_path / "templates/test.yaml").resolve()
 
 
 class TestWebhookDeliveryManagerCoverage:
@@ -8443,7 +8444,7 @@ class TestGraphRoutesExtended:
         """Lines 184-186: executor.execute_async raises exception."""
         with patch("animus_forge.api_routes.graph._build_workflow_graph"):
             with patch(
-                "animus_forge.workflow.graph_executor.ReactFlowExecutor",
+                "animus_kernel.executor.graph_executor.ReactFlowExecutor",
             ) as mock_exec_cls:
                 mock_exec_cls.return_value.execute_async = AsyncMock(
                     side_effect=Exception("Execution failed")

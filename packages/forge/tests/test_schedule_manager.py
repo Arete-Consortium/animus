@@ -279,6 +279,15 @@ class TestScheduleManager:
 
     def test_execution_log_saved(self, manager, backend):
         """Execution logs are saved to database."""
+        manager.create_schedule(
+            WorkflowSchedule(
+                id="test-schedule",
+                workflow_id="test-workflow",
+                name="Log fixture",
+                schedule_type=ScheduleType.INTERVAL,
+                interval_config=IntervalConfig(minutes=5),
+            )
+        )
         log = ScheduleExecutionLog(
             schedule_id="test-schedule",
             workflow_id="test-workflow",

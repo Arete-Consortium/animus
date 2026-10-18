@@ -1,9 +1,9 @@
 # RUN-01 Implementation Plan — Supervised Scheduler Lifecycle
 
-**Repository:** `AreteDriver/animus`  
-**Depends on:** RUN-00 (runtime invariant model + baseline tests)  
-**Primary invariant:** Scheduler health reflects live supervised loops (RUN-00 §6).  
-**Date:** 2026-07-31  
+**Repository:** `AreteDriver/animus`
+**Depends on:** RUN-00 (runtime invariant model + baseline tests)
+**Primary invariant:** Scheduler health reflects live supervised loops (RUN-00 §6).
+**Date:** 2026-07-31
 **Status:** Implemented
 
 ---

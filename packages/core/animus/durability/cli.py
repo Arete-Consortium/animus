@@ -5,6 +5,7 @@ Run::
     python -m animus.durability.cli export --all [-o animus-export.zip]
     python -m animus.durability.cli verify <archive.zip>
     python -m animus.durability.cli rebuild <archive.zip> --target <dir> [--overwrite]
+    python -m animus.durability.cli preflight
 
 ``export --all`` captures the whole data dir + a redacted config snapshot.
 ``rebuild`` verifies the manifest checksums before restoring (cold-rebuild).
@@ -66,6 +67,31 @@ def cmd_rebuild(archive: str, target: str, overwrite: bool) -> int:
     return 0
 
 
+def cmd_preflight() -> int:
+    """Inspect configured SQL schema without writes or connection-detail output."""
+    from animus.durability.postgres_store import DurableObjectStore
+    from animus.durability.schema import SchemaCompatibilityError
+
+    store = None
+    try:
+        store = DurableObjectStore()
+        store.preflight()
+    except SchemaCompatibilityError as exc:
+        # This exception contains only metadata checks, never row data or URLs.
+        print(f"Incompatible registry: {exc}", file=sys.stderr)
+        return 1
+    except Exception:
+        print(
+            "Registry preflight unavailable; check configuration and connectivity.", file=sys.stderr
+        )
+        return 2
+    finally:
+        if store is not None:
+            store._engine.dispose()
+    print("Registry schema compatible. No data was changed.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Animus durability export/rebuild.")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -82,6 +108,8 @@ def main(argv: list[str] | None = None) -> int:
     rb.add_argument("--target", required=True, help="Destination data dir.")
     rb.add_argument("--overwrite", action="store_true", help="Restore over a non-empty dir.")
 
+    sub.add_parser("preflight", help="Read-only SQL schema compatibility check.")
+
     args = parser.parse_args(argv)
     if args.cmd == "export":
         return cmd_export(args.out, args.all)
@@ -89,6 +117,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_verify(args.archive)
     if args.cmd == "rebuild":
         return cmd_rebuild(args.archive, args.target, args.overwrite)
+    if args.cmd == "preflight":
+        return cmd_preflight()
     return 2
 
 

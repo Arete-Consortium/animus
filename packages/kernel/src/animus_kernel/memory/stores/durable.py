@@ -31,6 +31,7 @@ try:
         DateTime,
         Integer,
         String,
+        and_,
         create_engine,
         func,
         select,
@@ -143,6 +144,23 @@ class DurableMemoryStore(MemoryStore):
     # Internal helpers
     # ------------------------------------------------------------------
 
+    def _identity_conditions(self) -> list[Any]:
+        """Restrict this adapter to the memory format and configured tenant it writes."""
+        return [
+            _ObjectRegistryRow.schema_id == "memory-v1",
+            _ObjectRegistryRow.artifact_type == "memory",
+            _ObjectRegistryRow.subject_domain == "user",
+            _ObjectRegistryRow.owner_id == self.owner_id,
+            _ObjectRegistryRow.workspace_id == self.workspace_id,
+        ]
+
+    def _current_memories(self) -> Any:
+        """Filter in SQL before loading or decoding any shared-registry payload."""
+        return select(_ObjectRegistryRow).where(
+            *self._identity_conditions(),
+            _ObjectRegistryRow.superseded_at.is_(None),
+        )
+
     def _memory_to_payload(self, memory: Memory) -> dict[str, Any]:
         """Serialize a Memory into the JSON payload stored in object_registry."""
         return {
@@ -203,13 +221,26 @@ class DurableMemoryStore(MemoryStore):
         payload = self._memory_to_payload(memory)
         sha = _sha256(payload)
 
+        # Object IDs are global across the shared registry, including history.
+        # Inspect only identity metadata: a foreign ID must never be adopted or
+        # superseded, even on older schemas without the unique-current index.
+        foreign_id = session.execute(
+            select(_ObjectRegistryRow.id)
+            .where(
+                _ObjectRegistryRow.object_id == memory.id,
+                and_(*self._identity_conditions()).is_not(True),
+            )
+            .limit(1)
+        ).scalar_one_or_none()
+        if foreign_id is not None:
+            raise PermissionError("Object identity belongs to another registry scope.")
+
         # Look for the *current* (non-superseded) row by object_id.
         # Without the superseded_at filter a concurrent update could race or
         # we could accidentally re-supersede an already-historical version.
         existing = session.execute(
-            select(_ObjectRegistryRow).where(
+            self._current_memories().where(
                 _ObjectRegistryRow.object_id == memory.id,
-                _ObjectRegistryRow.superseded_at.is_(None),
             )
         ).scalar_one_or_none()
 
@@ -265,9 +296,8 @@ class DurableMemoryStore(MemoryStore):
     def update(self, memory: Memory) -> bool:
         with self._session_factory() as session:
             existing = session.execute(
-                select(_ObjectRegistryRow).where(
+                self._current_memories().where(
                     _ObjectRegistryRow.object_id == memory.id,
-                    _ObjectRegistryRow.superseded_at.is_(None),
                 )
             ).scalar_one_or_none()
 
@@ -291,9 +321,8 @@ class DurableMemoryStore(MemoryStore):
     def retrieve(self, memory_id: str) -> Memory | None:
         with self._session_factory() as session:
             row = session.execute(
-                select(_ObjectRegistryRow).where(
+                self._current_memories().where(
                     _ObjectRegistryRow.object_id == memory_id,
-                    _ObjectRegistryRow.superseded_at.is_(None),
                 )
             ).scalar_one_or_none()
 
@@ -324,11 +353,7 @@ class DurableMemoryStore(MemoryStore):
         allowed_tiers: set[Sensitivity] | None = None,
     ) -> list[Memory]:
         with self._session_factory() as session:
-            stmt = select(_ObjectRegistryRow).where(_ObjectRegistryRow.superseded_at.is_(None))
-
-            if memory_type:
-                # Filter by artifact_type (mapped from memory_type)
-                stmt = stmt.where(_ObjectRegistryRow.artifact_type == "memory")
+            stmt = self._current_memories()
 
             results = session.execute(stmt.limit(limit * 3)).scalars().all()
 
@@ -336,6 +361,8 @@ class DurableMemoryStore(MemoryStore):
             memories = []
             for row in results:
                 mem = self._payload_to_memory(row.payload)
+                if memory_type is not None and mem.memory_type != memory_type:
+                    continue
                 if tags and not all(t in mem.tags for t in tags):
                     continue
                 if source and mem.source != source:
@@ -354,9 +381,8 @@ class DurableMemoryStore(MemoryStore):
     def delete(self, memory_id: str) -> bool:
         with self._session_factory() as session:
             row = session.execute(
-                select(_ObjectRegistryRow).where(
+                self._current_memories().where(
                     _ObjectRegistryRow.object_id == memory_id,
-                    _ObjectRegistryRow.superseded_at.is_(None),
                 )
             ).scalar_one_or_none()
 
@@ -381,7 +407,7 @@ class DurableMemoryStore(MemoryStore):
 
     def list_all(self, memory_type: MemoryType | None = None) -> list[Memory]:
         with self._session_factory() as session:
-            stmt = select(_ObjectRegistryRow).where(_ObjectRegistryRow.superseded_at.is_(None))
+            stmt = self._current_memories()
             rows = session.execute(stmt).scalars().all()
             memories = [self._payload_to_memory(r.payload) for r in rows]
             if memory_type:

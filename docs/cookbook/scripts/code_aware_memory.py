@@ -1,7 +1,9 @@
 """
 Secure, Code-Aware Episodic Memory with Chroma
 
-Standalone reference implementation. Depends only on chromadb (and optionally pyyaml).
+Archived standalone reference implementation. It is not a supported Animus Core
+backend or dependency path. Running it requires an independently reviewed Chroma
+installation; do not use it for live Core data or configuration.
 
 Usage:
     python code_aware_memory.py ~/projects/myapp

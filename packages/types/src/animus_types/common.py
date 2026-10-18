@@ -14,6 +14,7 @@ class SubjectDomain(Enum):
     world = "world"
     project = "project"
     operations = "operations"
+    monster_hunter_wilds = "monster_hunter_wilds"
 
 
 class ArtifactType(Enum):
@@ -37,6 +38,15 @@ class ArtifactType(Enum):
     context_envelope = "context_envelope"
     trace = "trace"
     agent_contract = "agent_contract"
+    monster = "monster"
+    special_encounter = "special_encounter"
+    weapon_type = "weapon_type"
+    exact_weapon = "exact_weapon"
+    hunting_horn_tree = "hunting_horn_tree"
+    guide = "guide"
+    farm_route = "farm_route"
+    item_reference = "item_reference"
+    skill_reference = "skill_reference"
 
 
 class CognitiveRole(Enum):
@@ -136,7 +146,7 @@ class Common(BaseModel):
     schema_id: constr(min_length=3)
     schema_version: constr(pattern=r"^[0-9]+\.[0-9]+\.[0-9]+$")
     owner_id: constr(pattern=r"^owner-[a-z0-9_-]+$")
-    workspace_id: constr(pattern=r"^ws-[a-z0-9_-]+$")
+    workspace_id: constr(pattern=r"^(ws-[a-z0-9_-]+|hunter-os)$")
     subject_domain: SubjectDomain
     artifact_type: ArtifactType
     cognitive_role: CognitiveRole

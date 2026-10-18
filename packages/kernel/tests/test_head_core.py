@@ -1206,9 +1206,9 @@ class TestModelSwap:
         from animus_kernel.head.repl import HeadREPL
 
         class ConstructorProvider:
-            def __init__(self, model):
+            def __init__(self, model, host="http://localhost:11434"):
                 self.model = model
-                self.base_url = "http://localhost:11434"
+                self.base_url = host
 
             def is_configured(self):
                 return True

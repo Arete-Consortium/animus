@@ -47,12 +47,12 @@ ollama serve
 
 ## Memory Backend Errors
 
-**Symptom**: ChromaDB connection fails
+**Symptom**: Core reports that the configured Chroma backend is retired
 
-**Fix**: Default to SQLite:
-```bash
-animus-bootstrap config set memory.backend sqlite
-```
+**Fix**: Do not switch an existing deployment directly to a new backend. Follow
+the [Chroma retirement plan](../operators/chroma-retirement-plan.md) to inventory,
+back up, rehearse, and verify the data first. For a new Core installation with no
+legacy data, use the default `local` backend.
 
 ## Forge Budget Exceeded
 

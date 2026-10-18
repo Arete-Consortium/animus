@@ -254,7 +254,7 @@ class TestWorkflowCLI:
 
         with (
             patch("animus_forge.cli.commands.workflow.console"),
-            patch("animus_forge.workflow.loader.load_workflow", return_value=mock_wf),
+            patch("animus_kernel.executor.loader.load_workflow", return_value=mock_wf),
             patch("pathlib.Path.exists", return_value=True),
         ):
             try:

@@ -94,11 +94,14 @@ Manual, in-session. Five verbs:
 
 ### v2 — Forge workflow
 
-Cron-triggered batch. YAML workflow in `packages/forge/workflows/ogma-weekly.yaml`. Fires weekly after Lugh harvests, reads top-N scored items, produces one composite briefing, posts to Discord + stores in ChromaDB.
+Cron-triggered batch. YAML workflow in `packages/forge/workflows/ogma-weekly.yaml`.
+Fires weekly after Lugh harvests, reads top-N scored items, produces one composite
+briefing, posts to Discord, and stores the briefing through the supported Core
+memory interface.
 
 **Depends on:**
 - v1 output contract stabilized
-- ChromaDB write path from lugh.sources (planned)
+- Supported Core memory write path from `lugh.sources` (planned)
 - Forge budget manager (existing)
 - Forge provider routing (existing)
 
@@ -135,7 +138,10 @@ Served from the existing Animus MCP server (`packages/core/animus/mcp_server.py`
 
 Key constraint: **no Animus file path appears in output unless it was actually read during synthesis.** This is the rule that separates Ogma from a summary bot.
 
-The markdown archive at `~/projects/notes/ogma/` is Ogma's long-term memory in v1. In v2 it gets indexed into ChromaDB via `tools/animus_sync.py` so Ogma can self-query prior reads before re-synthesizing ("have I already read this concept?").
+The markdown archive at `~/projects/notes/ogma/` is Ogma's long-term memory in
+v1. In v2 its metadata and content can be ingested through the supported Core
+memory interface. Semantic retrieval requires a separately selected and managed
+retrieval service; it is not supplied by the retired Core Chroma adapter.
 
 ---
 
@@ -170,7 +176,9 @@ Ogma writes markdown proposals to `~/projects/notes/ogma/`. You read them, decid
 
 Add a new module `packages/forge/src/animus_forge/self_improve/sources/ogma.py` that reads the Ogma notes directory and converts proposals to `ImprovementSuggestion` records (same shape the analyzer produces). These flow through the existing `orchestrator.py` — reusing **every existing gate** (approval, safety checker, sandbox, rollback, PR manager). Ogma is a new *source* of suggestions, not a new pipeline.
 
-Practical effect: instead of the self-improve loop only proposing "add a docstring to `_parse_date()`," it can propose "rebuild `memory.py` to compose a learned-memory overlay with the existing ChromaDB retrieval, per Ogma audit 2026-04-22-memory.md."
+Practical effect: instead of the self-improve loop only proposing "add a docstring
+to `_parse_date()`," it can propose "add a learned-memory overlay behind the
+supported retrieval interface, per Ogma audit 2026-04-22-memory.md."
 
 ### Phase 3 — Outcome feedback loop
 
@@ -201,7 +209,7 @@ Over time, this closes the loop: Lugh harvests → Ogma synthesizes → Forge ex
 |---------|---------|--------|------------|
 | v1.0 | `/ogma` skill — read/brief/gap/audit/sweep | **Shipping now** | Lugh sources (PR #24) |
 | v1.1 | Markdown archive indexed by animus_sync | Planned | v1.0 merged |
-| v2.0 | Forge weekly briefing workflow | Planned | ChromaDB write path for lugh |
+| v2.0 | Forge weekly briefing workflow | Planned | Supported Core memory write path for Lugh |
 | v2.1 | Discord embed of weekly Ogma brief | Planned | v2.0 |
 | **v2.5** | **`self_improve.sources.ogma` — Ogma proposals feed orchestrator as `ImprovementSuggestion`s** | **Planned** | v2.0 + scope review of `better.md` |
 | v3.0 | MCP tool surface | Planned | v2.0 |
@@ -215,7 +223,8 @@ Over time, this closes the loop: Lugh harvests → Ogma synthesizes → Forge ex
 The design call-out — Google AI memory compression work (likely [Titans: Learning to Memorize at Test Time](https://arxiv.org/abs/2501.00663), Behrouz et al. 2024). Directly relevant because Animus **is** a memory system. A good v1 output would:
 
 - Distill the learned-memory-at-test-time mechanism
-- Gap-check against `packages/core/animus/memory.py` (ChromaDB + BM25 hybrid, no learned compression) — `animus_gap: NONE`
+- Gap-check against the supported `packages/core/animus/memory/` interface
+  (local or durable storage, no learned compression) — `animus_gap: NONE`
 - Weaknesses: reproducibility unclear, perf at scale unvalidated, interaction with existing retrieval not specified
 - Proposal: learned-memory overlay in `packages/core/animus/learning/`, composed with existing retrieval, optional per-query compression
 - ROI: moderate effort, high value — could differentiate Animus's memory tier
@@ -239,7 +248,12 @@ Everything above is the *vision* (v1 skill / v2 Forge workflow / v3 MCP). This s
   - `watchlist.py` — periodic-scan scheduler (7-day default), `run_watchlist_scan()` async, exposed as the `animus_watchlist_scan` MCP tool. **This is the recurring-harvest mechanism — Ogma doesn't need its own scheduler.**
 - **Ogma has zero code.** Only `~/.claude/skills/ogma/SKILL.md` (the v1 skill spec) and `~/projects/notes/ogma/` (4 example outputs from a 2026-04-19 hand-run + a `digests/` subdir).
 - **LLM calls in core**: `packages/core/animus/cognitive.py` — `CognitiveLayer(ModelConfig.ollama()/.anthropic()/.openai()).generate(prompt, system)`. Note the HybridBackend lesson (ADL-20260511-001 #2): 401/403 must fail loud, not fall back to Ollama's tool-ignoring stub.
-- **Conventions** (`packages/core/pyproject.toml`): ruff `["E","F","I","N","W","UP"]`, line-length 100, `target-version py310`; pytest in `tests/`; 97% coverage target; deps are `ollama, chromadb, pyyaml, pydantic, rich, prompt-toolkit` — **no `typer`, no `yt-dlp`**. Shell out to the system `yt-dlp` (`~/.local/bin/yt-dlp`) via `subprocess`; don't add the library dep.
+- **Conventions** (`packages/core/pyproject.toml`): ruff
+  `["E","F","I","N","W","UP"]`, line-length 100, `target-version py310`;
+  pytest in `tests/`; 97% coverage target; base dependencies include `ollama`,
+  `pyyaml`, `pydantic`, `rich`, and `prompt-toolkit` — **no `chromadb`, `typer`,
+  or `yt-dlp`**. Shell out to the system `yt-dlp` (`~/.local/bin/yt-dlp`) via
+  `subprocess`; don't add the library dependency.
 - **MCP tools** (`packages/core/animus/mcp_server.py`): FastMCP `@mcp.tool()` decorators for simple ones; explicit `Tool` dataclasses (`name/description/parameters/handler/category`) in `lugh/watchlist_tools.py` for the richer ones. v0 builds **no MCP tool** — that's v3.
 
 ### v0 deliverables (two phases)

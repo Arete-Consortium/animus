@@ -140,7 +140,7 @@ class TestDevCommandCoverage:
             with patch("animus_forge.cli.commands.dev.format_context_for_prompt", return_value=""):
                 with patch.object(Path, "exists", return_value=True):
                     with patch(
-                        "animus_forge.workflow.loader.load_workflow",
+                        "animus_kernel.executor.loader.load_workflow",
                         side_effect=Exception("parse error"),
                     ):
                         with pytest.raises((SystemExit, typer.Exit)):
@@ -165,7 +165,7 @@ class TestDevCommandCoverage:
         ):
             with patch("animus_forge.cli.commands.dev.format_context_for_prompt", return_value=""):
                 with patch.object(Path, "exists", return_value=True):
-                    with patch("animus_forge.workflow.loader.load_workflow", return_value=mock_wf):
+                    with patch("animus_kernel.executor.loader.load_workflow", return_value=mock_wf):
                         with patch(
                             "animus_forge.cli.commands.dev.get_workflow_executor"
                         ) as mock_exec:
@@ -196,7 +196,7 @@ class TestDevCommandCoverage:
         ):
             with patch("animus_forge.cli.commands.dev.format_context_for_prompt", return_value=""):
                 with patch.object(Path, "exists", return_value=True):
-                    with patch("animus_forge.workflow.loader.load_workflow", return_value=mock_wf):
+                    with patch("animus_kernel.executor.loader.load_workflow", return_value=mock_wf):
                         with patch(
                             "animus_forge.cli.commands.dev.get_workflow_executor"
                         ) as mock_exec:
@@ -221,7 +221,7 @@ class TestDevCommandCoverage:
         ):
             with patch("animus_forge.cli.commands.dev.format_context_for_prompt", return_value=""):
                 with patch.object(Path, "exists", return_value=True):
-                    with patch("animus_forge.workflow.loader.load_workflow", return_value=mock_wf):
+                    with patch("animus_kernel.executor.loader.load_workflow", return_value=mock_wf):
                         with patch(
                             "animus_forge.cli.commands.dev.get_workflow_executor"
                         ) as mock_exec:
@@ -390,7 +390,7 @@ class TestGraphRoutesCoverage97:
                 "animus_forge.api_routes.graph._build_workflow_graph",
                 return_value=mock_graph,
             ):
-                with patch("animus_forge.workflow.graph_walker.GraphWalker") as mock_walker_cls:
+                with patch("animus_kernel.executor.graph_walker.GraphWalker") as mock_walker_cls:
                     mock_walker_cls.return_value.detect_cycles.return_value = []
                     resp = client.post(
                         "/v1/graph/validate",
@@ -645,7 +645,7 @@ class TestGraphExecutorCoverage97:
             edges=[],
         )
         # Patch walker to return a node id that doesn't exist in the graph
-        with patch("animus_forge.workflow.graph_executor.GraphWalker") as mock_walker_cls:
+        with patch("animus_kernel.executor.graph_executor.GraphWalker") as mock_walker_cls:
             walker_inst = mock_walker_cls.return_value
             walker_inst.detect_cycles.return_value = []
             walker_inst.get_ready_nodes.side_effect = [["start", "ghost_node"], []]
@@ -664,12 +664,12 @@ class TestGraphExecutorCoverage97:
             nodes=[GraphNode(id="n1", type="agent")],
             edges=[],
         )
-        with patch("animus_forge.workflow.graph_executor.GraphWalker") as mock_walker_cls:
+        with patch("animus_kernel.executor.graph_executor.GraphWalker") as mock_walker_cls:
             walker_inst = mock_walker_cls.return_value
             walker_inst.detect_cycles.return_value = []
             walker_inst.get_ready_nodes.side_effect = [["n1"], []]
         with patch.object(executor, "_execute_node", side_effect=RuntimeError("boom")):
-            with patch("animus_forge.workflow.graph_executor.GraphWalker") as mock_walker_cls2:
+            with patch("animus_kernel.executor.graph_executor.GraphWalker") as mock_walker_cls2:
                 walker_inst2 = mock_walker_cls2.return_value
                 walker_inst2.detect_cycles.return_value = []
                 walker_inst2.get_ready_nodes.side_effect = [["n1"]]
@@ -6196,7 +6196,7 @@ class TestGraphRoutesBatch7:
             patch("animus_forge.api_routes.graph.verify_auth"),
             patch("animus_forge.api_routes.graph.state") as ms,
             patch(
-                "animus_forge.workflow.graph_executor.ReactFlowExecutor",
+                "animus_kernel.executor.graph_executor.ReactFlowExecutor",
                 return_value=mock_executor,
             ),
         ):
@@ -6252,7 +6252,7 @@ class TestGraphRoutesBatch7:
             ),
             patch("animus_forge.api_routes.graph.state") as ms,
             patch(
-                "animus_forge.workflow.graph_executor.ReactFlowExecutor",
+                "animus_kernel.executor.graph_executor.ReactFlowExecutor",
                 return_value=mock_executor,
             ),
         ):

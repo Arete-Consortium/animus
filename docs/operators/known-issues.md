@@ -124,13 +124,16 @@ Last updated: 2026-01-27 (v0.6.0)
 
 ## Performance
 
-### ChromaDB Cold Start
+### Legacy ChromaDB Cold Start (retired Core backend)
 
-**Problem:** First memory operation downloads 79MB embedding model.
+**Problem:** Historical Chroma deployments downloaded a 79MB embedding model on
+the first memory operation. Chroma is no longer a supported Core runtime backend.
 
 **Impact:** ~3s delay on first use
 
-**Mitigation:** Pre-download during install or first-run setup
+**Mitigation:** Preserve existing data and follow the
+[Chroma retirement plan](chroma-retirement-plan.md). Do not install or prewarm
+Chroma for a new Core environment.
 
 **Priority:** Low - One-time cost
 

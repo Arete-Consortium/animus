@@ -33,31 +33,20 @@ class ReviewerCitizen(Citizen):
             return CitizenOutput(
                 status="completed",
                 summary="Review passed: no defects found.",
-                evidence=[
-                    {"type": "review", "verdict": "approved", "findings": findings}
-                ],
+                evidence=[{"type": "review", "verdict": "approved", "findings": findings}],
                 confidence=0.88,
             )
 
         return CitizenOutput(
             status="needs_repair",
             summary=f"Review rejected: {len(findings)} finding(s).",
-            evidence=[
-                {"type": "review", "verdict": "rejected", "findings": findings}
-            ],
-            risks=[
-                {"severity": f["severity"], "description": f["description"]}
-                for f in findings
-            ],
-            follow_up_tasks=[
-                f"repair: {f['description']}" for f in findings
-            ],
+            evidence=[{"type": "review", "verdict": "rejected", "findings": findings}],
+            risks=[{"severity": f["severity"], "description": f["description"]} for f in findings],
+            follow_up_tasks=[f"repair: {f['description']}" for f in findings],
             confidence=0.88,
         )
 
-    def _simulate_review(
-        self, task: Task, context: TaskContext
-    ) -> tuple[bool, list[dict]]:
+    def _simulate_review(self, task: Task, context: TaskContext) -> tuple[bool, list[dict]]:
         """Return deterministic review result for testing.
 
         Real implementation would use an LLM + static analysis tools.

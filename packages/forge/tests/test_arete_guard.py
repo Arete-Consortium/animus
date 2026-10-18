@@ -1,6 +1,5 @@
 """Tests for AreteGuard and eval baseline regression detection."""
 
-
 import pytest
 
 from animus_forge.evaluation.base import EvalCase, EvalResult, EvalStatus, EvalSuite
@@ -11,49 +10,13 @@ from animus_forge.state.backends import SQLiteBackend
 
 
 @pytest.fixture
-def backend():
-    b = SQLiteBackend(":memory:")
-    # Create eval_runs table inline (matching migration 012)
-    b.executescript(
-        """
-        CREATE TABLE eval_runs (
-            id TEXT PRIMARY KEY,
-            suite_name TEXT NOT NULL,
-            agent_role TEXT,
-            model TEXT,
-            run_mode TEXT NOT NULL,
-            started_at TEXT NOT NULL,
-            completed_at TEXT NOT NULL,
-            duration_ms REAL NOT NULL,
-            total_cases INTEGER DEFAULT 0,
-            passed INTEGER DEFAULT 0,
-            failed INTEGER DEFAULT 0,
-            errors INTEGER DEFAULT 0,
-            skipped INTEGER DEFAULT 0,
-            avg_score REAL DEFAULT 0.0,
-            pass_rate REAL DEFAULT 0.0,
-            score_variance REAL DEFAULT 0.0,
-            total_tokens INTEGER DEFAULT 0,
-            metadata TEXT
-        );
-        CREATE INDEX idx_eval_runs_dedup
-        ON eval_runs(suite_name, agent_role, model, run_mode, completed_at DESC);
-        CREATE TABLE eval_case_results (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            run_id TEXT NOT NULL,
-            case_name TEXT NOT NULL,
-            status TEXT NOT NULL,
-            score REAL NOT NULL,
-            output TEXT,
-            error TEXT,
-            latency_ms REAL DEFAULT 0,
-            tokens_used INTEGER DEFAULT 0,
-            metrics_json TEXT
-        );
-        CREATE INDEX idx_eval_case_run ON eval_case_results(run_id);
-        """
-    )
-    return b
+def backend(tmp_path):
+    from animus_forge.state.migrations import run_migrations
+
+    backend = SQLiteBackend(str(tmp_path / "eval.db"))
+    run_migrations(backend)
+    yield backend
+    backend.close()
 
 
 @pytest.fixture
@@ -68,12 +31,19 @@ def _make_suite_result(pass_rate: float) -> SuiteResult:
     failed = total - passed
     results = []
     for _ in range(passed):
-        results.append(EvalResult(case=EvalCase(input="x"), status=EvalStatus.PASSED, score=1.0, output="ok"))
+        results.append(
+            EvalResult(case=EvalCase(input="x"), status=EvalStatus.PASSED, score=1.0, output="ok")
+        )
     for _ in range(failed):
-        results.append(EvalResult(case=EvalCase(input="x"), status=EvalStatus.FAILED, score=0.0, output="bad"))
+        results.append(
+            EvalResult(case=EvalCase(input="x"), status=EvalStatus.FAILED, score=0.0, output="bad")
+        )
     return SuiteResult(
-        suite=suite, results=results,
-        passed=passed, failed=failed, errors=0,
+        suite=suite,
+        results=results,
+        passed=passed,
+        failed=failed,
+        errors=0,
         total_score=pass_rate,
     )
 
@@ -86,7 +56,7 @@ class TestAreteGuard:
         assert guard.check("wf-1") is True
 
     def test_passing_evidence_allows_execution(self, eval_store):
-        run_id = eval_store.record_run(
+        eval_store.record_run(
             "suite_a",
             _make_suite_result(0.8),
             agent_role="research_citizen",

@@ -5,6 +5,11 @@
 **Classification:** Assistant-class (pre-Mind architecture)
 **Status:** Final stable release on the Core/Forge/Quorum/Bootstrap trajectory
 
+> **Historical release record.** Backend behavior below describes the June 2026
+> release and is not current installation or configuration guidance. Current
+> Animus Core rejects legacy Chroma selectors and supports local JSON or an
+> explicitly configured durable SQL store.
+
 ---
 
 ## Summary

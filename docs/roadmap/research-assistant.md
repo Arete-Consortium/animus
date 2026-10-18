@@ -75,7 +75,8 @@ Each phase has its own `/specification` pass before implementation. This doc nam
     - `ner-extract` (entities for cross-doc linking)
     - `build-manifest` (corpus index)
     - `synthesize-dedupe` (cross-source consolidation)
-    - `embed-db` (ChromaDB write, reuses animus-core's existing instance)
+    - `index-corpus` (writes through the supported Core memory interface;
+      semantic/vector retrieval requires a separately selected service)
   - Source-type adapters: PDF (papers), HTML (articles), YouTube/podcast transcripts (already in `feat/lugh-external-sources`), arXiv (already in same branch), HackerNews (same), ARETE's own notes (`~/projects/notes/`)
   - IP discipline borrowed from Aurora: metadata-only ingest into repo, body text in `data/raw/` (gitignored)
 **Quality bar:** 95% coverage on new pipeline; corpus is queryable before RA-1 begins
@@ -166,7 +167,9 @@ In-flight `feat/lugh-*` branches to be subsumed by `feat/animus-ogma-converge`:
 ## 7. Open questions to resolve before per-phase specs
 
 ### Before RA-1 spec
-- Retrieval store: reuse animus-core's existing ChromaDB collection, or new collection for research corpus? (recommendation: new collection, same instance, document via tag schema)
+- Retrieval store: use supported Core local/durable storage for persistence;
+  if RA-1 requires semantic/vector retrieval, select and threat-model a separate
+  retrieval service in its own specification rather than coupling it to Core.
 - Citation format: machine-readable JSON sidecar, or inline `[source:N]` markers in answers, or both? (recommendation: both — markers in prose, sidecar in receipt)
 - Web fetch allowlist: per-task explicit list, or persistent allowlist file, or default-deny with run-time prompt? (recommendation: persistent allowlist + per-task override)
 

@@ -100,13 +100,13 @@ First test-time-learned memory layer that updates parameters per query without r
 
 ## Animus gap
 **Status:** NONE
-The Animus codebase implements retrieval via ChromaDB + BM25 hybrid in packages/core/animus/memory/layer.py, but has no learned per-query memory layer.
+The Animus codebase implements supported local/durable retrieval through packages/core/animus/memory/layer.py, but has no learned per-query memory layer.
 
 ## Weaknesses in the source
 Reproducibility unclear (no released code at time of writing). Performance at scale (>100K context tokens) not validated. Interaction with existing retrieval not specified.
 
 ## Proposal — how we build it better
-Add packages/core/animus/learning/test_time_memory.py with a TestTimeMemory class that wraps the existing ChromaDB retrieval as the base, with an optional learned overlay invoked per query under a feature flag. Reproducibility test baked in (deterministic seed + fixed eval set).
+Add packages/core/animus/learning/test_time_memory.py with a TestTimeMemory class that wraps the supported retrieval interface as the base, with an optional learned overlay invoked per query under a feature flag. Reproducibility test baked in (deterministic seed + fixed eval set).
 
 ## ROI
 **Value:** Differentiates Animus's memory tier from vanilla vector-retrieval systems
@@ -114,7 +114,7 @@ Add packages/core/animus/learning/test_time_memory.py with a TestTimeMemory clas
 **Priority:** later — wait for source code release first
 
 ## Risks
-Reproducibility (paper has no released implementation). Perf at production query rates unvalidated. Coupling with ChromaDB retrieval may introduce silent contract drift.
+Reproducibility (paper has no released implementation). Perf at production query rates unvalidated. Coupling with the supported retrieval interface may introduce silent contract drift.
 
 ## Confidence
 0.60 — promising direction but reproducibility unclear without released code

@@ -100,7 +100,7 @@ from animus.memory import MemoryLayer
 
 memory = MemoryLayer(
     data_dir=Path.home() / ".animus",
-    backend="chroma",  # or "json"
+    backend="local",  # "json" is an alias; "durable" requires SQL setup
 )
 ```
 
@@ -247,11 +247,12 @@ These methods automatically restrict results to `PUBLIC` sensitivity. Use them f
 
 | Backend | Requirements | Characteristics |
 |---|---|---|
-| **chroma** | `chromadb` package | Vector search, semantic recall; default |
-| **json** | None | Simple file-based storage; fallback if ChromaDB unavailable |
+| **local** / **json** | None | Simple file-based storage; default for new installations |
 | **durable** | `sqlalchemy`, PostgreSQL | ACID, bitemporal ledger, audit trail; production-grade |
 
 **Backend selection:** Set `memory.backend` in config or `ANIMUS_MEMORY_BACKEND` env var.
+Legacy `chroma` values fail closed. Follow the operator retirement plan and verify
+backup, import parity, retrieval behavior, and rollback before changing a deployment.
 
 ### Durable Backend (PostgreSQL)
 

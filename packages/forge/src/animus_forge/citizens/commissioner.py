@@ -75,9 +75,7 @@ class CitizenCommissioner:
         mission = self.citizen.run_mission(mission_id)
         return self._summarise(mission)
 
-    def list(
-        self, state: str | None = None, limit: int = 20
-    ) -> list[dict[str, Any]]:
+    def list(self, state: str | None = None, limit: int = 20) -> list[dict[str, Any]]:
         """List missions with optional state filter."""
         mission_state = MissionState(state) if state else None
         missions = self.citizen.list_missions(state=mission_state, limit=limit)

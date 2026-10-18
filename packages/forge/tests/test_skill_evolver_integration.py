@@ -140,29 +140,30 @@ def _make_skills_dir(tmp_path: Path) -> Path:
 def _insert_outcomes(backend, skill_name, skill_version, count, success=1, quality=0.9, days_ago=0):
     ts = (datetime.now(UTC) - timedelta(days=days_ago)).isoformat()
     for _ in range(count):
-        backend.execute(
-            "INSERT INTO outcome_records "
-            "(step_id, workflow_id, agent_role, provider, model, success, "
-            "quality_score, cost_usd, tokens_used, latency_ms, metadata, timestamp, "
-            "skill_name, skill_version) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                str(uuid.uuid4()),
-                "w1",
-                "builder",
-                "openai",
-                "gpt-4o",
-                success,
-                quality,
-                0.05,
-                1000,
-                500,
-                "{}",
-                ts,
-                skill_name,
-                skill_version,
-            ),
-        )
+        with backend.transaction():
+            backend.execute(
+                "INSERT INTO outcome_records "
+                "(step_id, workflow_id, agent_role, provider, model, success, "
+                "quality_score, cost_usd, tokens_used, latency_ms, metadata, timestamp, "
+                "skill_name, skill_version) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    str(uuid.uuid4()),
+                    "w1",
+                    "builder",
+                    "openai",
+                    "gpt-4o",
+                    success,
+                    quality,
+                    0.05,
+                    1000,
+                    500,
+                    "{}",
+                    ts,
+                    skill_name,
+                    skill_version,
+                ),
+            )
 
 
 class TestEvolutionCycle:

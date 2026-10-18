@@ -34,6 +34,21 @@ CREATE TABLE IF NOT EXISTS cost_events (
 
 CREATE INDEX IF NOT EXISTS idx_cost_mission ON cost_events(mission_id);
 CREATE INDEX IF NOT EXISTS idx_cost_recorded ON cost_events(recorded_at);
+CREATE TABLE IF NOT EXISTS cost_budget_lock (
+    lock_id INTEGER PRIMARY KEY,
+    revision INTEGER NOT NULL DEFAULT 0
+);
+INSERT INTO cost_budget_lock (lock_id, revision) VALUES (1, 0)
+    ON CONFLICT (lock_id) DO NOTHING;
+CREATE TABLE IF NOT EXISTS cost_reservations (
+    attempt_id TEXT PRIMARY KEY,
+    mission_id TEXT NOT NULL,
+    amount_usd TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'reserved'
+        CHECK (status IN ('reserved', 'settled', 'released'))
+);
+CREATE INDEX IF NOT EXISTS idx_reservations_mission ON cost_reservations(mission_id, status);
+
 """
 
 # Rough token pricing (per 1M tokens) — can be overridden via config
@@ -71,7 +86,7 @@ class CostEnforcer:
         self._backend = backend
         self.default_mission_cap = default_mission_cap_usd
         self.global_cap = global_cap_usd
-        self._rates = _DEFAULT_RATES.copy()
+        self._rates = {provider: rates.copy() for provider, rates in _DEFAULT_RATES.items()}
         self._init_schema()
 
     def _init_schema(self) -> None:
@@ -107,7 +122,11 @@ class CostEnforcer:
                 tokens_output,
             )
 
+        self._validate_amount(cost_usd)
+        if tokens_input < 0 or tokens_output < 0:
+            raise ValueError("Token counts must be nonnegative")
         with self._backend.transaction():
+            self.lock_budget()
             self._backend.execute(
                 """
                 INSERT INTO cost_events
@@ -123,7 +142,7 @@ class CostEnforcer:
                     model,
                     tokens_input,
                     tokens_output,
-                    str(cost_usd.quantize(Decimal("0.0001"))),
+                    str(cost_usd),
                     datetime.now().isoformat(),
                 ),
             )
@@ -150,35 +169,51 @@ class CostEnforcer:
         self._rates[provider][model] = per_1m_tokens_usd
         logger.info("Rate set: %s/%s = %s per 1M tokens", provider, model, per_1m_tokens_usd)
 
-    def mission_spend(self, mission_id: str) -> Decimal:
-        """Return total spend (USD) for a mission."""
-        row = self._backend.fetchone(
-            "SELECT SUM(cost_usd) AS total FROM cost_events WHERE mission_id = ?",
-            (mission_id,),
+    @staticmethod
+    def _validate_amount(amount: Decimal) -> None:
+        if not amount.is_finite() or amount < 0:
+            raise ValueError("Cost must be finite and nonnegative")
+
+    def lock_budget(self) -> None:
+        """Serialize budget mutations inside the caller's transaction.
+
+        This must be the first statement before any reads in dispatch/result
+        transactions. A database row lock also coordinates separate processes.
+        """
+        self._backend.execute(
+            "UPDATE cost_budget_lock SET revision = revision + 1 WHERE lock_id = 1"
         )
-        if row and row.get("total"):
-            return Decimal(str(row["total"]))
-        return Decimal("0.00")
+
+    def mission_spend(self, mission_id: str) -> Decimal:
+        """Return exact decimal spend, without SQL floating-point aggregation."""
+        rows = self._backend.fetchall(
+            "SELECT cost_usd FROM cost_events WHERE mission_id = ?", (mission_id,)
+        )
+        return sum((Decimal(r["cost_usd"]) for r in rows), Decimal("0"))
 
     def global_spend(self, since: datetime | None = None) -> Decimal:
-        """Return total spend across all missions."""
+        query = "SELECT cost_usd FROM cost_events"
+        params: tuple[str, ...] = ()
         if since:
-            row = self._backend.fetchone(
-                "SELECT SUM(cost_usd) AS total FROM cost_events WHERE recorded_at >= ?",
-                (since.isoformat(),),
-            )
-        else:
-            row = self._backend.fetchone(
-                "SELECT SUM(cost_usd) AS total FROM cost_events",
-            )
-        if row and row.get("total"):
-            return Decimal(str(row["total"]))
-        return Decimal("0.00")
+            query += " WHERE recorded_at >= ?"
+            params = (since.isoformat(),)
+        rows = self._backend.fetchall(query, params)
+        return sum((Decimal(r["cost_usd"]) for r in rows), Decimal("0"))
+
+    def reserved(self, mission_id: str | None = None) -> Decimal:
+        query = "SELECT amount_usd FROM cost_reservations WHERE status = 'reserved'"
+        params: tuple[str, ...] = ()
+        if mission_id is not None:
+            query += " AND mission_id = ?"
+            params = (mission_id,)
+        return sum(
+            (Decimal(r["amount_usd"]) for r in self._backend.fetchall(query, params)),
+            Decimal("0"),
+        )
 
     def mission_remaining(self, mission_id: str, cap: Decimal | None = None) -> Decimal:
-        """Remaining budget for a mission."""
-        cap = cap or self.default_mission_cap
-        return max(Decimal("0.00"), cap - self.mission_spend(mission_id))
+        cap = self.default_mission_cap if cap is None else cap
+        return max(Decimal("0"), cap - self.mission_spend(mission_id) - self.reserved(mission_id))
 
     def can_start_task(
         self,
@@ -187,27 +222,55 @@ class CostEnforcer:
         *,
         mission_cap: Decimal | None = None,
     ) -> tuple[bool, str]:
-        """Check whether a new task can be started under current budgets.
-
-        Returns:
-            ``(ok, reason)`` tuple.
-        """
-        mission_cap = mission_cap or self.default_mission_cap
-
-        if self.mission_remaining(mission_id, mission_cap) < estimated_cost:
-            return (
-                False,
-                f"Mission {mission_id} budget exhausted "
-                f"({self.mission_spend(mission_id)} / {mission_cap} USD)",
-            )
-
-        if self.global_spend() >= self.global_cap:
-            return (
-                False,
-                f"Global budget cap reached ({self.global_spend()} / {self.global_cap} USD)",
-            )
-
+        """Read-only check; use reserve() to atomically claim available budget."""
+        self._validate_amount(estimated_cost)
+        mission_cap = self.default_mission_cap if mission_cap is None else mission_cap
+        if (
+            self.mission_spend(mission_id) + self.reserved(mission_id) + estimated_cost
+            > mission_cap
+        ):
+            return False, f"Mission {mission_id} budget exhausted ({mission_cap} USD)"
+        if self.global_spend() + self.reserved() + estimated_cost > self.global_cap:
+            return False, f"Global budget cap reached ({self.global_cap} USD)"
         return True, "ok"
+
+    def reserve(
+        self,
+        attempt_id: str,
+        mission_id: str,
+        estimated_cost: Decimal,
+        *,
+        mission_cap: Decimal | None = None,
+    ) -> tuple[bool, str]:
+        """Reserve once per execution attempt, atomically across schedulers."""
+        self._validate_amount(estimated_cost)
+        with self._backend.transaction():
+            self.lock_budget()
+            if self._backend.fetchone(
+                "SELECT attempt_id FROM cost_reservations WHERE attempt_id = ?", (attempt_id,)
+            ):
+                return False, "attempt_already_reserved"
+            ok, reason = self.can_start_task(mission_id, estimated_cost, mission_cap=mission_cap)
+            if not ok:
+                return ok, reason
+            self._backend.execute(
+                "INSERT INTO cost_reservations (attempt_id, mission_id, amount_usd) VALUES (?, ?, ?)",
+                (attempt_id, mission_id, str(estimated_cost)),
+            )
+        return True, "ok"
+
+    def finish_reservation(self, attempt_id: str, *, settled: bool) -> None:
+        """Release only after settlement or a confirmed dispatch that never ran.
+
+        Expired/killed attempts with unknown usage retain their reservation for
+        reconciliation; a missing result must not silently free their budget.
+        """
+        with self._backend.transaction():
+            self.lock_budget()
+            self._backend.execute(
+                "UPDATE cost_reservations SET status = ? WHERE attempt_id = ? AND status = 'reserved'",
+                ("settled" if settled else "released", attempt_id),
+            )
 
     def spend_report(self, mission_id: str | None = None) -> dict[str, Any]:
         """Return a human-readable spend report."""
