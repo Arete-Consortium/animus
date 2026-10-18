@@ -2,8 +2,8 @@
 
 Owns the markdown round-trip: ``OgmaOutput`` → ``to_markdown()`` (the SKILL.md
 External template, literally) → ``from_markdown()`` parses it back. Round-trip
-is enforced by tests; downstream consumers (v1.1 ChromaDB indexer, v3 MCP
-tool) read prior outputs via ``from_markdown``.
+is enforced by tests; downstream consumers (v1.1 supported-memory indexer, v3
+MCP tool) read prior outputs via ``from_markdown``.
 
 The "missing field fails the skill" rule from SKILL.md is enforced in
 ``__post_init__`` — every required field MUST be non-empty at construction.

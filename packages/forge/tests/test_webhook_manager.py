@@ -272,6 +272,9 @@ class TestWebhookManager:
 
     def test_trigger_log_saved(self, manager, backend):
         """Trigger logs are saved to database."""
+        manager.create_webhook(
+            Webhook(id="test-webhook", name="Log fixture", workflow_id="test-workflow")
+        )
         log = WebhookTriggerLog(
             webhook_id="test-webhook",
             workflow_id="test-workflow",

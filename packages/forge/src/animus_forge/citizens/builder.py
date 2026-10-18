@@ -95,8 +95,7 @@ class BuilderCitizen(Citizen):
         Supports ``**`` (any depth) and ``*`` (single segment).
         """
         regex = (
-            pattern
-            .replace(".", r"\.")
+            pattern.replace(".", r"\.")
             .replace("**", r"{{ANYDEPTH}}")
             .replace("*", r"[^/]*")
             .replace(r"{{ANYDEPTH}}", ".*")

@@ -178,7 +178,9 @@ def evaluate(
     """Load fixture into store, run every query, compute metrics.
 
     NOTE: mutates store by inserting fixture memories. Use a fresh store
-    instance (e.g., a temp directory for LocalMemoryStore / ChromaMemoryStore).
+    instance (for example, a temp directory for ``LocalMemoryStore``). The
+    legacy Chroma adapter may be evaluated only in an isolated migration
+    environment with an independently reviewed dependency.
 
     Args:
         store: Any MemoryStore implementation.

@@ -261,7 +261,7 @@ def _scrub_egress(text: str) -> tuple[str, int]:
     catches:
       - legacy memories written before Stage 1 redaction was deployed
       - PII patterns added to the redaction set after the memory was stored
-      - any leak path that bypasses ingest (e.g., direct ChromaDB writes)
+      - any leak path that bypasses ingest (for example, direct store writes)
 
     Returns ``(scrubbed_text, redaction_count)``.
     """
@@ -478,7 +478,18 @@ def create_mcp_server(policy: ToolPolicy | None = None) -> GatedFastMCP:
             create an unrestricted registry.
     """
     if FastMCP is None:
-        raise ImportError("MCP server requires the mcp SDK. Install with: pip install 'mcp>=1.0.0'")
+        from importlib.metadata import PackageNotFoundError, version
+
+        try:
+            installed = version("mcp")
+        except PackageNotFoundError:
+            detail = "MCP SDK is not installed."
+        else:
+            detail = f"Installed MCP SDK {installed} could not load the required v1 FastMCP API."
+        raise ImportError(
+            f"{detail} MCP server requires the mcp v1 SDK. "
+            "Install with: pip install 'animus-core[mcp]'"
+        )
 
     _validate_mcp_startup_config()
 

@@ -169,7 +169,8 @@ class TestMigrationExecution:
             c["name"]: c["type"].__class__.__name__
             for c in inspector.get_columns("object_registry")
         }
-        assert columns["id"] == "BIGINT"
+        # Migration 002 uses SQLite's INTEGER PRIMARY KEY for generated IDs.
+        assert columns["id"] == "INTEGER"
         assert columns["object_id"] == "VARCHAR"
         assert columns["payload"] == "JSON"
         assert columns["valid_from"] == "DATETIME"

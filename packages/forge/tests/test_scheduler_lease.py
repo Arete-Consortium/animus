@@ -98,6 +98,7 @@ def dispatcher(ledger, lease_manager, cost_enforcer):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.usefixtures("lease_test_records")
 def test_acquire_creates_current_row_and_history(lease_manager):
     lease = lease_manager.acquire(
         task_id="task-1",
@@ -119,6 +120,7 @@ def test_acquire_creates_current_row_and_history(lease_manager):
     assert history[0]["status"] == LeaseStatus.ACTIVE
 
 
+@pytest.mark.usefixtures("lease_test_records")
 def test_acquire_already_leased_raises(lease_manager):
     lease_manager.acquire(
         task_id="task-1",
@@ -139,6 +141,7 @@ def test_acquire_already_leased_raises(lease_manager):
     assert exc_info.value.task_id == "task-1"
 
 
+@pytest.mark.usefixtures("lease_test_records")
 def test_release_moves_row_to_history(lease_manager):
     lease = lease_manager.acquire(
         task_id="task-1",
@@ -158,6 +161,7 @@ def test_release_moves_row_to_history(lease_manager):
     assert history[0]["status"] == LeaseStatus.RELEASED
 
 
+@pytest.mark.usefixtures("lease_test_records")
 def test_generation_increments_on_reacquire(lease_manager):
     lease = lease_manager.acquire(
         task_id="task-1",
@@ -177,6 +181,7 @@ def test_generation_increments_on_reacquire(lease_manager):
     assert second.generation == 2
 
 
+@pytest.mark.usefixtures("lease_test_records")
 def test_recover_expired_creates_history_and_allows_reacquire(lease_manager):
     _ = lease_manager.acquire(
         task_id="task-1",
@@ -238,7 +243,9 @@ def test_atomic_dispatch_success(dispatcher, ledger, lease_manager, sample_missi
     assert attempt["generation"] == 1
 
 
-def test_atomic_dispatch_rejects_already_leased(dispatcher, ledger, lease_manager, sample_mission, sample_task):
+def test_atomic_dispatch_rejects_already_leased(
+    dispatcher, ledger, lease_manager, sample_mission, sample_task
+):
     ledger.create_mission(sample_mission)
     ledger.create_task(sample_task)
     ledger.transition_mission(sample_mission.mission_id, MissionStatus.READY)
@@ -269,7 +276,9 @@ def test_atomic_dispatch_rejects_already_leased(dispatcher, ledger, lease_manage
     assert "already_leased" in second.error
 
 
-def test_atomic_dispatch_rejects_exhausted_budget(dispatcher, ledger, lease_manager, cost_enforcer, sample_mission, sample_task):
+def test_atomic_dispatch_rejects_exhausted_budget(
+    dispatcher, ledger, lease_manager, cost_enforcer, sample_mission, sample_task
+):
     ledger.create_mission(sample_mission)
     ledger.create_task(sample_task)
     ledger.transition_mission(sample_mission.mission_id, MissionStatus.READY)
@@ -298,7 +307,10 @@ def test_atomic_dispatch_rejects_exhausted_budget(dispatcher, ledger, lease_mana
     assert lease_manager.get_lease_for_task(str(sample_task.task_id)) is None
 
 
-def test_atomic_dispatch_rollback_on_transition_failure(dispatcher, ledger, sample_mission, sample_task):
+@pytest.mark.parametrize("transition_error", [False, True])
+def test_atomic_dispatch_rollback_on_transition_failure(
+    dispatcher, ledger, sample_mission, sample_task, transition_error
+):
     ledger.create_mission(sample_mission)
     ledger.create_task(sample_task)
     ledger.transition_mission(sample_mission.mission_id, MissionStatus.READY)
@@ -308,6 +320,10 @@ def test_atomic_dispatch_rollback_on_transition_failure(dispatcher, ledger, samp
 
     def failing_transition(task_id, to_status, error=None):
         if to_status == TaskStatus.RUNNING:
+            if transition_error:
+                from animus_forge.missions.transitions import TransitionError
+
+                raise TransitionError("task", "leased", "running")
             raise RuntimeError("simulated transition failure")
         return original(task_id, to_status, error)
 
@@ -324,14 +340,22 @@ def test_atomic_dispatch_rollback_on_transition_failure(dispatcher, ledger, samp
     assert not result.ok
     task = ledger.get_task(sample_task.task_id)
     assert task.status == TaskStatus.READY
-    assert dispatcher._backend.fetchone(
-        "SELECT 1 FROM task_lease_current WHERE task_id = ?",
-        (str(sample_task.task_id),),
-    ) is None
-    assert dispatcher._backend.fetchone(
-        "SELECT 1 FROM task_attempts WHERE task_id = ?",
-        (str(sample_task.task_id),),
-    ) is None
+    assert task.current_attempt == 0
+    assert dispatcher.cost.reserved() == 0
+    assert (
+        dispatcher._backend.fetchone(
+            "SELECT 1 FROM task_lease_current WHERE task_id = ?",
+            (str(sample_task.task_id),),
+        )
+        is None
+    )
+    assert (
+        dispatcher._backend.fetchone(
+            "SELECT 1 FROM task_attempts WHERE task_id = ?",
+            (str(sample_task.task_id),),
+        )
+        is None
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -340,7 +364,9 @@ def test_atomic_dispatch_rollback_on_transition_failure(dispatcher, ledger, samp
 
 
 @pytest.mark.asyncio()
-async def test_pool_submit_uses_preacquired_lease(dispatcher, ledger, lease_manager, worker_pool, sample_mission, sample_task):
+async def test_pool_submit_uses_preacquired_lease(
+    dispatcher, ledger, lease_manager, worker_pool, sample_mission, sample_task
+):
     ledger.create_mission(sample_mission)
     ledger.create_task(sample_task)
     ledger.transition_mission(sample_mission.mission_id, MissionStatus.READY)
@@ -381,7 +407,9 @@ async def test_pool_submit_uses_preacquired_lease(dispatcher, ledger, lease_mana
 
 
 @pytest.mark.asyncio()
-async def test_scheduler_tick_atomically_dispatches(ledger, lease_manager, worker_pool, cost_enforcer, metrics, sample_mission, sample_task):
+async def test_scheduler_tick_atomically_dispatches(
+    ledger, lease_manager, worker_pool, cost_enforcer, metrics, sample_mission, sample_task
+):
     ledger.create_mission(sample_mission)
     ledger.create_task(sample_task)
     ledger.transition_mission(sample_mission.mission_id, MissionStatus.READY)
@@ -481,7 +509,10 @@ async def test_scheduler_stale_result_is_fenced(
             summary="stale result",
             confidence=0.9,
         ).model_dump(mode="json")
-        stale_result["_scheduler_meta"] = {"lease_id": lease.lease_id, "generation": lease.generation}
+        stale_result["_scheduler_meta"] = {
+            "lease_id": lease.lease_id,
+            "generation": lease.generation,
+        }
         await scheduler._process_result(str(sample_task.task_id), stale_result)
 
         # The stale result must not overwrite the new active lease or transition the task.
@@ -494,3 +525,27 @@ async def test_scheduler_stale_result_is_fenced(
         assert task.status == TaskStatus.READY
     finally:
         await scheduler.stop()
+
+
+def test_failed_pool_submit_releases_reservation_once(
+    dispatcher, ledger, sample_mission, sample_task
+):
+    ledger.create_mission(sample_mission)
+    ledger.create_task(sample_task)
+    ledger.transition_mission(sample_mission.mission_id, MissionStatus.READY)
+    ledger.transition_mission(sample_mission.mission_id, MissionStatus.RUNNING)
+    result = dispatcher.dispatch(
+        sample_task,
+        "fixture",
+        default_ttl_seconds=30,
+        default_mission_cap_usd=Decimal("10"),
+    )
+    assert result.ok
+    assert dispatcher.cost.reserved() == Decimal("0.10")
+    dispatcher.rollback_dispatch(result.lease)
+    dispatcher.rollback_dispatch(result.lease)
+    task = ledger.get_task(sample_task.task_id)
+    assert task.status == TaskStatus.READY
+    assert task.current_attempt == 0
+    assert dispatcher.cost.reserved() == 0
+    assert dispatcher.lease.get_attempt(result.attempt_id)["status"] == "cancelled"

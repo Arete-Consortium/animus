@@ -20,14 +20,16 @@ flowchart TB
         G[Redaction]
     end
     subgraph "Backends"
-        H[ChromaMemoryStore]
-        I[LocalMemoryStore]
+        H[LocalMemoryStore]
+        I[DurableMemoryStore]
+        J[Legacy Chroma adapter<br/>migration only]
     end
     A --> B
     A --> F
     A --> G
     A --> H
     A --> I
+    J -. isolated migration tooling only .-> A
 ```
 
 ## Core Abstractions
@@ -74,13 +76,15 @@ The `Memory` dataclass (`animus.memory.types.Memory`) is the canonical unit of s
 from animus.memory import MemoryLayer
 from pathlib import Path
 
-memory = MemoryLayer(data_dir=Path.home() / ".animus" / "memory", backend="chroma")
+memory = MemoryLayer(data_dir=Path.home() / ".animus" / "memory", backend="local")
 ```
 
 Backends:
 
-- **`chroma`** (default) — ChromaDB vector store with semantic search
-- **`json`** (fallback) — Local JSON file store if ChromaDB is unavailable
+- **`local` / `json`** (default) — Local JSON file store
+- **`durable`** — SQL-backed store for deployments that have completed its setup
+
+Legacy `chroma` values fail closed; they do not fall back to an empty local store.
 
 ### Storage Methods
 
@@ -213,7 +217,7 @@ Memory behavior is controlled via `AnimusConfig.memory`:
 
 ```yaml
 memory:
-  backend: chroma
+  backend: local
   data_dir: ~/.animus/memory
 ```
 
@@ -221,5 +225,5 @@ Environment variables:
 
 | Variable | Effect |
 |----------|--------|
-| `ANIMUS_MEMORY_BACKEND` | Override backend (`chroma` or `json`) |
+| `ANIMUS_MEMORY_BACKEND` | Override backend (`local`/`json` or `durable`) |
 | `ANIMUS_MEMORY_DATA_DIR` | Override data directory path |

@@ -175,7 +175,13 @@ class WorkspaceToolPolicy(ToolPolicy):
 
     def _is_blocked(self, resolved: Path) -> str | None:
         for blocked in self.blocked_paths:
-            blocked_resolved = Path(blocked).expanduser()
+            try:
+                # Match the same canonical path used for the requested file.
+                # resolve() preserves wildcard components while resolving a
+                # symlinked parent, e.g. /etc/* -> /private/etc/* on macOS.
+                blocked_resolved = Path(blocked).expanduser().resolve()
+            except (OSError, RuntimeError, ValueError):
+                return "Access denied: invalid blocked path rule"
             if "*" in blocked:
                 if fnmatch.fnmatch(str(resolved), str(blocked_resolved)):
                     return f"Access denied: path matches blocked pattern '{blocked}'"

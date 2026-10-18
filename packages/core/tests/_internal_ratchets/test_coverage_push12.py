@@ -134,7 +134,7 @@ class TestConfigLoadFullYaml:
                 "openai_base_url": "http://localhost:8080",
             },
             "memory": {
-                "backend": "sqlite",
+                "backend": "local",
                 "collection_name": "test_coll",
             },
             "api": {
@@ -210,7 +210,7 @@ class TestConfigLoadFullYaml:
         assert config.model.name == "claude-3"
         assert config.model.ollama_url == "http://localhost:11434"
         assert config.model.openai_base_url == "http://localhost:8080"
-        assert config.memory.backend == "sqlite"
+        assert config.memory.backend == "local"
         assert config.memory.collection_name == "test_coll"
         assert config.api.enabled is True
         assert config.api.host == "0.0.0.0"

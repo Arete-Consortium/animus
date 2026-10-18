@@ -2,9 +2,10 @@ name: Security
 
 on:
   push:
-    branches: [main]
+    branches: [main, "codex/hunter-os-*"]
   pull_request:
-    branches: [main]
+    branches: [main, "codex/hunter-os-*"]
+  workflow_dispatch:
   schedule:
     - cron: '0 6 * * 1'
 
@@ -13,7 +14,7 @@ permissions:
 
 jobs:
   pip-audit:
-    name: Dependency Audit
+    name: Dependency Audit (${{ matrix.package }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -36,6 +37,13 @@ jobs:
             pip install -e "packages/kernel/[dev]"
           fi
           pip install -e "packages/${{ matrix.package }}/" pip-audit
+      - name: Verify retired Core dependency is absent
+        if: matrix.package == 'core'
+        run: |
+          if python -m pip show chromadb >/dev/null 2>&1; then
+            echo "chromadb must not be installed by the supported Core runtime" >&2
+            exit 1
+          fi
       - name: Upgrade vulnerable transitive deps to fix versions
         # These are pulled in transitively (via pip-audit and dev tooling);
         # forcing the fix versions here cleans the audit without touching
@@ -50,13 +58,4 @@ jobs:
       - name: Run pip-audit
         # CVE-2026-3219 has no fix version available in pip itself.
         # Re-evaluate when upstream ships a fix.
-        #
-        # CVE-2026-45829 ("ChromaToast") — pre-auth RCE in ChromaDB's exposed
-        # FastAPI server (auth-before-config-parsing + HuggingFace model load).
-        # No patched version exists (affects 1.0.0–1.5.8; 1.5.9 unconfirmed).
-        # Not exploitable here: Animus uses chromadb ONLY as an embedded
-        # PersistentClient (core/animus/memory/stores/chroma.py) — it never
-        # runs the ChromaDB network server, so the vulnerable path is never
-        # instantiated. Re-evaluate when upstream ships a fix; if Animus ever
-        # exposes a ChromaDB HttpClient/server, REMOVE this ignore.
-        run: pip-audit --ignore-vuln CVE-2026-3219 --ignore-vuln CVE-2026-45829
+        run: pip-audit --ignore-vuln CVE-2026-3219

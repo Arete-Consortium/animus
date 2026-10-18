@@ -52,7 +52,7 @@ class _FakeAutonomyResult:
 class TestBuildOllamaAutonomyProvider:
     """Covers lines 269-291 — the previously-mocked provider builder."""
 
-    @patch("animus_forge.providers.ollama_provider.OllamaProvider")
+    @patch("animus_kernel.providers.ollama_provider.OllamaProvider")
     def test_builds_provider_with_explicit_params(self, mock_ollama_cls):
         """Explicit host/model params flow into the constructor."""
         raw = MagicMock()
@@ -74,7 +74,7 @@ class TestBuildOllamaAutonomyProvider:
         {"OLLAMA_HOST": "http://env-host:11434", "OLLAMA_MODEL": "env-model:3b"},
         clear=False,
     )
-    @patch("animus_forge.providers.ollama_provider.OllamaProvider")
+    @patch("animus_kernel.providers.ollama_provider.OllamaProvider")
     def test_falls_back_to_environment(self, mock_ollama_cls):
         """When params omit host/model, env vars drive the config."""
         raw = MagicMock()
@@ -85,7 +85,7 @@ class TestBuildOllamaAutonomyProvider:
 
         mock_ollama_cls.assert_called_once_with(model="env-model:3b", host="http://env-host:11434")
 
-    @patch("animus_forge.providers.ollama_provider.OllamaProvider")
+    @patch("animus_kernel.providers.ollama_provider.OllamaProvider")
     def test_wrapper_complete_returns_response_content(self, mock_ollama_cls):
         """The inner _OllamaAutonomyProvider.complete passes prompt through
         and returns response.content from complete_async."""
@@ -114,7 +114,7 @@ class TestExecuteAutonomyNestedLoop:
     """Covers lines 136-140 — the ThreadPoolExecutor branch that runs
     the autonomy coro when there's already a running event loop."""
 
-    @patch("animus_forge.workflow.executor_agents.AgentStepHandlerMixin._get_autonomy_provider")
+    @patch("animus_kernel.executor.executor_agents.AgentStepHandlerMixin._get_autonomy_provider")
     @patch("animus_forge.agents.autonomy.AutonomyLoop")
     @pytest.mark.asyncio
     async def test_runs_inside_thread_pool_when_loop_is_live(

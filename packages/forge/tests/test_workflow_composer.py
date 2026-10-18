@@ -176,7 +176,7 @@ class TestWorkflowComposerInit:
 class TestExecuteSubWorkflow:
     """Tests for WorkflowComposer.execute_sub_workflow."""
 
-    @patch("animus_forge.workflow.composer.load_workflow")
+    @patch("animus_kernel.executor.composer.load_workflow")
     def test_basic_execution(self, mock_load):
         """Sub-workflow executes and returns outputs."""
         mock_load.return_value = _make_workflow_config()
@@ -190,7 +190,7 @@ class TestExecuteSubWorkflow:
         composer = WorkflowComposer()
         step = _make_step()
 
-        with patch("animus_forge.workflow.composer.WorkflowExecutor") as MockExec:
+        with patch("animus_kernel.executor.composer.WorkflowExecutor") as MockExec:
             MockExec.return_value = mock_executor
             result = composer.execute_sub_workflow(step, {"parent_var": "value"}, depth=1)
 
@@ -224,12 +224,12 @@ class TestExecuteSubWorkflow:
         with pytest.raises(RecursionError, match="depth 4 exceeds maximum"):
             composer.execute_sub_workflow(step, {}, depth=4)
 
-    @patch("animus_forge.workflow.composer.load_workflow")
+    @patch("animus_kernel.executor.composer.load_workflow")
     def test_pass_context(self, mock_load):
         """pass_context=True propagates parent context to child."""
         mock_load.return_value = _make_workflow_config()
 
-        with patch("animus_forge.workflow.composer.WorkflowExecutor") as MockExec:
+        with patch("animus_kernel.executor.composer.WorkflowExecutor") as MockExec:
             mock_executor = MagicMock()
             mock_executor.execute.return_value = _make_execution_result()
             mock_executor.dry_run = False
@@ -253,12 +253,12 @@ class TestExecuteSubWorkflow:
             assert "parent_key" in inputs
             assert "extra" in inputs
 
-    @patch("animus_forge.workflow.composer.load_workflow")
+    @patch("animus_kernel.executor.composer.load_workflow")
     def test_variable_substitution_in_inputs(self, mock_load):
         """Input values with ${ref} are resolved from parent context."""
         mock_load.return_value = _make_workflow_config()
 
-        with patch("animus_forge.workflow.composer.WorkflowExecutor") as MockExec:
+        with patch("animus_kernel.executor.composer.WorkflowExecutor") as MockExec:
             mock_executor = MagicMock()
             mock_executor.execute.return_value = _make_execution_result()
             mock_executor.dry_run = False
@@ -277,7 +277,7 @@ class TestExecuteSubWorkflow:
             inputs = call_args.kwargs.get("inputs", call_args[1].get("inputs", {}))
             assert inputs.get("code") == "print('hello')"
 
-    @patch("animus_forge.workflow.composer.load_workflow")
+    @patch("animus_kernel.executor.composer.load_workflow")
     def test_failed_sub_workflow(self, mock_load):
         """Failed sub-workflow returns failed status."""
         mock_load.return_value = _make_workflow_config()
@@ -288,7 +288,7 @@ class TestExecuteSubWorkflow:
             steps=[],
         )
 
-        with patch("animus_forge.workflow.composer.WorkflowExecutor") as MockExec:
+        with patch("animus_kernel.executor.composer.WorkflowExecutor") as MockExec:
             mock_executor = MagicMock()
             mock_executor.execute.return_value = failed_result
             mock_executor.dry_run = False
@@ -304,12 +304,12 @@ class TestExecuteSubWorkflow:
             sub_result = result["_sub_workflow_result"]
             assert sub_result.status == "failed"
 
-    @patch("animus_forge.workflow.composer.load_workflow")
+    @patch("animus_kernel.executor.composer.load_workflow")
     def test_child_registers_sub_workflow_handler(self, mock_load):
         """Child executor gets sub_workflow handler for nested execution."""
         mock_load.return_value = _make_workflow_config()
 
-        with patch("animus_forge.workflow.composer.WorkflowExecutor") as MockExec:
+        with patch("animus_kernel.executor.composer.WorkflowExecutor") as MockExec:
             mock_executor = MagicMock()
             mock_executor.execute.return_value = _make_execution_result()
             mock_executor.dry_run = False
@@ -327,7 +327,7 @@ class TestExecuteSubWorkflow:
             args = mock_executor.register_handler.call_args
             assert args[0][0] == "sub_workflow"
 
-    @patch("animus_forge.workflow.composer.load_workflow")
+    @patch("animus_kernel.executor.composer.load_workflow")
     def test_inherits_parent_managers(self, mock_load):
         """Child executor inherits parent's managers."""
         mock_load.return_value = _make_workflow_config()
@@ -338,7 +338,7 @@ class TestExecuteSubWorkflow:
         mock_parent.feedback_engine = MagicMock()
         mock_parent.dry_run = True
 
-        with patch("animus_forge.workflow.composer.WorkflowExecutor") as MockExec:
+        with patch("animus_kernel.executor.composer.WorkflowExecutor") as MockExec:
             mock_child = MagicMock()
             mock_child.execute.return_value = _make_execution_result()
             MockExec.return_value = mock_child
@@ -363,7 +363,7 @@ class TestExecuteSubWorkflow:
 class TestResolveWorkflowGraph:
     """Tests for WorkflowComposer.resolve_workflow_graph."""
 
-    @patch("animus_forge.workflow.composer.load_workflow")
+    @patch("animus_kernel.executor.composer.load_workflow")
     def test_single_workflow(self, mock_load):
         """Single workflow with no sub-workflows."""
         mock_load.return_value = _make_workflow_config("root")
@@ -371,7 +371,7 @@ class TestResolveWorkflowGraph:
         result = composer.resolve_workflow_graph("root")
         assert result == ["root"]
 
-    @patch("animus_forge.workflow.composer.load_workflow")
+    @patch("animus_kernel.executor.composer.load_workflow")
     def test_two_level_hierarchy(self, mock_load):
         """Root -> child sub-workflow."""
         root_wf = WorkflowConfig(
@@ -416,7 +416,7 @@ class TestResolveWorkflowGraph:
         assert "root" in result
         assert "child" in result
 
-    @patch("animus_forge.workflow.composer.load_workflow")
+    @patch("animus_kernel.executor.composer.load_workflow")
     def test_circular_reference_raises(self, mock_load):
         """Circular workflow reference raises ValueError."""
         # A -> B -> A
@@ -435,7 +435,7 @@ class TestResolveWorkflowGraph:
         with pytest.raises(ValueError, match="[Cc]ircular"):
             composer.resolve_workflow_graph("A")
 
-    @patch("animus_forge.workflow.composer.load_workflow")
+    @patch("animus_kernel.executor.composer.load_workflow")
     def test_missing_workflow_handled(self, mock_load):
         """Missing workflow during graph resolution doesn't crash."""
         step = StepConfig(id="sub", type="shell", params={"workflow": "missing"})
@@ -453,7 +453,7 @@ class TestResolveWorkflowGraph:
         result = composer.resolve_workflow_graph("root")
         assert "root" in result
 
-    @patch("animus_forge.workflow.composer.load_workflow")
+    @patch("animus_kernel.executor.composer.load_workflow")
     def test_visited_dedup(self, mock_load):
         """Workflows referenced multiple times only appear once."""
         # A -> B, A -> C, both B and C -> shared
@@ -508,12 +508,12 @@ class TestRegisterWithExecutor:
         assert args[0][0] == "sub_workflow"
         assert callable(args[0][1])
 
-    @patch("animus_forge.workflow.composer.load_workflow")
+    @patch("animus_kernel.executor.composer.load_workflow")
     def test_registered_handler_invokes_composer(self, mock_load):
         """The registered handler delegates to execute_sub_workflow."""
         mock_load.return_value = _make_workflow_config()
 
-        with patch("animus_forge.workflow.composer.WorkflowExecutor") as MockExec:
+        with patch("animus_kernel.executor.composer.WorkflowExecutor") as MockExec:
             mock_child = MagicMock()
             mock_child.execute.return_value = _make_execution_result()
             MockExec.return_value = mock_child

@@ -156,7 +156,8 @@ def main():
     print("=" * 50)
     print("Done. Review changes with: git diff")
     print(
-        "Commit with: git add -A && git commit -m 'feat(config): Ollama-first default, cloud opt-in'"
+        "Commit with: git add -A && git commit -m "
+        "'feat(config): Ollama-first default, cloud opt-in'"
     )
 
 

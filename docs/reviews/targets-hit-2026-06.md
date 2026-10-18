@@ -86,8 +86,9 @@ external verify.
 
 These were never part of the C0/C1 remediation; they're forward roadmap:
 
-- **D2 memory** — incremental BM25, tiered HOT/WARM/COLD promotion, LLM
-  consolidation, ChromaMemoryStore RAM (Phase E: E1/E2).
+- **D2 memory** — indexed retrieval for the supported local store, bounded
+  local-store RAM and rewrite costs, tiered HOT/WARM/COLD promotion, and LLM
+  consolidation (Phase E: E1/E2).
 - **D6 coordination tail** — flood-resistant `StabilityScorer` impl,
   EventLog wiring enforced at the bridge, content-addressed transition log.
 - **D7 measured run** — a real one-week overnight-delegate run with a measured

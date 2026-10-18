@@ -212,9 +212,7 @@ class TestE2EAutonomousEngineering:
         """State machine prevents illegal transitions."""
         ledger.create_mission(sample_mission)
         with pytest.raises(TransitionError):
-            ledger.transition_mission(
-                sample_mission.mission_id, MissionStatus.COMPLETED
-            )
+            ledger.transition_mission(sample_mission.mission_id, MissionStatus.COMPLETED)
 
     def test_task_dependencies_enforced(self, ledger, sample_mission):
         """A task cannot start before its dependencies complete."""

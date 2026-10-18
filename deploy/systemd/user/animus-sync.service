@@ -1,5 +1,5 @@
 [Unit]
-Description=Animus memory sync — push Claude Code context to ChromaDB
+Description=Animus memory sync — push Claude Code context to supported memory
 Wants=network-online.target
 After=network-online.target
 OnFailure=animus-sync-fail.service

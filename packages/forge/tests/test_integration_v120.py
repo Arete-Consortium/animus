@@ -442,7 +442,8 @@ class TestWorkflowYAMLIntegration:
             assert wf.name, f"{path.stem}: missing name"
             assert len(wf.steps) >= 1, f"{path.stem}: no steps"
 
-    def test_dry_run_all_yamls(self):
+    @patch("animus_kernel.executor.executor_step.time.sleep")
+    def test_dry_run_all_yamls(self, _retry_sleep):
         """Every YAML workflow executes in dry_run mode."""
         yamls = sorted(WORKFLOWS_DIR.glob("*.yaml"))
         for path in yamls:

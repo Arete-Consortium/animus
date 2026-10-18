@@ -160,14 +160,15 @@ class AgentMemory:
         if rows:
             ids = [row["id"] for row in rows]
             placeholders = ",".join("?" * len(ids))
-            self.backend.execute(
-                f"""
-                UPDATE agent_memories
-                SET accessed_at = CURRENT_TIMESTAMP, access_count = access_count + 1
-                WHERE id IN ({placeholders})
-                """,
-                tuple(ids),
-            )
+            with self.backend.transaction():
+                self.backend.execute(
+                    f"""
+                    UPDATE agent_memories
+                    SET accessed_at = CURRENT_TIMESTAMP, access_count = access_count + 1
+                    WHERE id IN ({placeholders})
+                    """,
+                    tuple(ids),
+                )
 
         return [MemoryEntry.from_dict(row) for row in rows]
 

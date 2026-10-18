@@ -7,7 +7,9 @@
 > monorepo has since grown to four shipped packages with ~14K+ tests. See the
 > repo `README.md` for live counts and [`../architecture/canonical-principles.md`](../architecture/canonical-principles.md) for which
 > documents are authoritative. The "AES-256 at rest" line is a design target,
-> **not implemented** (stores persist plaintext).
+> **not implemented** (stores persist plaintext). Chroma references below record
+> the historical implementation and are not current installation or backend
+> selection guidance; Core now fails closed on legacy Chroma configuration.
 
 ---
 

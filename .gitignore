@@ -128,3 +128,6 @@ packages/**/gorgon-memory.db
 packages/**/gorgon-state.db
 2026-*-*.txt
 packages/quorum/target/
+
+# CI type diagnostics (uploaded as workflow artifacts)
+packages/*/mypy-report.txt

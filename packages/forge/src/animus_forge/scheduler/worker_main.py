@@ -33,10 +33,13 @@ _CITIZEN_REGISTRY: dict[str, type[Citizen]] = {
 }
 
 
-def _make_error_output(summary: str, detail: str | None = None) -> dict[str, Any]:
+def _make_error_output(
+    summary: str, detail: str | None = None, *, usage_complete: bool = True
+) -> dict[str, Any]:
     return {
         "status": "failed",
         "summary": summary,
+        "usage_complete": usage_complete,
         "changed_files": [],
         "evidence": [{"type": "worker_error", "detail": detail or summary}],
         "risks": [{"severity": "critical", "description": detail or summary}],
@@ -64,13 +67,13 @@ def _run(payload: dict[str, Any]) -> dict[str, Any]:
         logger.error("Failed to parse worker payload: %s", exc)
         return _make_error_output(f"Payload parse error: {exc}", detail=str(exc))
 
-    citizen = citizen_cls()
     try:
+        citizen = citizen_cls()
         output = citizen.run(task=task, context=ctx)
         return output.model_dump(mode="json")
     except Exception as exc:
         logger.error("Worker exception for task %s: %s", task.task_id, exc)
-        return _make_error_output(f"Worker crashed: {exc}", detail=str(exc))
+        return _make_error_output(f"Worker crashed: {exc}", detail=str(exc), usage_complete=False)
 
 
 def main() -> None:
@@ -93,7 +96,9 @@ def main() -> None:
         result = _make_error_output(f"Invalid JSON payload: {exc}", detail=str(exc))
     except Exception as exc:
         logger.error("Unexpected worker main error: %s", exc)
-        result = _make_error_output(f"Unexpected worker error: {exc}", detail=str(exc))
+        result = _make_error_output(
+            f"Unexpected worker error: {exc}", detail=str(exc), usage_complete=False
+        )
 
     # Write exactly one JSON line to stdout.
     print(json.dumps(result))

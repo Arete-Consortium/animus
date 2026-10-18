@@ -112,11 +112,6 @@ def _check_promise(versions: dict[str, str]) -> list[str]:
             errors.append(f"{consumer}: not found in packages/")
             continue
 
-        # Check that consumer itself satisfies any promised range
-        # (e.g. bootstrap must be 0.8.x)
-        consumer_min = consumer_version.rsplit(".", 1)[0] + ".0"
-        consumer_max = str(int(consumer_version.split(".")[0]) + 1) + ".0.0"
-
         # Load consumer's actual dependencies
         dir_name = PACKAGE_DIRS[consumer]
         meta = _load_package_metadata(PACKAGES_DIR / dir_name)

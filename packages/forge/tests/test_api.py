@@ -83,7 +83,7 @@ def client(backend, monkeypatch):
                         protection._total_allowed = 0
 
                         with patch(
-                            "animus_forge.workflow.version_manager.WorkflowVersionManager.migrate_existing_workflows",
+                            "animus_kernel.executor.version_manager.WorkflowVersionManager.migrate_existing_workflows",
                             return_value=[],
                         ):
                             with TestClient(app) as test_client:

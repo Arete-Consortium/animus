@@ -128,7 +128,7 @@ python scripts/mypy-ratchet.py --init
 
 | Package | PyPI Name | Import | Dependencies |
 |---------|-----------|--------|--------------|
-| Core | animus-core | `import animus` | ollama, chromadb, pyyaml, pydantic, rich |
+| Core | animus-core | `import animus` | ollama, pyyaml, pydantic, rich, prompt-toolkit, cryptography, animus-types |
 | Forge | animus-forge | `import animus_forge` | openai, anthropic, convergentai, typer, rich |
 | Quorum | convergentAI | `import convergent` | zero production deps |
 | Bootstrap | animus-bootstrap | `import animus_bootstrap` | typer, rich, httpx, pydantic |
@@ -148,14 +148,16 @@ python scripts/mypy-ratchet.py --init
 
 **Quorum** (`packages/quorum/python/convergent/`) — Coordination protocol library. Intent graph, constraints, contracts, economics, versioned graph, triumvirate voting, stigmergy, flocking, signal bus, phi-weighted scoring, GorgonBridge integration, health dashboard, cycle detection, event log. Optional Rust PyO3 for performance.
 
-**Bootstrap** (`packages/bootstrap/src/animus_bootstrap/`) — Install daemon, onboarding wizard, local dashboard, message gateway, intelligence layer, and persona system. Phase 1: one-command install, Rich-based setup wizard (8 steps), HTMX dashboard at localhost:7700, systemd/launchd service management, auto-updater. Phase 2: message gateway with 8 channel adapters (Telegram, Discord, Slack, Matrix, WhatsApp, Signal, Email, WebChat), cross-channel sessions, cognitive backends (Anthropic/Ollama/Forge), middleware (auth/ratelimit/logging). Phase 3: intelligence layer with memory integration (SQLite FTS5 + ChromaDB/Animus stubs), tool executor (8 built-in tools + MCP bridge + permission system), proactive engine (scheduler, quiet hours, 3 built-in checks), automation pipeline (triggers/conditions/actions with SQLite persistence), IntelligentRouter (memory-enriched + tool loop), intelligence dashboard (/tools, /automations, /activity). Phase 4: persona & voice layer with PersonaEngine (registry + channel routing), VoiceConfig (6 presets + time shifts), KnowledgeDomainRouter (9 domains), ContextAdapter (time/channel/mood), SQLite persona persistence, persona dashboard (/personas, /routing). Runtime wiring (AnimusRuntime orchestrator, lifespan, health endpoint). Native Anthropic tool_use (CognitiveResponse, ToolCall, multi-turn cognitive loop). Phase 5: self-improvement loop with self-heal proactive check (auto-detects tool failures/slow/errors every 6h), ImprovementSandbox (safe YAML config + identity changes with backup/rollback), impact measurement (baseline/post metrics, -100 to +100 score), 37 built-in tools, 6 proactive checks.
+**Bootstrap** (`packages/bootstrap/src/animus_bootstrap/`) — Install daemon, onboarding wizard, local dashboard, message gateway, intelligence layer, and persona system. Phase 1: one-command install, Rich-based setup wizard (8 steps), HTMX dashboard at localhost:7700, systemd/launchd service management, auto-updater. Phase 2: message gateway with 8 channel adapters (Telegram, Discord, Slack, Matrix, WhatsApp, Signal, Email, WebChat), cross-channel sessions, cognitive backends (Anthropic/Ollama/Forge), middleware (auth/ratelimit/logging). Phase 3: intelligence layer with memory integration (SQLite FTS5 plus Bootstrap-specific optional stubs, separate from Core), tool executor (8 built-in tools + MCP bridge + permission system), proactive engine (scheduler, quiet hours, 3 built-in checks), automation pipeline (triggers/conditions/actions with SQLite persistence), IntelligentRouter (memory-enriched + tool loop), intelligence dashboard (/tools, /automations, /activity). Phase 4: persona & voice layer with PersonaEngine (registry + channel routing), VoiceConfig (6 presets + time shifts), KnowledgeDomainRouter (9 domains), ContextAdapter (time/channel/mood), SQLite persona persistence, persona dashboard (/personas, /routing). Runtime wiring (AnimusRuntime orchestrator, lifespan, health endpoint). Native Anthropic tool_use (CognitiveResponse, ToolCall, multi-turn cognitive loop). Phase 5: self-improvement loop with self-heal proactive check (auto-detects tool failures/slow/errors every 6h), ImprovementSandbox (safe YAML config + identity changes with backup/rollback), impact measurement (baseline/post metrics, -100 to +100 score), 37 built-in tools, 6 proactive checks.
 
 ## Key Files
 
 ### Core
 - `packages/core/animus/__main__.py` — CLI entry point (prompt-toolkit)
 - `packages/core/animus/cognitive.py` — LLM interface (Ollama/Anthropic/OpenAI/Mock)
-- `packages/core/animus/memory.py` — Episodic/semantic/procedural (ChromaDB)
+- `packages/core/animus/memory/` — Episodic/semantic/procedural memory through
+  supported local JSON or configured durable SQL; the Chroma adapter is retained
+  only for isolated migration verification
 - `packages/core/animus/forge/engine.py` — Lightweight sequential orchestration
 - `packages/core/animus/swarm/engine.py` — Lightweight parallel orchestration
 
@@ -224,7 +226,7 @@ pip install -e "packages/types/[dev]" -e "packages/quorum/[dev]" -e "packages/fo
 ## Dependencies
 
 ### Core
-ollama, chromadb, pyyaml, pydantic, rich
+ollama, pyyaml, pydantic, rich, prompt-toolkit, cryptography, animus-types
 
 ### Forge
 openai, anthropic, convergentai, typer, rich, pydantic

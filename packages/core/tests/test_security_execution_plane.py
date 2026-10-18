@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import socket
 import subprocess
 import sys
 import threading
@@ -148,6 +149,7 @@ class TestMCPServerRegistryUsesRestrictivePolicy:
         script = """
 import json
 import os
+import socket
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -168,14 +170,14 @@ ms.create_default_registry = capture
 
 # Use a throwaway home directory so the subprocess does not touch the caller's
 # real Animus data.
-os.environ["ANIMUS_HOME"] = sys.argv[1]
+os.environ["ANIMUS_DATA_DIR"] = sys.argv[1]
+os.environ["ANIMUS_MEMORY_BACKEND"] = "json"
 
 srv = create_mcp_server()
 
 # Locate the animus_run_workflow tool and call its underlying handler with
-# everything else stubbed.  _tools values are mcp.server.fastmcp Tool objects,
-# so we invoke the registered function directly.
-run_workflow = srv._tools["animus_run_workflow"].fn
+# everything else stubbed, using the v1 tool manager.
+run_workflow = srv._tool_manager.get_tool("animus_run_workflow").fn
 
 wf_path = Path(sys.argv[1]) / "mcp_workflows" / "fake" / "workflow.yaml"
 wf_path.parent.mkdir(parents=True, exist_ok=True)
@@ -209,7 +211,10 @@ print(json.dumps({"captured": captured}))
         workflow_dir.mkdir()
 
         env = os.environ.copy()
-        env["PYTHONPATH"] = str(Path(__file__).resolve().parents[2])
+        env["ANIMUS_DATA_DIR"] = str(tmp_path / "isolated-animus")
+        env["PYTHONPATH"] = os.pathsep.join(
+            [str(Path(__file__).resolve().parents[1]), env.get("PYTHONPATH", "")]
+        )
 
         result = subprocess.run(
             [sys.executable, "-c", script, str(workflow_dir)],
@@ -629,11 +634,19 @@ class TestGovernedClientSSRFBlocks:
         finally:
             _stop_mock_server(server)
 
-    def test_allows_localhost_when_explicitly_allowed(self):
+    def test_allows_localhost_when_explicitly_allowed(self, monkeypatch):
         server, _ = _start_mock_server()
         try:
             host, port = server.server_address
             url = f"http://localhost:{port}/"
+            original_getaddrinfo = socket.getaddrinfo
+
+            def resolve_fixture_host(name, *args, **kwargs):
+                return original_getaddrinfo(
+                    "127.0.0.1" if name == "localhost" else name, *args, **kwargs
+                )
+
+            monkeypatch.setattr(socket, "getaddrinfo", resolve_fixture_host)
             result = GovernedClient.request(url, timeout=5, allow_loopback=True)
             assert result.status == 200
             assert "mock-server-ok" in result.body
@@ -683,3 +696,22 @@ class TestMemoryLayerLogsRawSecrets:
         # SEC-08: raw secret must not appear in INFO logs. The content is
         # redacted for storage, but the log must use safe metadata only.
         assert secret not in caplog.text
+
+
+@pytest.mark.parametrize("glob", [False, True])
+@pytest.mark.parametrize("operation", ["authorize_read", "authorize_write"])
+def test_blocked_symlink_parent_cannot_bypass_policy(tmp_path, glob, operation):
+    real = tmp_path / "real"
+    real.mkdir()
+    alias = tmp_path / "alias"
+    alias.symlink_to(real, target_is_directory=True)
+    target = real / "private.txt"
+    target.write_text("fixture")
+    rule = str(alias / "*") if glob else str(alias)
+    policy = WorkspaceToolPolicy(
+        allowed_paths=[str(tmp_path)], write_roots=[str(tmp_path)], blocked_paths=[rule]
+    )
+    for candidate in (target, alias / target.name):
+        result = getattr(policy, operation)(str(candidate))
+        assert result.allowed is False
+        assert "blocked" in result.reason

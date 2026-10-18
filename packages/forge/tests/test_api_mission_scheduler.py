@@ -1,9 +1,8 @@
 """Tests for mission scheduler API routes."""
 
-import asyncio
 import os
 import tempfile
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -42,10 +41,8 @@ def test_client(memory_backend):
     # Wire up a minimal mission scheduler mock
     scheduler_mock = MagicMock()
     scheduler_mock.is_running = False  # Start as "stopped"
-    scheduler_mock.start = MagicMock(return_value=asyncio.Future())
-    scheduler_mock.start.return_value.set_result(None)
-    scheduler_mock.stop = MagicMock(return_value=asyncio.Future())
-    scheduler_mock.stop.return_value.set_result(None)
+    scheduler_mock.start = AsyncMock(return_value=None)
+    scheduler_mock.stop = AsyncMock(return_value=None)
     scheduler_mock.status.return_value = {
         "is_running": True,
         "active_workers": 1,
@@ -64,6 +61,7 @@ def test_client(memory_backend):
 @pytest.fixture
 def auth_headers():
     from animus_forge.api_routes.auth import create_access_token
+
     token = create_access_token("test-user")
     return {"Authorization": f"Bearer {token}"}
 
@@ -166,7 +164,12 @@ class TestSchedulerEndpoints:
 
         metrics_mock = MagicMock()
         metrics_mock.by_mission.return_value = [
-            {"event_type": "task_dispatched", "task_id": "t1", "value": None, "recorded_at": "2026-07-27T00:00:00"}
+            {
+                "event_type": "task_dispatched",
+                "task_id": "t1",
+                "value": None,
+                "recorded_at": "2026-07-27T00:00:00",
+            }
         ]
         api_state.mission_scheduler.metrics = metrics_mock
 

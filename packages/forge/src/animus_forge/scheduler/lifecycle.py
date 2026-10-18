@@ -86,7 +86,8 @@ class SchedulerStatusSnapshot:
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {
             "lifecycle_state": self.lifecycle_state.value,
-            "is_running": self.lifecycle_state in (
+            "is_running": self.lifecycle_state
+            in (
                 SchedulerLifecycleState.STARTING,
                 SchedulerLifecycleState.RUNNING,
                 SchedulerLifecycleState.DEGRADED,

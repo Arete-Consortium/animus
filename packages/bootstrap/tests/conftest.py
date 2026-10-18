@@ -37,3 +37,22 @@ def _isolate_animus_secrets(monkeypatch, tmp_path_factory):
     monkeypatch.setenv("ANIMUS_SECRETS_FILE", str(isolated))
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_runtime_state(monkeypatch):
+    """Keep dashboard and task-store globals from leaking between tests."""
+    from animus_bootstrap.dashboard.app import app
+    from animus_bootstrap.dashboard.routers.tools import clear_pending_approvals
+    from animus_bootstrap.intelligence.proactive.checks import tasks
+
+    original_state = app.state._state.copy()
+    app.state.runtime = None
+    monkeypatch.setattr(tasks, "_task_store", None)
+    clear_pending_approvals()
+    try:
+        yield
+    finally:
+        clear_pending_approvals()
+        app.state._state.clear()
+        app.state._state.update(original_state)

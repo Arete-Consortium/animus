@@ -179,7 +179,7 @@ def main():
 
         # Show what persists
         console.print("\n[bold]What persists between sessions:[/]")
-        console.print("  • Memories in ChromaDB vector store")
+        console.print("  • Memories in the configured supported Core store")
         console.print("  • Learned preferences and patterns")
         console.print("  • User-defined guardrails")
         console.print("  • Pending approval queue")

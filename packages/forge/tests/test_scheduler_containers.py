@@ -48,7 +48,9 @@ class TestContainerManagerDetection:
         assert cm._runtime_cmd is None
 
     def test_docker_detected(self, monkeypatch):
-        monkeypatch.setattr("shutil.which", lambda cmd: "/usr/bin/docker" if cmd == "docker" else None)
+        monkeypatch.setattr(
+            "shutil.which", lambda cmd: "/usr/bin/docker" if cmd == "docker" else None
+        )
         cm = ContainerManager(ContainerConfig(runtime="auto"))
         assert cm.is_available() is True
         assert cm._runtime_cmd == "docker"
@@ -70,7 +72,9 @@ class TestContainerManagerDetection:
 class TestContainerManagerCommandGeneration:
     @pytest.fixture
     def cm(self, monkeypatch):
-        monkeypatch.setattr("shutil.which", lambda cmd: "/usr/bin/docker" if cmd == "docker" else None)
+        monkeypatch.setattr(
+            "shutil.which", lambda cmd: "/usr/bin/docker" if cmd == "docker" else None
+        )
         return ContainerManager(
             ContainerConfig(
                 image="test-img:latest",
@@ -124,11 +128,14 @@ class TestContainerManagerRunTask:
         assert "No container runtime available" in result["summary"]
 
     def test_timeout_returns_failure(self, monkeypatch):
-        monkeypatch.setattr("shutil.which", lambda cmd: "/usr/bin/docker" if cmd == "docker" else None)
+        monkeypatch.setattr(
+            "shutil.which", lambda cmd: "/usr/bin/docker" if cmd == "docker" else None
+        )
         cm = ContainerManager(ContainerConfig(timeout_seconds=1))
 
         def _slow_run(*_args, **_kwargs):
             import subprocess
+
             raise subprocess.TimeoutExpired(cmd="docker", timeout=1)
 
         monkeypatch.setattr("subprocess.run", _slow_run)
@@ -143,7 +150,9 @@ class TestContainerManagerRunTask:
         assert "timeout" in result["summary"].lower()
 
     def test_nonzero_returncode_returns_failure(self, monkeypatch):
-        monkeypatch.setattr("shutil.which", lambda cmd: "/usr/bin/docker" if cmd == "docker" else None)
+        monkeypatch.setattr(
+            "shutil.which", lambda cmd: "/usr/bin/docker" if cmd == "docker" else None
+        )
         cm = ContainerManager()
         fake = FakeCompletedProcess(returncode=1, stdout="", stderr="bad image")
         monkeypatch.setattr("subprocess.run", lambda *_a, **_k: fake)
@@ -158,7 +167,9 @@ class TestContainerManagerRunTask:
         assert "Container exit 1" in result["summary"]
 
     def test_empty_stdout_returns_failure(self, monkeypatch):
-        monkeypatch.setattr("shutil.which", lambda cmd: "/usr/bin/docker" if cmd == "docker" else None)
+        monkeypatch.setattr(
+            "shutil.which", lambda cmd: "/usr/bin/docker" if cmd == "docker" else None
+        )
         cm = ContainerManager()
         fake = FakeCompletedProcess(returncode=0, stdout="   \n  \n")
         monkeypatch.setattr("subprocess.run", lambda *_a, **_k: fake)
@@ -173,7 +184,9 @@ class TestContainerManagerRunTask:
         assert "Empty container output" in result["summary"]
 
     def test_successful_json_output(self, monkeypatch):
-        monkeypatch.setattr("shutil.which", lambda cmd: "/usr/bin/docker" if cmd == "docker" else None)
+        monkeypatch.setattr(
+            "shutil.which", lambda cmd: "/usr/bin/docker" if cmd == "docker" else None
+        )
         cm = ContainerManager()
         payload = {
             "status": "success",
@@ -196,7 +209,9 @@ class TestContainerManagerRunTask:
         assert result["summary"] == "it worked"
 
     def test_malformed_json_returns_failure(self, monkeypatch):
-        monkeypatch.setattr("shutil.which", lambda cmd: "/usr/bin/docker" if cmd == "docker" else None)
+        monkeypatch.setattr(
+            "shutil.which", lambda cmd: "/usr/bin/docker" if cmd == "docker" else None
+        )
         cm = ContainerManager()
         fake = FakeCompletedProcess(returncode=0, stdout="not json {{")
         monkeypatch.setattr("subprocess.run", lambda *_a, **_k: fake)

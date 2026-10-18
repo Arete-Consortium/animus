@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
@@ -26,7 +27,6 @@ from animus_forge.scheduler.lifecycle import (
     SchedulerStatusSnapshot,
 )
 from animus_forge.scheduler.metrics import (
-    MISSION_COMPLETED,
     MISSION_FAILED,
     RESULT_PROCESSED,
     TASK_DISPATCHED,
@@ -289,111 +289,96 @@ class MissionScheduler:
             self._supervisor.mark_tick("result_consumer")
 
     async def _process_result(self, task_id_str: str, result_dict: dict[str, Any]) -> None:
-        """Process a single completed task result with lease/generation fencing."""
-        meta = result_dict.pop("_scheduler_meta", None) or {}
-        result_lease_id = meta.get("lease_id")
-
-        # Find task in ledger
-        task = self.ledger.get_task_by_id(task_id_str)
-        if not task:
-            logger.warning("Result received for unknown task %s", task_id_str)
+        """Commit a fenced result, its costs, checkpoint and task state together."""
+        payload = dict(result_dict)
+        meta = payload.pop("_scheduler_meta", None)
+        if not isinstance(meta, dict):
+            logger.warning("Ignoring unfenced result for task %s", task_id_str)
             return
+        with self.ledger._backend.transaction():
+            self.cost.lock_budget()
+            task = self.ledger.get_task_by_id(task_id_str)
+            lease = self.lease.get_lease_for_task(task_id_str)
+            if (
+                task is None
+                or task.status != TaskStatus.RUNNING
+                or lease is None
+                or meta.get("lease_id") != lease.lease_id
+                or meta.get("generation") != lease.generation
+                or meta.get("attempt_id") != lease.attempt_id
+            ):
+                logger.warning("Ignoring stale or duplicate result for task %s", task_id_str)
+                return
+            valid_usage = True
+            try:
+                output = CitizenOutput(**payload)
+            except Exception as exc:
+                logger.error("Invalid result for task %s: %s", task_id_str, exc)
+                output = CitizenOutput(status="failed", summary="Invalid worker result")
+                valid_usage = False
 
-        # Lease/generation fencing: ignore results whose lease is no longer active
-        # or whose generation does not match the current lease.
-        current_lease = self.lease.get_lease_for_task(task_id_str)
-        result_generation = meta.get("generation")
-        stale = (
-            result_lease_id
-            and current_lease is not None
-            and (
-                current_lease.lease_id != result_lease_id
-                or (result_generation is not None and current_lease.generation != result_generation)
+            total_cost = Decimal("0")
+            for usage in output.usage:
+                self.cost.record(
+                    mission_id=str(task.mission_id),
+                    task_id=task_id_str,
+                    operation="citizen_task",
+                    **usage.model_dump(),
+                )
+                total_cost += usage.cost_usd
+            # Built-in citizens are deterministic local workers, so empty usage
+            # is a legitimate zero-cost result. Invalid/killed results are unknown.
+            known_usage = (
+                valid_usage
+                and output.usage_complete
+                and not meta.get("killed")
+                and not meta.get("timed_out")
             )
-        )
-        if stale:
-            logger.warning(
-                "Stale result for task %s (lease %s/gen %s vs current %s/gen %s); ignoring",
-                task_id_str,
-                result_lease_id,
-                result_generation,
-                current_lease.lease_id if current_lease else None,
-                current_lease.generation if current_lease else None,
-            )
-            return
-
-        # If a lease_id was provided but no active lease exists, the result is also stale.
-        if result_lease_id and current_lease is None:
-            logger.warning(
-                "Stale result for task %s (lease %s/gen %s); no active lease; ignoring",
-                task_id_str,
-                result_lease_id,
-                result_generation,
-            )
-            return
-
-        try:
-            output = CitizenOutput(**result_dict)
-        except Exception as exc:
-            logger.error("Failed to parse CitizenOutput for task %s: %s", task_id_str, exc)
-            output = CitizenOutput(
-                status="failed",
-                summary=f"Result parse error: {exc}",
-                risks=[{"severity": "critical", "description": str(exc)}],
-            )
-
-        # Release lease
-        if current_lease:
-            self.lease.release(current_lease.lease_id, outcome=output.status)
-
-        # Record cost (placeholder until real cost plumbing exists)
-        self.cost.record(
-            mission_id=str(task.mission_id),
-            task_id=task_id_str,
-            operation="citizen_task",
-        )
-
-        # Save checkpoint with result data
-        try:
+            if known_usage and not output.usage:
+                self.cost.record(
+                    mission_id=str(task.mission_id),
+                    task_id=task_id_str,
+                    operation="citizen_task",
+                    provider="local",
+                    model="default",
+                    cost_usd=Decimal("0"),
+                )
+            if known_usage:
+                self.cost.finish_reservation(lease.attempt_id, settled=True)
             self.ledger.save_checkpoint(
                 task_id=task.task_id,
-                attempt_id=task.task_id,
+                attempt_id=UUID(lease.attempt_id),
                 stage=output.status,
                 inputs={},
-                outputs={"summary": output.summary, "confidence": output.confidence},
+                outputs={
+                    "summary": output.summary,
+                    "confidence": output.confidence,
+                    "usage": [u.model_dump(mode="json") for u in output.usage],
+                    "usage_complete": known_usage,
+                },
                 artifacts=[a.model_dump(mode="json") for a in output.artifacts],
             )
-        except Exception:
-            logger.exception("Failed to save checkpoint for task %s", task.task_id)
-
-        # Transition based on citizen output
-        if output.status == "completed":
-            try:
-                self.ledger.transition_task(
-                    task_id=task.task_id,
-                    to_status=TaskStatus.COMPLETED,
+            succeeded = output.status == "completed"
+            status = (
+                TaskStatus.COMPLETED
+                if succeeded
+                else (
+                    TaskStatus.READY
+                    if task.current_attempt < task.max_attempts
+                    else TaskStatus.FAILED
                 )
-            except Exception:
-                logger.exception("Failed to transition task %s to COMPLETED", task.task_id)
-        else:
-            # failed or needs_repair — retry if attempts remain
-            if task.current_attempt < task.max_attempts:
-                try:
-                    self.ledger.transition_task(
-                        task_id=task.task_id,
-                        to_status=TaskStatus.READY,
-                    )
-                    self.ledger.increment_attempt(task.task_id)
-                except Exception:
-                    logger.exception("Failed to retry task %s", task.task_id)
-            else:
-                try:
-                    self.ledger.transition_task(
-                        task_id=task.task_id,
-                        to_status=TaskStatus.FAILED,
-                    )
-                except Exception:
-                    logger.exception("Failed to transition task %s to FAILED", task.task_id)
+            )
+            self.ledger.transition_task(task_id=task.task_id, to_status=status)
+            self.ledger._backend.execute(
+                "UPDATE task_attempts SET status = ?, completed_at = ?, cost_usd = ? WHERE attempt_id = ?",
+                (
+                    "completed" if succeeded else "failed",
+                    datetime.now(UTC).isoformat(),
+                    str(total_cost) if known_usage else None,
+                    lease.attempt_id,
+                ),
+            )
+            self.lease.release(lease.lease_id, outcome=output.status)
 
         if self.metrics:
             self.metrics.record(
@@ -416,7 +401,7 @@ class MissionScheduler:
             t.status in (TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED)
             for t in tasks
         )
-        any_failed = any(t.status == TaskStatus.FAILED for t in tasks)
+        any_failed = any(t.status in (TaskStatus.FAILED, TaskStatus.CANCELLED) for t in tasks)
 
         if not all_done:
             return
@@ -425,7 +410,11 @@ class MissionScheduler:
         if not mission:
             return
 
-        if mission.status in (MissionStatus.COMPLETED, MissionStatus.FAILED, MissionStatus.CANCELLED):
+        if mission.status in (
+            MissionStatus.COMPLETED,
+            MissionStatus.FAILED,
+            MissionStatus.CANCELLED,
+        ):
             return
 
         if any_failed:
@@ -443,22 +432,14 @@ class MissionScheduler:
                 logger.exception("Failed to transition mission %s to FAILED", mission_id)
         else:
             try:
-                # Route through REVIEW → COMPLETED per state machine
-                self.ledger.transition_mission(
-                    mission_id=mission_id,
-                    to_status=MissionStatus.REVIEW,
-                )
-                self.ledger.transition_mission(
-                    mission_id=mission_id,
-                    to_status=MissionStatus.COMPLETED,
-                )
-                if self.metrics:
-                    self.metrics.record(
-                        MISSION_COMPLETED,
-                        mission_id=str(mission_id),
+                # Task success is evidence for review, not a review verdict.
+                if mission.status == MissionStatus.RUNNING:
+                    self.ledger.transition_mission(
+                        mission_id=mission_id,
+                        to_status=MissionStatus.REVIEW,
                     )
             except Exception:
-                logger.exception("Failed to transition mission %s to COMPLETED", mission_id)
+                logger.exception("Failed to transition mission %s to REVIEW", mission_id)
 
     # ------------------------------------------------------------------
     # Status

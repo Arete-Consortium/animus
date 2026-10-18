@@ -48,7 +48,8 @@ class SourceItem:
     """One harvested item from an external source.
 
     Canonical cross-source shape so downstream consumers (relevance scorer,
-    ChromaDB writer, synthesis persona) don't need to branch on source type.
+    supported-memory writer, synthesis persona) don't need to branch on source
+    type.
     """
 
     source_id: str  # registered source key, e.g. "arxiv:cs.LG" / "hn:front_page"

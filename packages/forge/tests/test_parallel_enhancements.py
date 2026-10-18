@@ -584,9 +584,7 @@ class TestFanOutErrorHandling:
                         "items": ["good", "bad", "good2"],
                         "step_template": {
                             "type": "shell",
-                            "params": {
-                                "command": 'if [ "${item}" = "bad" ]; then exit 1; else echo ${item}; fi'
-                            },
+                            "params": {"command": "test ${item} != bad"},
                         },
                     },
                 ),
@@ -1191,7 +1189,7 @@ class TestAutoParallelOutputs:
                 StepConfig(
                     id="producer",
                     type="shell",
-                    params={"command": "echo produced_value"},
+                    params={"command": "printf produced_value"},
                     outputs=["stdout"],
                 ),
                 StepConfig(

@@ -52,7 +52,7 @@ class ModelConfig:
 class MemoryConfig:
     """Configuration for the memory system."""
 
-    backend: str = "chroma"  # "chroma", "json", or "durable"
+    backend: str = "local"  # "local"/"json" or "durable"
     collection_name: str = "animus_memories"
 
     def __post_init__(self):
@@ -460,7 +460,6 @@ class AnimusConfig:
     def ensure_dirs(self) -> None:
         """Create necessary directories."""
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        self.chroma_dir.mkdir(parents=True, exist_ok=True)
 
     def to_dict(self) -> dict:
         """Convert config to dictionary for serialization."""
@@ -601,11 +600,23 @@ class AnimusConfig:
                 if "openai_base_url" in model_data:
                     config.model.openai_base_url = model_data["openai_base_url"]
 
-            if memory_data := data.get("memory"):
+            memory_data = data.get("memory")
+            if isinstance(memory_data, dict):
                 if "backend" in memory_data:
                     config.memory.backend = memory_data["backend"]
                 if "collection_name" in memory_data:
                     config.memory.collection_name = memory_data["collection_name"]
+            if not isinstance(memory_data, dict) or "backend" not in memory_data:
+                # Config files created before the Core runtime retirement could
+                # omit this field and inherit the former Chroma default. Keep
+                # that legacy selection so startup fails closed instead of
+                # silently opening an empty local store after an upgrade.
+                config.memory.backend = "chroma"
+
+            # Nested dataclass __post_init__ runs before file values are loaded.
+            # Reapply the documented highest-precedence environment override.
+            if memory_backend := os.environ.get("ANIMUS_MEMORY_BACKEND"):
+                config.memory.backend = memory_backend
 
             if api_data := data.get("api"):
                 if "enabled" in api_data:

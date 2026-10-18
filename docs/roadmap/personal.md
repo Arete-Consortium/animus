@@ -29,9 +29,13 @@ Animus's success metric is **"did it make ARETE more effective today"** — not 
 
 **Concrete steps:**
 1. Quarterly dry-run on a clean Ubuntu VM (no prior animus state): `bash <(curl -fsSL bootstrap-url)`. Time it. Should be under 15 minutes to operational.
-2. Identify what restores cleanly and what requires manual setup (API keys, OAuth tokens, MCP server registrations, ChromaDB indexes, ollama model pulls).
+2. Identify what restores cleanly and what requires manual setup (API keys,
+   OAuth tokens, MCP server registrations, supported memory state, Ollama model
+   pulls, and any separately managed retrieval index).
 3. Document the manual-setup tail in `docs/REBUILD.md` with explicit env vars + token-rotation procedure.
-4. Memory restore: confirm ChromaDB indexes rebuild from raw memory files (the source of truth), not from snapshots that may corrupt.
+4. Memory restore: confirm the supported local/durable store rebuilds from the
+   verified source records. Preserve any legacy Chroma snapshot only as an
+   isolated migration input under the retirement plan.
 5. Identity restore: `CORE_VALUES.md` + LEARNED.md + persona configs all in version control (private repo). Verify they're actually committed, not just sitting in the working tree.
 
 **Effort:** First dry-run ~3 hours. Documentation ~1 hour. Recurring quarterly ritual ~30 min.
@@ -120,7 +124,11 @@ Animus's success metric is **"did it make ARETE more effective today"** — not 
 
 **Why:** Personal tools that lock data behind their own infrastructure age badly. If something happens (you stop using it, hardware fails irretrievably, family needs to extract data), there should be a graceful export. This is durability for the *data*, separate from durability for the *tool*.
 
-**Current state:** Memory is in ChromaDB + raw markdown source files. Identity in `CORE_VALUES.md`. Audit log in JSONL. Tasks in SQLite. All extractable but not unified.
+**Current state:** Supported Core memory is local JSON or configured durable SQL,
+with raw markdown source files where applicable. Preserved legacy Chroma data is
+an isolated migration input, not a current runtime store. Identity is in
+`CORE_VALUES.md`, the audit log is JSONL, and tasks are in SQLite. All are
+extractable but not unified.
 
 **Concrete steps:**
 1. Write `animus export --all <output-dir>` command that produces a portable archive:

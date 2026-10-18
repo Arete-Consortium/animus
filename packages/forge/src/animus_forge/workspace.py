@@ -230,8 +230,7 @@ class WorkspaceManager:
     def _match(path: str, pattern: str) -> bool:
         """Glob-like match supporting ``**`` and ``*``."""
         regex = (
-            pattern
-            .replace(".", r"\.")
+            pattern.replace(".", r"\.")
             .replace("**", r"{{ANYDEPTH}}")
             .replace("*", r"[^/]*")
             .replace(r"{{ANYDEPTH}}", ".*")
@@ -239,5 +238,3 @@ class WorkspaceManager:
         if "**/" in pattern or pattern.startswith("**"):
             return bool(re.search(regex, path))
         return bool(re.match(regex + r"($|/)", path))
-
-
