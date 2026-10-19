@@ -74,6 +74,7 @@ postgres = [
     "psycopg[binary]>=3.1",
 ]
 dev = [
+    "bcrypt>=5.0.0,<6",
     "numpy>=1.26,<3",
     "alembic>=1.13,<2",
     # The Core credential-helper regression test imports bcrypt directly.
