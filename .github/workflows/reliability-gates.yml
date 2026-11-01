@@ -48,7 +48,7 @@ jobs:
         run: python tools/run_golden_workflow_benchmark.py --output .benchmarks/golden_workflow.json
 
       - name: Upload benchmark artifact
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: golden-workflow-artifact
           path: .benchmarks/golden_workflow.json
