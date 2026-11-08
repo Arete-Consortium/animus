@@ -210,7 +210,7 @@ describe("api", () => {
 
       await expect(getHealth()).rejects.toThrow("Authentication required");
       expect(dispatchSpy).toHaveBeenCalledWith(expect.any(Event));
-      expect(dispatchSpy.mock.calls[0][0].type).toBe("animus:unauthorized");
+      expect(dispatchSpy.mock.calls[0]?.[0].type).toBe("animus:unauthorized");
       dispatchSpy.mockRestore();
     });
 
@@ -235,9 +235,8 @@ describe("api", () => {
         onmessage: null as unknown as ((e: { data: string }) => void) | null,
       };
       const OriginalWebSocket = globalThis.WebSocket;
-      // @ts-expect-error - minimal mock constructor
       globalThis.WebSocket = function () { return mockWs; } as unknown as typeof WebSocket;
-      globalThis.WebSocket.OPEN = 1;
+      Object.defineProperty(globalThis.WebSocket, "OPEN", { value: 1 });
 
       const onMsg = vi.fn();
       const chat = connectChat(onMsg);

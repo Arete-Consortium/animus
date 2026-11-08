@@ -52,16 +52,28 @@ class CsrfMiddleware(BaseHTTPMiddleware):
                 set_csrf_cookie(response, cookie_token)
                 return response  # type: ignore[return-value]
 
-            # Validate Origin header for same-origin policy
+            # Validate Origin header for same-origin policy.  Use the request
+            # scheme so direct TLS/Tailscale HTTPS is not rejected as HTTP.
             origin = request.headers.get("origin")
             host = request.headers.get("host", "")
             if origin:
-                expected_origin = f"http://{host}"
-                if not origin.startswith(expected_origin):
+                expected_origin = f"{request.url.scheme}://{host}"
+                if origin.rstrip("/") != expected_origin.rstrip("/"):
                     return JSONResponse(
                         status_code=403,
                         content={"detail": "Invalid Origin header."},
                     )
+
+            # The PWA uses same-origin JSON requests and bearer auth rather
+            # than ambient cookie authentication.  A cross-site form cannot
+            # send application/json, and cross-origin fetches are rejected by
+            # the Origin check above (as well as CORS).  Keep CSRF tokens
+            # mandatory for HTMX/form and other non-JSON mutations.
+            media_type = request.headers.get("content-type", "").partition(";")[0].strip().lower()
+            if path.startswith("/api/") and media_type == "application/json":
+                response = await call_next(request)
+                set_csrf_cookie(response, cookie_token)
+                return response  # type: ignore[return-value]
 
             # Validate CSRF token (header only — reading form body consumes the stream
             # and breaks downstream FastAPI form parsers).

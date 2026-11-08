@@ -58,6 +58,7 @@ from animus_bootstrap.intelligence.tools.executor import ToolResult
 
 class TestResolveAnimusPath:
     def test_valid_relative_path(self) -> None:
+        assert _ANIMUS_ROOT is not None
         resolved = _resolve_animus_path("packages/bootstrap/pyproject.toml")
         assert resolved.is_relative_to(_ANIMUS_ROOT)
 
@@ -65,9 +66,36 @@ class TestResolveAnimusPath:
         with pytest.raises(ValueError, match="escapes"):
             _resolve_animus_path("../../etc/passwd")
 
+    def test_rejects_absolute_path(self) -> None:
+        with pytest.raises(ValueError, match="must be relative"):
+            _resolve_animus_path("/etc/passwd")
+
+    def test_rejects_symlink_escape(self, tmp_path: Path) -> None:
+        source_root = tmp_path / "source"
+        outside = tmp_path / "outside"
+        source_root.mkdir()
+        outside.mkdir()
+        (source_root / "escape").symlink_to(outside, target_is_directory=True)
+        with patch(
+            "animus_bootstrap.intelligence.tools.builtin.code_edit._ANIMUS_ROOT",
+            source_root,
+        ):
+            with pytest.raises(ValueError, match="escapes"):
+                _resolve_animus_path("escape/secret.txt")
+
     def test_root_is_correct(self) -> None:
         # _ANIMUS_ROOT should be the animus monorepo root
+        assert _ANIMUS_ROOT is not None
         assert (_ANIMUS_ROOT / "packages").is_dir()
+
+    def test_unavailable_root_fails_closed(self) -> None:
+        with patch(
+            "animus_bootstrap.intelligence.tools.builtin.code_edit._ANIMUS_ROOT",
+            None,
+        ):
+            with pytest.raises(ValueError, match="source root is unavailable"):
+                _resolve_animus_path("packages/bootstrap/pyproject.toml")
+            assert get_code_edit_tools() == []
 
 
 class TestCodeRead:

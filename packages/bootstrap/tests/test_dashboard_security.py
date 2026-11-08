@@ -208,6 +208,24 @@ class TestCsrfProtection:
         assert resp.status_code == 403
         assert "CSRF" in resp.text
 
+    def test_same_origin_json_api_post_does_not_require_csrf(self, client: TestClient) -> None:
+        """PWA JSON calls rely on same-origin checks, not an unreadable HttpOnly token."""
+        resp = client.post(
+            "/api/conversations/messages",
+            json={"text": "csrf-json-probe"},
+        )
+        assert resp.status_code == 200
+
+    def test_cross_origin_json_api_post_rejected(self, client: TestClient) -> None:
+        """The JSON exemption must never admit a cross-origin mutation."""
+        resp = client.post(
+            "/api/conversations/messages",
+            json={"text": "csrf-cross-origin-probe"},
+            headers={"Origin": "https://evil.example"},
+        )
+        assert resp.status_code == 403
+        assert "Origin" in resp.text
+
 
 # ------------------------------------------------------------------
 # 4. XSS mitigated — no raw HTMLResponse with user data

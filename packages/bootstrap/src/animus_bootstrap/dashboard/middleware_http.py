@@ -34,11 +34,11 @@ from animus_bootstrap.dashboard.auth import (
 )
 
 # The ONLY routes a not-yet-authenticated remote client may reach: static
-# assets (the PWA shell) and the bare, non-sensitive liveness probe. Anything
+# assets, the PWA shell, and the bare, non-sensitive liveness probe. Anything
 # carrying data, secrets, or a mutation requires the token. Keep this list
 # minimal — every addition widens the unauthenticated remote surface.
-_PUBLIC_PREFIXES: tuple[str, ...] = ("/static",)
-_PUBLIC_PATHS: frozenset[str] = frozenset({"/health"})
+_PUBLIC_PREFIXES: tuple[str, ...] = ("/static/", "/pwa/")
+_PUBLIC_PATHS: frozenset[str] = frozenset({"/health", "/pwa", "/pwa/"})
 
 
 def _is_public(path: str) -> bool:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -11,6 +12,7 @@ from fastapi.testclient import TestClient
 from animus_bootstrap.config.schema import AnimusConfig
 from animus_bootstrap.dashboard import auth
 from animus_bootstrap.dashboard.app import app
+from animus_bootstrap.dashboard.middleware_http import _is_public
 
 # ------------------------------------------------------------------
 # Helpers / fixtures
@@ -55,6 +57,12 @@ class TestAuthHelpers:
         token = auth.ensure_auth_token(cfg, manager)
         assert token == "existing-token"
         manager.save.assert_not_called()
+
+    def test_ensure_auth_token_does_not_log_secret(self, caplog: pytest.LogCaptureFixture) -> None:
+        cfg = _config()
+        manager = MagicMock()
+        token = auth.ensure_auth_token(cfg, manager)
+        assert token not in caplog.text
 
     @pytest.mark.parametrize(
         ("host", "required", "expected"),
@@ -156,6 +164,23 @@ class TestHttpAuthMiddleware:
         app.state.config = _config(host="0.0.0.0", required="always", token="t0ken")
         remote = TestClient(app)  # non-local, no token
         assert remote.get("/health").status_code == 200
+
+    @pytest.mark.parametrize("path", ["/pwa", "/pwa/", "/pwa/assets/app.js"])
+    def test_pwa_shell_is_public(self, path: str) -> None:
+        assert _is_public(path) is True
+
+    @pytest.mark.parametrize("path", ["/pwa-private", "/static-admin", "/api/health"])
+    def test_public_prefixes_do_not_overmatch(self, path: str) -> None:
+        assert _is_public(path) is False
+
+    def test_configured_pwa_directory(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        from animus_bootstrap.dashboard.app import _resolve_pwa_dir
+
+        pwa_dir = tmp_path / "dist"
+        monkeypatch.setenv("ANIMUS_PWA_DIR", str(pwa_dir))
+        assert _resolve_pwa_dir() == pwa_dir.resolve()
 
 
 # ------------------------------------------------------------------

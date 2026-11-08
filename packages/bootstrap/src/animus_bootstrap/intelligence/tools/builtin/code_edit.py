@@ -4,14 +4,55 @@ from __future__ import annotations
 
 import difflib
 import logging
+import os
 from pathlib import Path
 
 from animus_bootstrap.intelligence.tools.executor import ToolDefinition
 
 logger = logging.getLogger(__name__)
 
-# Sandbox to the animus monorepo only
-_ANIMUS_ROOT = Path(__file__).resolve().parents[7]  # animus/
+
+def _validated_source_root(candidate: Path) -> Path | None:
+    """Return a canonical Animus checkout root, or ``None`` when invalid."""
+    try:
+        resolved = candidate.expanduser().resolve(strict=True)
+    except (OSError, RuntimeError):
+        return None
+    marker = resolved / "packages" / "bootstrap" / "pyproject.toml"
+    return resolved if marker.is_file() else None
+
+
+def _discover_animus_root() -> Path | None:
+    """Discover an explicit or source-tree Animus checkout.
+
+    Installed wheels are not source checkouts.  In that layout this returns
+    ``None`` so self-modification tools are not registered rather than
+    accidentally treating a broad filesystem ancestor as the sandbox.
+    """
+    configured = os.environ.get("ANIMUS_SOURCE_ROOT")
+    if configured:
+        root = _validated_source_root(Path(configured))
+        if root is None:
+            logger.error("ANIMUS_SOURCE_ROOT is not a validated Animus checkout")
+        return root
+
+    for parent in Path(__file__).resolve().parents:
+        root = _validated_source_root(parent)
+        if root is not None:
+            return root
+    return None
+
+
+# Sandbox to a validated Animus monorepo only. Wheels fail closed by default.
+_ANIMUS_ROOT: Path | None = _discover_animus_root()
+
+
+def _require_animus_root() -> Path:
+    if _ANIMUS_ROOT is None:
+        raise ValueError(
+            "Animus source root is unavailable; set ANIMUS_SOURCE_ROOT to a validated checkout"
+        )
+    return _ANIMUS_ROOT
 
 
 def _resolve_animus_path(path: str) -> Path:
@@ -19,12 +60,16 @@ def _resolve_animus_path(path: str) -> Path:
 
     Raises ValueError if the resolved path escapes the sandbox.
     """
-    resolved = (_ANIMUS_ROOT / path).resolve()
+    root = _require_animus_root()
+    relative = Path(path)
+    if relative.is_absolute():
+        raise ValueError(f"Path '{path}' must be relative to the Animus source root")
+    resolved = (root / relative).resolve()
     try:
-        resolved.relative_to(_ANIMUS_ROOT)
+        resolved.relative_to(root)
     except ValueError:
         raise ValueError(
-            f"Path '{path}' (resolved: {resolved}) escapes the animus root: {_ANIMUS_ROOT}"
+            f"Path '{path}' (resolved: {resolved}) escapes the animus root: {root}"
         ) from None
     return resolved
 
@@ -117,7 +162,8 @@ async def _code_patch(path: str, old: str, new: str, dry_run: bool = False) -> s
 async def _code_list(path: str = "", pattern: str = "*.py") -> str:
     """List files under a directory in the animus monorepo."""
     try:
-        resolved = _resolve_animus_path(path) if path else _ANIMUS_ROOT
+        root = _require_animus_root()
+        resolved = _resolve_animus_path(path or ".")
     except ValueError as exc:
         return f"Permission denied: {exc}"
 
@@ -132,7 +178,7 @@ async def _code_list(path: str = "", pattern: str = "*.py") -> str:
     lines = []
     for f in files[:100]:
         try:
-            rel = f.relative_to(_ANIMUS_ROOT)
+            rel = f.relative_to(root)
         except ValueError:
             continue
         lines.append(str(rel))
@@ -145,6 +191,9 @@ async def _code_list(path: str = "", pattern: str = "*.py") -> str:
 
 def get_code_edit_tools() -> list[ToolDefinition]:
     """Return self-modification tool definitions. All require approval."""
+    if _ANIMUS_ROOT is None:
+        logger.warning("Self-modification tools disabled: no validated Animus source root")
+        return []
     return [
         ToolDefinition(
             name="code_read",
