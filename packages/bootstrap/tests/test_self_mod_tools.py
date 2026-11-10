@@ -399,10 +399,16 @@ class TestForgeStop:
         mock_pkill.communicate.return_value = (b"", b"")
         mock_pkill.returncode = 0
 
-        with patch("asyncio.create_subprocess_exec", return_value=mock_systemd):
-            with patch("asyncio.create_subprocess_shell", return_value=mock_pkill):
-                result = await _forge_stop()
+        with patch(
+            "asyncio.create_subprocess_exec", side_effect=[mock_systemd, mock_pkill]
+        ) as mock_exec:
+            result = await _forge_stop()
         assert "killed" in result.lower()
+        assert mock_exec.await_args_list[1].args[:3] == (
+            "pkill",
+            "-f",
+            "uvicorn animus_forge",
+        )
 
 
 class TestForgeInvoke:

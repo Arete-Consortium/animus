@@ -1244,14 +1244,20 @@ class TestForgeStop:
         exec_proc.communicate = AsyncMock(return_value=(b"", b"error"))
         exec_proc.returncode = 1
 
-        shell_proc = MagicMock()
-        shell_proc.communicate = AsyncMock(return_value=(b"", b""))
-        shell_proc.returncode = 0
+        pkill_proc = MagicMock()
+        pkill_proc.communicate = AsyncMock(return_value=(b"", b""))
+        pkill_proc.returncode = 0
 
-        with patch("asyncio.create_subprocess_exec", return_value=exec_proc):
-            with patch("asyncio.create_subprocess_shell", return_value=shell_proc):
-                result = _run(_forge_stop())
+        with patch(
+            "asyncio.create_subprocess_exec", side_effect=[exec_proc, pkill_proc]
+        ) as mock_exec:
+            result = _run(_forge_stop())
         assert "killed" in result
+        assert mock_exec.await_args_list[1].args[:3] == (
+            "pkill",
+            "-f",
+            "uvicorn animus_forge",
+        )
 
     def test_forge_stop_nothing_to_stop(self) -> None:
         from animus_bootstrap.intelligence.tools.builtin.forge_ctl import _forge_stop
@@ -1260,21 +1266,22 @@ class TestForgeStop:
         exec_proc.communicate = AsyncMock(return_value=(b"", b"error"))
         exec_proc.returncode = 1
 
-        shell_proc = MagicMock()
-        shell_proc.communicate = AsyncMock(return_value=(b"", b""))
-        shell_proc.returncode = 1
+        pkill_proc = MagicMock()
+        pkill_proc.communicate = AsyncMock(return_value=(b"", b""))
+        pkill_proc.returncode = 1
 
-        with patch("asyncio.create_subprocess_exec", return_value=exec_proc):
-            with patch("asyncio.create_subprocess_shell", return_value=shell_proc):
-                result = _run(_forge_stop())
+        with patch("asyncio.create_subprocess_exec", side_effect=[exec_proc, pkill_proc]):
+            result = _run(_forge_stop())
         assert "No Forge process" in result
 
     def test_forge_stop_oserror(self) -> None:
         from animus_bootstrap.intelligence.tools.builtin.forge_ctl import _forge_stop
 
-        with patch("asyncio.create_subprocess_exec", side_effect=FileNotFoundError):
-            with patch("asyncio.create_subprocess_shell", side_effect=OSError("no pkill")):
-                result = _run(_forge_stop())
+        with patch(
+            "asyncio.create_subprocess_exec",
+            side_effect=[FileNotFoundError, OSError("no pkill")],
+        ):
+            result = _run(_forge_stop())
         assert "Error stopping Forge" in result
 
 

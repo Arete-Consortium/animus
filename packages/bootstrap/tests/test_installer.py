@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -927,6 +928,42 @@ class TestLinuxServiceGenerateUnit:
         assert "After=network-online.target" in unit
         assert "Wants=network-online.target" in unit
 
+    def test_integrity_precheck_can_be_omitted_for_bootstrap_only(self) -> None:
+        svc = LinuxService()
+        with_integrity = svc.generate_systemd_unit("/usr/bin/python3", "mod")
+        bootstrap_only = svc.generate_systemd_unit(
+            "/usr/bin/python3", "mod", verify_integrity=False
+        )
+        assert "ExecStartPre=/usr/bin/python3 -m animus.integrity.cli verify" in with_integrity
+        assert "ExecStartPre=" not in bootstrap_only
+
+    def test_pwa_environment_and_runtime_hardening(self) -> None:
+        svc = LinuxService()
+        unit = svc.generate_systemd_unit(
+            "/usr/bin/python3",
+            "mod",
+            pwa_dir="/opt/animus/pwa dist%stable",
+            verify_integrity=False,
+        )
+        assert 'Environment="ANIMUS_PWA_DIR=/opt/animus/pwa dist%%stable"' in unit
+        assert "WorkingDirectory=/" in unit
+        assert "NoNewPrivileges=true" in unit
+        assert "UMask=0077" in unit
+        assert "Environment=PYTHONNOUSERSITE=1" in unit
+
+    @pytest.mark.parametrize("pwa_dir", ["relative/pwa", "../pwa"])
+    def test_rejects_relative_pwa_directory(self, pwa_dir: str) -> None:
+        svc = LinuxService()
+        with pytest.raises(ValueError, match="absolute path"):
+            svc.generate_systemd_unit("/usr/bin/python3", "mod", pwa_dir=pwa_dir)
+
+    def test_rejects_newline_in_pwa_directory(self) -> None:
+        svc = LinuxService()
+        with pytest.raises(ValueError, match="newlines"):
+            svc.generate_systemd_unit(
+                "/usr/bin/python3", "mod", pwa_dir="/opt/animus/pwa\nEnvironment=BAD=1"
+            )
+
 
 class TestLinuxServiceInstallUnit:
     """LinuxService.install_unit writes the unit file and reloads systemd."""
@@ -953,6 +990,39 @@ class TestLinuxServiceInstallUnit:
 
         svc = LinuxService()
         assert svc.install_unit() is False
+
+    @patch("animus_bootstrap.daemon.platforms.linux._UNIT_FILE")
+    @patch("animus_bootstrap.daemon.platforms.linux._UNIT_DIR")
+    def test_missing_pwa_directory_fails_closed(
+        self, mock_dir: MagicMock, mock_file: MagicMock
+    ) -> None:
+        svc = LinuxService()
+        assert svc.install_unit(pwa_dir="/definitely/missing/animus-pwa") is False
+        mock_dir.mkdir.assert_not_called()
+        mock_file.write_text.assert_not_called()
+
+    @patch("animus_bootstrap.daemon.platforms.linux._integrity_cli_available", return_value=False)
+    @patch("animus_bootstrap.daemon.platforms.linux.subprocess.run")
+    @patch("animus_bootstrap.daemon.platforms.linux._UNIT_FILE")
+    @patch("animus_bootstrap.daemon.platforms.linux._UNIT_DIR")
+    def test_bootstrap_only_install_writes_pwa_path_without_integrity_precheck(
+        self,
+        mock_dir: MagicMock,
+        mock_file: MagicMock,
+        mock_run: MagicMock,
+        _mock_integrity: MagicMock,
+        tmp_path: Path,
+    ) -> None:
+        pwa_dir = tmp_path / "pwa"
+        pwa_dir.mkdir()
+        mock_run.return_value = MagicMock(returncode=0)
+
+        svc = LinuxService()
+        assert svc.install_unit(pwa_dir=str(pwa_dir)) is True
+
+        unit = mock_file.write_text.call_args.args[0]
+        assert f'Environment="ANIMUS_PWA_DIR={pwa_dir}"' in unit
+        assert "ExecStartPre=" not in unit
 
     @patch("animus_bootstrap.daemon.platforms.linux.subprocess.run")
     @patch("animus_bootstrap.daemon.platforms.linux._UNIT_FILE")

@@ -120,8 +120,10 @@ async def _forge_stop() -> str:
 
     # Fallback: kill the uvicorn process
     try:
-        proc = await asyncio.create_subprocess_shell(
-            "pkill -f 'uvicorn animus_forge'",
+        proc = await asyncio.create_subprocess_exec(
+            "pkill",
+            "-f",
+            "uvicorn animus_forge",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
