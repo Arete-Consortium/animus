@@ -160,8 +160,9 @@ class ServicesSection(BaseModel):
     # Optional TLS termination directly in uvicorn. Point these at the files
     # produced by ``tailscale cert <machine>.<tailnet>.ts.net``. When both are
     # set the dashboard serves HTTPS (required for the PWA service worker and
-    # Web Push secure context) while preserving real remote client IPs so the
-    # bearer token stays enforceable (unlike a loopback reverse proxy).
+    # Web Push secure context). A loopback reverse proxy is also supported,
+    # but it requires ``auth_required = "always"`` so proxy traffic cannot
+    # inherit the normal local-client exemption.
     tls_cert: str = ""
     tls_key: str = ""
     # Web Push (VAPID) keys for proactive push notifications to the PWA.

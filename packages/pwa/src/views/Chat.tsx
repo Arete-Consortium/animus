@@ -18,6 +18,7 @@ export function ChatView() {
   const [connected, setConnected] = useState(false);
   const [sending, setSending] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [checkpointAvailable, setCheckpointAvailable] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<ReturnType<typeof connectChat> | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -84,7 +85,13 @@ export function ChatView() {
     let cancelled = false;
     loadCheckpoint()
       .then((cp) => {
-        if (cancelled || !cp || cp.messages.length === 0) return;
+        if (cancelled) return;
+        if (cp === null || cp.available === false) {
+          setCheckpointAvailable(false);
+          return;
+        }
+        setCheckpointAvailable(true);
+        if (cp.messages.length === 0) return;
         setMessages((prev) => {
           if (prev.length > 0) return prev; // history already loaded
           return cp.messages.map((m, idx) => ({
@@ -105,7 +112,7 @@ export function ChatView() {
 
   // Auto-save checkpoint debounced whenever messages change.
   useEffect(() => {
-    if (messages.length === 0) return;
+    if (!checkpointAvailable || messages.length === 0) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       const payload = {
@@ -126,7 +133,7 @@ export function ChatView() {
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
-  }, [messages]);
+  }, [checkpointAvailable, messages]);
 
   useEffect(() => {
     let reconnectTimer: ReturnType<typeof setTimeout>;

@@ -2,8 +2,10 @@
 
 A remote (non-local) client must present a valid bearer token for EVERY
 route except a small public allowlist (static assets + the bare liveness
-probe). Local clients (loopback) are exempt, keeping the on-box HTMX
-dashboard frictionless.
+probe). Local clients (loopback) are exempt in ``auto`` mode, keeping the
+on-box HTMX dashboard frictionless. ``always`` mode also authenticates
+loopback requests so reverse proxies and SSH tunnels cannot inherit trust
+merely because their upstream connection originates on loopback.
 
 This is default-DENY by client locality, NOT an allowlist of "/api" paths.
 The earlier design gated only the ``/api`` prefix, which left the most
@@ -47,7 +49,7 @@ def _is_public(path: str) -> bool:
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
-    """Require a bearer token from non-local clients for all non-public routes."""
+    """Require bearer auth according to mode for every non-public route."""
 
     async def dispatch(
         self,
@@ -58,7 +60,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if (
             config is not None
             and auth_required_for(config)
-            and not is_local_client(request)
+            and (
+                config.services.auth_required == "always"
+                or not is_local_client(request)
+            )
             and not _is_public(request.url.path)
         ):
             header = request.headers.get("Authorization")

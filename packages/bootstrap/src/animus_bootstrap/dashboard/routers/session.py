@@ -50,15 +50,20 @@ async def get_checkpoint(request: Request) -> JSONResponse:
     """
     facade = _checkpoint_facade()
     if facade is None:
-        return JSONResponse(content={"messages": [], "summary": "", "turns": 0})
+        return JSONResponse(
+            content={"available": False, "messages": [], "summary": "", "turns": 0}
+        )
 
     recent = facade.list_recent(limit=1)
     if not recent:
-        return JSONResponse(content={"messages": [], "summary": "", "turns": 0})
+        return JSONResponse(
+            content={"available": True, "messages": [], "summary": "", "turns": 0}
+        )
 
     cp = recent[0]
     return JSONResponse(
         content={
+            "available": True,
             "session_id": cp.session_id,
             "messages": cp.messages,
             "summary": cp.summary,

@@ -3,8 +3,8 @@
 **Project**: Animus — Personal AI exocortex / Mind-class system
 **Classification**: Flagship
 **Version**: 2.3.0 (core), mixed across packages (see [Build Truth](#build-truth))
-**Last updated**: 2026-06-29
-**Next review**: 2026-07-27
+**Last updated**: 2026-11-11
+**Next review**: After the Stheno integration blockers below are resolved
 
 ---
 
@@ -12,17 +12,46 @@
 
 > ⚠️ **The previous roadmap overstated completion. This version is grounded in filesystem reality.**
 
-| Package | Version | Source Files | Tests | Runtime Status |
+### Stheno operational qualification (2026-11-11)
+
+Source presence and historical tests are not proof that a package is installed
+in the active runtime. The current Stheno deployment is deliberately split:
+
+| Capability | Current operational evidence | Qualification |
+|---|---|---|
+| Bootstrap web/API | `animus.service` runs Bootstrap 0.8.0 from release `62e51043a5676ebcd9cff1654836f76f1545952d` on `127.0.0.1:7700` | Verified locally |
+| PWA chat | Built PWA loads, persisted history renders, and an Ollama-backed browser round trip returned the requested exact marker | Verified locally; remote auth not qualified |
+| Core CLI | A separate Core 2.3.0 environment supplies `~/.local/bin/animus` | Verified split runtime; not integrated with Bootstrap |
+| Forge, Kernel, Quorum | Present in the monorepo but absent from the active Bootstrap and Core environments | Source only, not deployed |
+| Ollama | Local server is healthy with installed models; `qwen3.8:27b` completed an Animus response | Verified local inference |
+| Forgehand + Governor | Independently installed editable 0.1.0 runtimes exist, but recent persisted runs fail status reconstruction because their contracts contain fields rejected by the installed schema | **HOLD** for delegation |
+| MCP Manager | Repository exists, but its virtualenv launcher fails with `ModuleNotFoundError: mcp_manager` | Broken deployment |
+| Mobile access | The responsive PWA layout works at a phone viewport. Tailscale currently serves another local service, not Animus. | Layout verified; real phone access unverified |
+
+Current security blocker: Bootstrap bound to loopback with
+`services.auth_required = "auto"` does not enforce bearer auth. A loopback SSH
+tunnel therefore admitted an intentionally invalid token and exposed persisted
+history. Candidate code now makes `"always"` enforce auth even for loopback
+proxy traffic, but the candidate is not deployed and Stheno configuration has
+not been changed.
+
+Current continuity blocker: conversation history persists in Bootstrap, but the
+PWA's Kernel checkpoint endpoint is unavailable because Kernel is not installed
+in the active Bootstrap environment. The candidate PWA now detects that state
+and stops retrying failed checkpoint writes; this is honest degradation, not a
+claim that Kernel resume is operational.
+
+| Package | Version | Source Files | Historical Tests | Active Stheno Status |
 |---|---|---|---|---|
-| `core` | 2.3.0 | 94 Python | 2,832 | CLI + memory + dashboard operational |
-| `forge` | 1.9.0 | 352 Python | 10,431 | Workflow orchestration operational |
-| `bootstrap` | 0.8.0 | 136 Python | 1,874 | Daemon + onboarding + dashboard operational |
-| `kernel` | 0.1.0 | 189 Python | 107 | Extracted from Forge, durable core wired |
-| `quorum` | 1.2.0 (animus-quorum) | 14 Rust + 10 Python | 961 | Rust core + Python bindings, active |
-| `types` | 0.1.0 | 4 Python | 67 | Minimal but functional |
-| `pwa` | — | 19 TypeScript | 0 | Frontend scaffolded, wiring TBD |
-| `contracts` | — | 20 JSON schemas | 0 | Pure JSON, no runtime validation |
-| `database` | — | 1 Python + 1 SQL migration | 4 | Migration syntax tests (no DB required) |
+| `core` | 2.3.0 | 94 Python | 2,832 | Separate legacy CLI environment |
+| `forge` | 1.9.0 | 352 Python | 10,431 | Not installed in active runtimes |
+| `bootstrap` | 0.8.0 | 136 Python | 1,874 | Active web/chat runtime |
+| `kernel` | 0.1.0 | 189 Python | 107 | Not installed; PWA checkpoints unavailable |
+| `quorum` | 1.2.0 (animus-quorum) | 14 Rust + 10 Python | 961 | Not installed in active runtimes |
+| `types` | 0.1.0 | 4 Python | 67 | Source present; runtime use unverified |
+| `pwa` | 0.1.0 | 19 TypeScript | 25 historically | Deployed locally; remote access blocked |
+| `contracts` | — | 20 JSON schemas | 0 | Source present; no active-runtime proof |
+| `database` | — | 1 Python + 1 SQL migration | 4 | Source present; active use unverified |
 
 **Version alignment**: ⚠️ Documented mismatch. Core 2.3.0, Forge 1.9.0, Bootstrap 0.8.0, others 0.1.0–1.2.0. See `COMPATIBILITY_MATRIX.md` for dependency graph and compatibility ranges. Unified versioning deferred to Phase 2.
 
@@ -115,11 +144,12 @@
 
 ## Prioritized Next Actions (Post-Phase 0)
 
-1. **Schema validation layer** — JSON Schema → Pydantic gate in CI for `packages/contracts/`
-2. **Kernel durable core wiring** — connect `packages/kernel/` memory backends to `database/` registry/ledger
-3. **Traceability linter** — requirement-to-test mapping from ADRs to test modules
-4. **Evidence bundle release** — generate first official bundle in `evidence/releases/`
-5. **Quorum naming alignment** — document or rename `convergentAI` → `animus-quorum`
+1. **Close the proxy-auth gap** — qualify the candidate `always`-mode fix, then explicitly approve and apply the protected Stheno configuration change.
+2. **Restore Forgehand run compatibility** — qualify one exact Forgehand/Governor version pair that can reconstruct current persisted contracts before enabling submission from Animus.
+3. **Add the smallest read-only Forgehand adapter** — status and evidence first; submission remains disabled until the runtime compatibility gate passes.
+4. **Repair MCP Manager deployment** — rebuild its isolated environment from the pinned project only after installation approval.
+5. **Expose Animus through an authenticated Tailscale path** — preserve loopback binding and SSH recovery; do not replace the existing Tailscale Serve target without approval.
+6. **Qualify interruption/resume** — distinguish Bootstrap conversation history from Kernel checkpoints and Forgehand run recovery.
 
 ---
 

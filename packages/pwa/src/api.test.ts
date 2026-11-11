@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   getHealth,
+  getCitizensSummary,
+  getCitizenProposals,
   sendMessage,
   connectChat,
   getHistory,
@@ -91,6 +93,18 @@ describe("api", () => {
         expect.stringContaining("/conversations/history?limit=10"),
         expect.anything()
       );
+    });
+  });
+
+  describe("citizens", () => {
+    it("uses the single configured /api base path", async () => {
+      mockJsonResponse({ core_available: false });
+      await getCitizensSummary();
+      expect(fetchSpy.mock.calls[0]?.[0]).toBe("/api/citizens/summary");
+
+      mockJsonResponse([]);
+      await getCitizenProposals("draft");
+      expect(fetchSpy.mock.calls[1]?.[0]).toBe("/api/citizens/proposals?status=draft");
     });
   });
 

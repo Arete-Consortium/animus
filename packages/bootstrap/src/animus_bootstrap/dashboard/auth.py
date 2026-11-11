@@ -3,8 +3,8 @@
 The dashboard is dual-natured: it serves HTMX pages to a local browser *and*
 a JSON/WebSocket API consumed by the remote PWA (over a Tailscale tunnel).
 These helpers implement a single shared bearer token — auto-generated on first
-run and stored in the chmod-600 config file — that protects only the PWA
-surface while leaving the local HTMX dashboard frictionless.
+run and stored in the chmod-600 config file — that protects the non-public
+dashboard/API surface whenever remote auth is active.
 """
 
 from __future__ import annotations

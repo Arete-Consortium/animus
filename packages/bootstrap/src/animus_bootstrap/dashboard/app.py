@@ -262,13 +262,14 @@ async def websocket_chat(websocket: WebSocket) -> None:
     """WebSocket endpoint for the browser-based WebChat channel.
 
     When remote auth is active, a valid ``?token=`` query param is required
-    from non-local clients; the handshake is rejected before acceptance.
+    from non-local clients. In ``always`` mode it is also required from
+    loopback clients so a reverse proxy or SSH tunnel cannot bypass auth.
     """
     config = getattr(websocket.app.state, "config", None)
     if config is not None and auth_required_for(config):
         client = websocket.client
         is_local = client is not None and client.host in ("127.0.0.1", "localhost", "::1")
-        if not is_local:
+        if config.services.auth_required == "always" or not is_local:
             token = websocket.query_params.get("token")
             if not verify_ws_token(token, config.services.auth_token):
                 await websocket.close(code=1008)

@@ -130,10 +130,24 @@ class TestHttpAuthMiddleware:
         resp = client.get("/api/health", headers={"Authorization": "Bearer t0ken"})
         assert resp.status_code == 200
 
-    def test_local_client_bypasses_auth(self, restore_config: None) -> None:
-        app.state.config = _config(host="0.0.0.0", required="always", token="t0ken")
+    def test_local_client_bypasses_auth_in_auto_mode(self, restore_config: None) -> None:
+        app.state.config = _config(host="0.0.0.0", required="auto", token="t0ken")
         client = TestClient(app, client=("127.0.0.1", 12345))
         assert client.get("/api/health").status_code == 200
+
+    def test_always_mode_rejects_local_client_without_token(self, restore_config: None) -> None:
+        app.state.config = _config(host="127.0.0.1", required="always", token="t0ken")
+        client = TestClient(app, client=("127.0.0.1", 12345))
+        assert client.get("/api/health").status_code == 401
+
+    def test_always_mode_accepts_local_client_with_token(self, restore_config: None) -> None:
+        app.state.config = _config(host="127.0.0.1", required="always", token="t0ken")
+        client = TestClient(app, client=("127.0.0.1", 12345))
+        response = client.get(
+            "/api/health",
+            headers={"Authorization": "Bearer t0ken"},
+        )
+        assert response.status_code == 200
 
     def test_htmx_page_blocked_for_remote_without_token(self, restore_config: None) -> None:
         # C92: the HTMX dashboard (bare paths) must NOT be reachable by a remote
@@ -208,6 +222,21 @@ class TestWebSocketAuth:
         app.state.config = _config(host="127.0.0.1", required="auto")  # auth off
         client = TestClient(app)
         with client.websocket_connect("/ws/chat") as ws:
+            ws.close()
+
+    def test_ws_always_mode_rejects_loopback_without_token(self, restore_config: None) -> None:
+        from starlette.websockets import WebSocketDisconnect
+
+        app.state.config = _config(host="127.0.0.1", required="always", token="t0ken")
+        client = TestClient(app, client=("127.0.0.1", 12345))
+        with pytest.raises(WebSocketDisconnect):
+            with client.websocket_connect("/ws/chat"):
+                pass
+
+    def test_ws_always_mode_accepts_loopback_with_token(self, restore_config: None) -> None:
+        app.state.config = _config(host="127.0.0.1", required="always", token="t0ken")
+        client = TestClient(app, client=("127.0.0.1", 12345))
+        with client.websocket_connect("/ws/chat?token=t0ken") as ws:
             ws.close()
 
 

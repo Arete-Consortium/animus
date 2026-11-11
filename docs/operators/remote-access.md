@@ -36,40 +36,37 @@ Push. A bare `100.x` tailnet IP over plain HTTP will **not** work — the servic
 worker and notifications silently fail. Use a real certificate from
 `tailscale cert`.
 
-### Recommended: terminate TLS in the dashboard (preserves real client IPs)
+### Recommended: Tailscale Serve to the loopback-only dashboard
 
 ```bash
-# Generate a cert for your machine's MagicDNS name
-sudo tailscale cert mybox.tailnet-name.ts.net
+# Keep Animus private on the host and publish it only to the tailnet.
+tailscale serve --bg https / http://127.0.0.1:7700
 ```
 
-Then point the dashboard at it and bind to the tailnet so remote clients keep
-their real IPs (which is what makes the bearer token enforceable):
+Keep the dashboard bound to loopback and require the token even from loopback
+proxy traffic:
 
 ```toml
 # ~/.config/animus/config.toml
 [services]
-host = "0.0.0.0"                 # reachable over the tailnet
-auth_required = "always"         # enforce the bearer token
-tls_cert = "/path/to/mybox.tailnet-name.ts.net.crt"
-tls_key  = "/path/to/mybox.tailnet-name.ts.net.key"
+host = "127.0.0.1"
+auth_required = "always"
 ```
 
-> **Why not `tailscale serve`?** `tailscale serve https / http://127.0.0.1:7700`
-> is simpler and also gives a valid `*.ts.net` cert, but it proxies from
-> loopback — every request then appears local, so the bearer token cannot be
-> enforced and you rely entirely on Tailscale ACLs. Use it only if you accept
-> Tailscale as your sole auth boundary.
+`"always"` is essential for this topology: Tailscale Serve and SSH tunnels
+connect to the upstream from loopback. `"auto"` intentionally trusts loopback
+and therefore cannot distinguish those proxies from an on-box browser.
 
 Restart the dashboard. On first run with `auth_required` active it generates a
-token and logs it once:
+token in the chmod-600 config file. The full token is never logged. Retrieve it
+directly from the protected config on Stheno and paste it into the PWA; do not
+copy it through chat or shell-history-bearing commands.
 
-```
-Generated Animus remote-access token (store it on your phone to log in): <TOKEN>
-```
+To rotate it, clear `services.auth_token` in the protected config and restart.
 
-Copy that token. To rotate it, clear `services.auth_token` in the config and
-restart.
+Direct TLS termination in Uvicorn remains available for environments that need
+it, but binding `0.0.0.0` widens the network surface and requires an independently
+verified firewall/ACL policy. It is not the default personal-Stheno topology.
 
 ## 3. Build and serve the PWA
 
@@ -106,10 +103,16 @@ unknown routes). Any static server behind the same Tailscale HTTPS name works.
 ## Security notes
 
 - `auth_required = "auto"` (default) enforces the token only when bound to a
-  non-local host; `"always"` enforces everywhere; `"never"` disables it.
-- The local HTMX dashboard (bare paths) is never token-gated; only the PWA
-  surface (`/api/*`, `/ws/chat`) is.
+  non-local host; `"always"` enforces it for loopback, proxied, and remote
+  requests; `"never"` disables it.
+- With auth active, every non-public dashboard/API route is token-gated. The
+  public allowlist is limited to the PWA shell/static assets and bare liveness
+  probe.
 - The config file is stored `chmod 600` — it holds the token and VAPID private
   key.
 - Tailscale ACLs remain your first line of defense: only enroll devices you
   trust.
+- The current browser client stores the bearer token in Web Storage and passes
+  it in the WebSocket handshake URL. Treat XSS, browser extensions, URL logging,
+  and exported browser profiles as token-compromise paths; rotate after any
+  suspected exposure. A short-lived WebSocket ticket is a future hardening item.
