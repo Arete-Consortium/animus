@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import logging
 import os
+import stat
 import subprocess
 from pathlib import Path
 
@@ -79,8 +80,33 @@ class LinuxService:
                 "RestartSec=5",
                 "NoNewPrivileges=true",
                 "UMask=0077",
+                # Keep the daemon inside a user-service-compatible sandbox.
+                # Capability/device restrictions are intentionally omitted:
+                # unprivileged systemd user managers can fail those units at
+                # step CAPABILITIES instead of safely degrading them.
+                "PrivateTmp=true",
+                "ProtectSystem=strict",
+                "ProtectHome=read-only",
+                "ReadWritePaths=%h/.config/animus",
+                "ReadWritePaths=%h/.local/share/animus",
+                "InaccessiblePaths=-%h/.ssh",
+                "InaccessiblePaths=-%h/.gnupg",
+                "InaccessiblePaths=-%h/.aws",
+                "InaccessiblePaths=-%h/.config/gcloud",
+                "RestrictNamespaces=true",
+                "RestrictRealtime=true",
+                "RestrictSUIDSGID=true",
+                "LockPersonality=true",
+                "MemoryDenyWriteExecute=true",
+                "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6",
+                "SystemCallArchitectures=native",
+                "KeyringMode=private",
+                "RemoveIPC=true",
+                "ProtectProc=invisible",
+                "ProcSubset=pid",
                 "Environment=PYTHONUNBUFFERED=1",
                 "Environment=PYTHONNOUSERSITE=1",
+                "Environment=PYTHONDONTWRITEBYTECODE=1",
             ]
         )
         if pwa_dir is not None:
@@ -125,6 +151,7 @@ class LinuxService:
         try:
             _UNIT_DIR.mkdir(parents=True, exist_ok=True)
             _UNIT_FILE.write_text(content)
+            _UNIT_FILE.chmod(stat.S_IRUSR | stat.S_IWUSR)
             logger.info("Installed unit file: %s", _UNIT_FILE)
         except OSError as exc:
             logger.error("Failed to write unit file: %s", exc)

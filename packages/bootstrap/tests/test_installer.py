@@ -950,6 +950,18 @@ class TestLinuxServiceGenerateUnit:
         assert "NoNewPrivileges=true" in unit
         assert "UMask=0077" in unit
         assert "Environment=PYTHONNOUSERSITE=1" in unit
+        assert "Environment=PYTHONDONTWRITEBYTECODE=1" in unit
+        assert "PrivateTmp=true" in unit
+        assert "ProtectSystem=strict" in unit
+        assert "ProtectHome=read-only" in unit
+        assert "ReadWritePaths=%h/.config/animus" in unit
+        assert "ReadWritePaths=%h/.local/share/animus" in unit
+        assert "InaccessiblePaths=-%h/.ssh" in unit
+        assert "RestrictNamespaces=true" in unit
+        assert "RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6" in unit
+        assert "ProtectProc=invisible" in unit
+        assert "ProcSubset=pid" in unit
+        assert "MemoryDenyWriteExecute=true" in unit
 
     @pytest.mark.parametrize("pwa_dir", ["relative/pwa", "../pwa"])
     def test_rejects_relative_pwa_directory(self, pwa_dir: str) -> None:
@@ -980,6 +992,7 @@ class TestLinuxServiceInstallUnit:
         assert svc.install_unit() is True
         mock_dir.mkdir.assert_called_once_with(parents=True, exist_ok=True)
         mock_file.write_text.assert_called_once()
+        mock_file.chmod.assert_called_once_with(0o600)
         mock_run.assert_called_once()
 
     @patch("animus_bootstrap.daemon.platforms.linux._UNIT_FILE")
