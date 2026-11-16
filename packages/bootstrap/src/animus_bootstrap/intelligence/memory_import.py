@@ -89,7 +89,9 @@ async def import_candidates(
         results: list[ImportResult] = []
         for candidate in candidates:
             if candidate.fingerprint in seen:
-                results.append(ImportResult(candidate.source_name, candidate.fingerprint, "duplicate"))
+                results.append(
+                    ImportResult(candidate.source_name, candidate.fingerprint, "duplicate")
+                )
                 continue
             seen.add(candidate.fingerprint)
             existing = (
@@ -99,17 +101,25 @@ async def import_candidates(
             )
             if existing is not None:
                 results.append(
-                    ImportResult(candidate.source_name, candidate.fingerprint, "duplicate", existing["id"])
+                    ImportResult(
+                        candidate.source_name, candidate.fingerprint, "duplicate", existing["id"]
+                    )
                 )
                 continue
             if apply:
                 assert backend is not None
-                memory_id = await backend.store(candidate.memory_type, candidate.content, candidate.metadata)
+                memory_id = await backend.store(
+                    candidate.memory_type, candidate.content, candidate.metadata
+                )
                 results.append(
-                    ImportResult(candidate.source_name, candidate.fingerprint, "imported", memory_id)
+                    ImportResult(
+                        candidate.source_name, candidate.fingerprint, "imported", memory_id
+                    )
                 )
             else:
-                results.append(ImportResult(candidate.source_name, candidate.fingerprint, "planned"))
+                results.append(
+                    ImportResult(candidate.source_name, candidate.fingerprint, "planned")
+                )
         return results
     finally:
         if backend is not None:
