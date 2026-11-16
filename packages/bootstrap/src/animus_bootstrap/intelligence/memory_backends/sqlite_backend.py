@@ -92,6 +92,10 @@ class SQLiteMemoryBackend:
         """Fetch a single memory by ID. Returns None if not found."""
         return await asyncio.to_thread(self._get_by_id_sync, memory_id)
 
+    async def find_exact(self, memory_type: str, content: str) -> dict | None:
+        """Find an exact type/content duplicate without relying on FTS tokenization."""
+        return await asyncio.to_thread(self._find_exact_sync, memory_type, content)
+
     async def delete(self, memory_id: str) -> bool:
         """Delete a memory by ID."""
         return await asyncio.to_thread(self._delete_sync, memory_id)
@@ -187,6 +191,16 @@ class SQLiteMemoryBackend:
         cur.execute(
             "SELECT id, type, content, metadata, created_at, updated_at FROM memories WHERE id = ?",
             (memory_id,),
+        )
+        row = cur.fetchone()
+        return self._row_to_dict(row) if row else None
+
+    def _find_exact_sync(self, memory_type: str, content: str) -> dict | None:
+        cur = self._conn.cursor()
+        cur.execute(
+            "SELECT id, type, content, metadata, created_at, updated_at "
+            "FROM memories WHERE type = ? AND content = ? ORDER BY updated_at LIMIT 1",
+            (memory_type, content),
         )
         row = cur.fetchone()
         return self._row_to_dict(row) if row else None
