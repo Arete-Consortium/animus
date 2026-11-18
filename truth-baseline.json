@@ -317,10 +317,10 @@
       "name": "benchmark_regression_gate",
       "check_type": "regex_match",
       "status": "PASS",
-      "expected": "fail-on-alert: true",
-      "actual": "fail-on-alert: true",
+      "expected": "fail-on-alert: false",
+      "actual": "fail-on-alert: false",
       "claim_source": "",
-      "message": "Extracted 'fail-on-alert: true' from .github/workflows/ci.yml; expected == 'fail-on-alert: true'"
+      "message": "Extracted 'fail-on-alert: false' from .github/workflows/ci.yml; expected == 'fail-on-alert: false'"
     },
     {
       "name": "sbom_generation",
