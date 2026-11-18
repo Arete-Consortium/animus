@@ -42,7 +42,11 @@ class AnimusMemoryBackend:
 
         self._data_dir = Path(data_dir)
         self._data_dir.mkdir(parents=True, exist_ok=True)
-        self._core = MemoryLayer(data_dir=self._data_dir, backend="auto")
+        # Core 2.3 removed the ambiguous ``auto`` backend.  Bootstrap selects
+        # this adapter only when the operator explicitly chooses the Animus
+        # backend, so use Core's local store here; durable storage needs a
+        # separately configured database and migration gate.
+        self._core = MemoryLayer(data_dir=self._data_dir, backend="local")
         logger.info("AnimusMemoryBackend initialized at %s", self._data_dir)
 
     # ------------------------------------------------------------------

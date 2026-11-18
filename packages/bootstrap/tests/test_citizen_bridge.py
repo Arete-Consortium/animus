@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import sys
+import types
+from pathlib import Path
 from unittest.mock import MagicMock
 
 from animus_bootstrap.intelligence.citizen_bridge import (
@@ -30,6 +33,7 @@ def test_bridge_degrades_without_core() -> None:
 def test_bridge_degraded_statuses() -> None:
     """Without core, all citizens report 'unavailable' state."""
     bridge = CitizenBridge()
+    bridge._core_available = False
     statuses = bridge.get_citizen_statuses()
     assert len(statuses) == 5
     for s in statuses:
@@ -41,6 +45,7 @@ def test_bridge_degraded_statuses() -> None:
 def test_bridge_summary_degraded() -> None:
     """Summary returns zeros when core is unavailable."""
     bridge = CitizenBridge()
+    bridge._core_available = False
     summary = bridge.summary()
     assert summary["core_available"] is False
     assert summary["proposals_total"] == 0
@@ -121,3 +126,25 @@ def test_bridge_with_mock_runtime() -> None:
     bridge._core_available = True
     discovered = bridge._get_core_memory()
     assert discovered is core
+
+
+def test_bridge_direct_core_discovery_uses_local_backend(tmp_path: Path, monkeypatch) -> None:
+    """Direct Core discovery remains compatible with Core 2.3."""
+    data_dir = tmp_path / ".local" / "share" / "animus" / "animus_memory"
+    data_dir.mkdir(parents=True)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    core = MagicMock()
+    memory_layer = MagicMock(return_value=core)
+    fake_memory = types.ModuleType("animus.memory")
+    fake_memory.MemoryLayer = memory_layer
+    fake_animus = types.ModuleType("animus")
+    fake_animus.memory = fake_memory
+    monkeypatch.setitem(sys.modules, "animus", fake_animus)
+    monkeypatch.setitem(sys.modules, "animus.memory", fake_memory)
+
+    bridge = CitizenBridge()
+    bridge._core_available = True
+    assert bridge._get_core_memory() is core
+
+    memory_layer.assert_called_once_with(data_dir=data_dir, backend="local")

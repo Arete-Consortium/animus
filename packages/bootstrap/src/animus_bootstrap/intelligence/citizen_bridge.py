@@ -146,7 +146,10 @@ class CitizenBridge:
 
             data_dir = Path.home() / ".local" / "share" / "animus" / "animus_memory"
             if data_dir.is_dir():
-                self._core_memory = MemoryLayer(data_dir=data_dir, backend="auto")
+                # Core 2.3 removed the ambiguous ``auto`` backend.  This path is
+                # only used for an explicitly present local Animus data store;
+                # durable storage must be selected and migrated separately.
+                self._core_memory = MemoryLayer(data_dir=data_dir, backend="local")
                 return self._core_memory
         except Exception:
             pass
