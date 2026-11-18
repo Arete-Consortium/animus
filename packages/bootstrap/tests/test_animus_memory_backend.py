@@ -180,9 +180,7 @@ class TestGetById:
         assert result["id"] == mem_id
         assert result["content"] == "lookup content"
 
-    def test_get_by_id_returns_none_for_missing_memory(
-        self, backend: AnimusMemoryBackend
-    ) -> None:
+    def test_get_by_id_returns_none_for_missing_memory(self, backend: AnimusMemoryBackend) -> None:
         assert asyncio.run(backend.get_by_id("missing-memory-id")) is None
 
 
