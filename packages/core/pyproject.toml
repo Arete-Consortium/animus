@@ -102,6 +102,9 @@ Documentation = "https://github.com/AreteDriver/animus#readme"
 where = ["."]
 include = ["animus*"]
 
+[tool.setuptools.package-data]
+animus = ["redteam/systemd/*.service", "redteam/systemd/*.timer"]
+
 [tool.ruff]
 target-version = "py310"
 line-length = 100
