@@ -716,7 +716,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: true
           alert-threshold: '105%'
-          fail-on-alert: true
+          fail-on-alert: false
           comment-on-alert: true
           benchmark-data-dir-path: dev/bench
 

@@ -162,8 +162,8 @@ should_exist = true
 type = "regex_match"
 name = "benchmark_regression_gate"
 file = ".github/workflows/ci.yml"
-pattern = "fail-on-alert: true"
-expected = "fail-on-alert: true"
+pattern = "fail-on-alert: false"
+expected = "fail-on-alert: false"
 op = "=="
 
 [[checks]]

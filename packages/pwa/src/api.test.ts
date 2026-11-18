@@ -212,7 +212,8 @@ describe("api", () => {
 
       await expect(getHealth()).rejects.toThrow("Authentication required");
       expect(dispatchSpy).toHaveBeenCalledWith(expect.any(Event));
-      expect(dispatchSpy.mock.calls[0]![0].type).toBe("animus:unauthorized");
+      const dispatchedEvent = dispatchSpy.mock.calls[0]?.[0];
+      expect(dispatchedEvent?.type).toBe("animus:unauthorized");
       dispatchSpy.mockRestore();
     });
 
@@ -261,8 +262,9 @@ describe("api", () => {
         onmessage: null as unknown as ((e: { data: string }) => void) | null,
       };
       const OriginalWebSocket = globalThis.WebSocket;
-      globalThis.WebSocket = function () { return mockWs; } as unknown as typeof WebSocket;
-      Object.defineProperty(globalThis.WebSocket, "OPEN", { value: 1, configurable: true });
+      const mockWebSocket = function () { return mockWs; } as unknown as typeof WebSocket & { OPEN: number };
+      mockWebSocket.OPEN = 1;
+      globalThis.WebSocket = mockWebSocket;
 
       const onMsg = vi.fn();
       const chat = connectChat(onMsg);
