@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import sys
+import types
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from animus_bootstrap.intelligence.citizen_bridge import (
     CitizenBridge,
@@ -133,9 +135,16 @@ def test_bridge_direct_core_discovery_uses_local_backend(tmp_path: Path, monkeyp
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
     core = MagicMock()
-    with patch("animus.memory.MemoryLayer", return_value=core) as memory_layer:
-        bridge = CitizenBridge()
-        bridge._core_available = True
-        assert bridge._get_core_memory() is core
+    memory_layer = MagicMock(return_value=core)
+    fake_memory = types.ModuleType("animus.memory")
+    fake_memory.MemoryLayer = memory_layer
+    fake_animus = types.ModuleType("animus")
+    fake_animus.memory = fake_memory
+    monkeypatch.setitem(sys.modules, "animus", fake_animus)
+    monkeypatch.setitem(sys.modules, "animus.memory", fake_memory)
+
+    bridge = CitizenBridge()
+    bridge._core_available = True
+    assert bridge._get_core_memory() is core
 
     memory_layer.assert_called_once_with(data_dir=data_dir, backend="local")
