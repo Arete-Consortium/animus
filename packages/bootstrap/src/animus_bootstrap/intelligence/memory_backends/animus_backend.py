@@ -162,7 +162,11 @@ class AnimusMemoryBackend:
 
     def _get_by_id_sync(self, memory_id: str) -> dict | None:
         try:
-            memory = self._core.store.get(memory_id)
+            # Core 2.3's local store exposes ``retrieve``; older compatible
+            # stores used ``get``.  Prefer the current API while retaining the
+            # small compatibility fallback for existing deployments.
+            retrieve = getattr(self._core.store, "retrieve", None)
+            memory = retrieve(memory_id) if retrieve is not None else self._core.store.get(memory_id)
         except (AttributeError, KeyError, ValueError):
             return None
         if memory is None:

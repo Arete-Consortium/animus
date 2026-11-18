@@ -166,6 +166,27 @@ class TestDelete:
 
 
 # ======================================================================
+# get_by_id()
+# ======================================================================
+
+
+class TestGetById:
+    def test_get_by_id_returns_stored_memory(self, backend: AnimusMemoryBackend) -> None:
+        mem_id = asyncio.run(backend.store("semantic", "lookup content", {}))
+
+        result = asyncio.run(backend.get_by_id(mem_id))
+
+        assert result is not None
+        assert result["id"] == mem_id
+        assert result["content"] == "lookup content"
+
+    def test_get_by_id_returns_none_for_missing_memory(
+        self, backend: AnimusMemoryBackend
+    ) -> None:
+        assert asyncio.run(backend.get_by_id("missing-memory-id")) is None
+
+
+# ======================================================================
 # get_stats()
 # ======================================================================
 

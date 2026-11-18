@@ -14,6 +14,8 @@ import {
   unsubscribePush,
   loadCheckpoint,
   saveCheckpoint,
+  getCitizensSummary,
+  getCitizenProposals,
   type HealthResponse,
   type Persona,
   type CheckpointPayload,
@@ -210,7 +212,7 @@ describe("api", () => {
 
       await expect(getHealth()).rejects.toThrow("Authentication required");
       expect(dispatchSpy).toHaveBeenCalledWith(expect.any(Event));
-      expect(dispatchSpy.mock.calls[0][0].type).toBe("animus:unauthorized");
+      expect(dispatchSpy.mock.calls[0]![0].type).toBe("animus:unauthorized");
       dispatchSpy.mockRestore();
     });
 
@@ -221,6 +223,30 @@ describe("api", () => {
       const call = fetchSpy.mock.calls[0];
       const headers = (call[1] as RequestInit).headers as Record<string, string>;
       expect(headers["Authorization"]).toBe("Bearer tk-abc");
+    });
+  });
+
+  describe("citizens", () => {
+    it("requests citizen summary under the configured API mount once", async () => {
+      mockJsonResponse({ citizens_total: 0, core_available: true });
+
+      await getCitizensSummary();
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "/api/citizens/summary",
+        expect.objectContaining({ headers: expect.any(Object) })
+      );
+    });
+
+    it("requests citizen proposals without duplicating the API mount", async () => {
+      mockJsonResponse([]);
+
+      await getCitizenProposals("pending_review");
+
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "/api/citizens/proposals?status=pending_review",
+        expect.objectContaining({ headers: expect.any(Object) })
+      );
     });
   });
 
@@ -235,9 +261,8 @@ describe("api", () => {
         onmessage: null as unknown as ((e: { data: string }) => void) | null,
       };
       const OriginalWebSocket = globalThis.WebSocket;
-      // @ts-expect-error - minimal mock constructor
       globalThis.WebSocket = function () { return mockWs; } as unknown as typeof WebSocket;
-      globalThis.WebSocket.OPEN = 1;
+      Object.defineProperty(globalThis.WebSocket, "OPEN", { value: 1, configurable: true });
 
       const onMsg = vi.fn();
       const chat = connectChat(onMsg);
