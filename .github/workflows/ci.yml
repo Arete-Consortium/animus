@@ -269,6 +269,9 @@ jobs:
         env:
           ANIMUS_SKIP_INTEGRATION_TESTS: "1"
 
+      - name: Test Hunter source review integration
+        run: python -m pytest integrations/hunter_review/tests/ -q --tb=short
+
   test-quorum:
     name: Test Quorum
     runs-on: ubuntu-latest

@@ -1,0 +1,35 @@
+id: omega_planetes
+name: Omega Planetes
+record_type: special_encounter
+game: monster_hunter_wilds
+status: verified
+verified_date: "2026-09-21"
+tags:
+  - monster
+  - special-encounter
+  - omega
+  - thunder
+sources:
+  - document: 02_Hunter_OS_v1_Monster_Field_Manual
+    section: OMEGA PLANETES
+  - document: 09_Hunter_OS_v1_Endgame_and_Progression
+    section: SPECIAL ENCOUNTER FLOW
+weakness:
+  primary: Thunder
+targets:
+  general:
+    - Head
+    - Legs
+  focus:
+    - Pantokrator wounds
+mechanics:
+  - Roles
+  - Enmity
+  - Shields
+  - Delta Attack
+capture_rule: Cannot capture.
+phase_notes: []
+timeline_complete: false
+notes:
+  - Keep Omega Planetes separate from Savage Omega.
+  - This record is a verified quick reference; a complete phase timeline remains a separate deliverable.
