@@ -78,8 +78,10 @@ npm run build      # outputs dist/
 
 Set `ANIMUS_PWA_DIR` to the built `dist/` directory in the Animus service
 environment. The app serves it at `/pwa/` on the dashboard origin; API and
-WebSocket calls stay same-origin. The PWA shell and assets are public so the
-login screen can load. Data and mutation routes still require the bearer token.
+WebSocket calls stay same-origin. The WebSocket token is sent in an offered
+subprotocol header rather than the URL, avoiding exposure in ordinary access logs.
+The PWA shell and assets are public so the login screen can load. Data and
+mutation routes still require the bearer token.
 
 ## 4. Install on your phone
 

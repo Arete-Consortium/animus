@@ -214,8 +214,19 @@ class TestWebSocketAuth:
     def test_ws_accepted_with_token(self, restore_config: None) -> None:
         app.state.config = _config(host="0.0.0.0", required="always", token="t0ken")
         client = TestClient(app)
-        with client.websocket_connect("/ws/chat?token=t0ken") as ws:
+        with client.websocket_connect(
+            "/ws/chat", subprotocols=["animus-chat", "animus-auth.t0ken"]
+        ) as ws:
             ws.close()
+
+    def test_ws_query_token_is_not_accepted(self, restore_config: None) -> None:
+        from starlette.websockets import WebSocketDisconnect
+
+        app.state.config = _config(host="0.0.0.0", required="always", token="t0ken")
+        client = TestClient(app)
+        with pytest.raises(WebSocketDisconnect):
+            with client.websocket_connect("/ws/chat?token=t0ken"):
+                pass
 
     def test_ws_open_when_auth_disabled(self, restore_config: None) -> None:
         app.state.config = _config(host="127.0.0.1", required="auto")  # auth off
@@ -235,7 +246,9 @@ class TestWebSocketAuth:
     def test_ws_always_mode_accepts_loopback_with_token(self, restore_config: None) -> None:
         app.state.config = _config(host="127.0.0.1", required="always", token="t0ken")
         client = TestClient(app, client=("127.0.0.1", 12345))
-        with client.websocket_connect("/ws/chat?token=t0ken") as ws:
+        with client.websocket_connect(
+            "/ws/chat", subprotocols=["animus-chat", "animus-auth.t0ken"]
+        ) as ws:
             ws.close()
 
 

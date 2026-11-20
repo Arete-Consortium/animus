@@ -85,7 +85,7 @@ def verify_bearer(authorization: str | None, token: str) -> bool:
 
 
 def verify_ws_token(provided: str | None, token: str) -> bool:
-    """Constant-time check of a WebSocket query-param token."""
+    """Constant-time check of a token received via WebSocket subprotocol."""
     if not provided or not token:
         return False
     return secrets.compare_digest(provided, token)

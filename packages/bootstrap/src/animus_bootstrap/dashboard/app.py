@@ -261,19 +261,30 @@ async def api_health(request: Request) -> JSONResponse:
 async def websocket_chat(websocket: WebSocket) -> None:
     """WebSocket endpoint for the browser-based WebChat channel.
 
-    When remote auth is active, a valid ``?token=`` query param is required
-    from non-local clients; the handshake is rejected before acceptance.
+    When remote auth is active, a valid ``animus-auth.<token>`` offered
+    subprotocol is required from non-local clients. The token is not put in
+    the URL, where server and proxy access logs may capture it.
     """
     config = getattr(websocket.app.state, "config", None)
+    offered_protocols = websocket.scope.get("subprotocols", [])
+    auth_prefix = "animus-auth."
+    provided_token = next(
+        (
+            protocol[len(auth_prefix) :]
+            for protocol in offered_protocols
+            if protocol.startswith(auth_prefix)
+        ),
+        None,
+    )
     if config is not None and auth_required_for(config):
         client = websocket.client
         is_local = client is not None and client.host in ("127.0.0.1", "localhost", "::1")
         if not is_local or config.services.auth_required == "always":
-            token = websocket.query_params.get("token")
-            if not verify_ws_token(token, config.services.auth_token):
+            if not verify_ws_token(provided_token, config.services.auth_token):
                 await websocket.close(code=1008)
                 return
-    await app.state.webchat.handle_websocket(websocket)
+    subprotocol = "animus-chat" if "animus-chat" in offered_protocols else None
+    await app.state.webchat.handle_websocket(websocket, subprotocol=subprotocol)
 
 
 def serve() -> None:
