@@ -29,8 +29,8 @@ def ensure_auth_token(config: AnimusConfig, manager: ConfigManager) -> str:
     """Return the configured auth token, generating + persisting one if empty.
 
     The token is generated with :func:`secrets.token_urlsafe` and saved via
-    :class:`ConfigManager` (which chmod-600s the file). It is logged once so
-    the operator can copy it to the phone.
+    :class:`ConfigManager` (which chmod-600s the file). The value is never
+    logged; an operator can retrieve it directly from the protected config.
 
     Args:
         config: The loaded configuration (mutated in place when generating).
@@ -46,10 +46,7 @@ def ensure_auth_token(config: AnimusConfig, manager: ConfigManager) -> str:
     token = secrets.token_urlsafe(32)
     config.services.auth_token = token
     manager.save(config)
-    logger.info(
-        "Generated Animus remote-access token (store it on your phone to log in): %s",
-        token,
-    )
+    logger.info("Generated Animus remote-access token in the protected config file")
     return token
 
 

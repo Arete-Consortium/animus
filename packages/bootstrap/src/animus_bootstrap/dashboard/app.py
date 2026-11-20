@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -55,7 +56,17 @@ logger = logging.getLogger(__name__)
 _DASHBOARD_DIR = Path(__file__).resolve().parent
 _STATIC_DIR = _DASHBOARD_DIR / "static"
 _TEMPLATE_DIR = _DASHBOARD_DIR / "templates"
-_PWA_DIR = _DASHBOARD_DIR.parent.parent.parent.parent / "pwa" / "dist"
+
+
+def _resolve_pwa_dir() -> Path:
+    """Return the configured PWA build directory or the monorepo default."""
+    configured = os.environ.get("ANIMUS_PWA_DIR")
+    if configured:
+        return Path(configured).expanduser().resolve()
+    return _DASHBOARD_DIR.parent.parent.parent.parent / "pwa" / "dist"
+
+
+_PWA_DIR = _resolve_pwa_dir()
 
 
 @asynccontextmanager
@@ -257,7 +268,7 @@ async def websocket_chat(websocket: WebSocket) -> None:
     if config is not None and auth_required_for(config):
         client = websocket.client
         is_local = client is not None and client.host in ("127.0.0.1", "localhost", "::1")
-        if not is_local:
+        if not is_local or config.services.auth_required == "always":
             token = websocket.query_params.get("token")
             if not verify_ws_token(token, config.services.auth_token):
                 await websocket.close(code=1008)

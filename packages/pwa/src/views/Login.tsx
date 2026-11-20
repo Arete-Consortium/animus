@@ -29,7 +29,7 @@ export function LoginView({ onAuthed }: { onAuthed: () => void }) {
     <div className="login">
       <h1 className="login-title">Animus</h1>
       <p className="login-hint">
-        Paste the access token shown when the dashboard started.
+        Enter the remote-access token from Animus on Stheno. It is saved in this browser on this device.
       </p>
       <input
         className="login-input"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -11,6 +12,7 @@ from fastapi.testclient import TestClient
 from animus_bootstrap.config.schema import AnimusConfig
 from animus_bootstrap.dashboard import auth
 from animus_bootstrap.dashboard.app import app
+from animus_bootstrap.dashboard.middleware_http import _is_public
 
 # ------------------------------------------------------------------
 # Helpers / fixtures
@@ -55,6 +57,12 @@ class TestAuthHelpers:
         token = auth.ensure_auth_token(cfg, manager)
         assert token == "existing-token"
         manager.save.assert_not_called()
+
+    def test_ensure_auth_token_does_not_log_secret(self, caplog: pytest.LogCaptureFixture) -> None:
+        cfg = _config()
+        manager = MagicMock()
+        token = auth.ensure_auth_token(cfg, manager)
+        assert token not in caplog.text
 
     @pytest.mark.parametrize(
         ("host", "required", "expected"),
@@ -122,10 +130,21 @@ class TestHttpAuthMiddleware:
         resp = client.get("/api/health", headers={"Authorization": "Bearer t0ken"})
         assert resp.status_code == 200
 
-    def test_local_client_bypasses_auth(self, restore_config: None) -> None:
-        app.state.config = _config(host="0.0.0.0", required="always", token="t0ken")
+    def test_local_client_bypasses_auth_in_auto_mode(self, restore_config: None) -> None:
+        app.state.config = _config(host="0.0.0.0", required="auto", token="t0ken")
         client = TestClient(app, client=("127.0.0.1", 12345))
         assert client.get("/api/health").status_code == 200
+
+    def test_always_mode_rejects_local_client_without_token(self, restore_config: None) -> None:
+        app.state.config = _config(host="127.0.0.1", required="always", token="t0ken")
+        client = TestClient(app, client=("127.0.0.1", 12345))
+        assert client.get("/api/health").status_code == 401
+
+    def test_always_mode_accepts_local_client_with_token(self, restore_config: None) -> None:
+        app.state.config = _config(host="127.0.0.1", required="always", token="t0ken")
+        client = TestClient(app, client=("127.0.0.1", 12345))
+        response = client.get("/api/health", headers={"Authorization": "Bearer t0ken"})
+        assert response.status_code == 200
 
     def test_htmx_page_blocked_for_remote_without_token(self, restore_config: None) -> None:
         # C92: the HTMX dashboard (bare paths) must NOT be reachable by a remote
@@ -136,7 +155,7 @@ class TestHttpAuthMiddleware:
         assert client.get("/").status_code == 401
 
     def test_htmx_page_reachable_locally_and_with_token(self, restore_config: None) -> None:
-        app.state.config = _config(host="0.0.0.0", required="always", token="t0ken")
+        app.state.config = _config(host="0.0.0.0", required="auto", token="t0ken")
         local = TestClient(app, client=("127.0.0.1", 12345))
         assert local.get("/").status_code == 200
         remote = TestClient(app)
@@ -156,6 +175,25 @@ class TestHttpAuthMiddleware:
         app.state.config = _config(host="0.0.0.0", required="always", token="t0ken")
         remote = TestClient(app)  # non-local, no token
         assert remote.get("/health").status_code == 200
+
+    @pytest.mark.parametrize("path", ["/pwa", "/pwa/", "/pwa/assets/app.js", "/static"])
+    def test_public_shell_paths_do_not_require_token(self, restore_config: None, path: str) -> None:
+        app.state.config = _config(host="0.0.0.0", required="always", token="t0ken")
+        response = TestClient(app).get(path)
+        assert response.status_code != 401
+
+    @pytest.mark.parametrize("path", ["/pwa-private", "/static-admin", "/api/health"])
+    def test_public_prefixes_do_not_overmatch(self, path: str) -> None:
+        assert _is_public(path) is False
+
+    def test_configured_pwa_directory(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        from animus_bootstrap.dashboard.app import _resolve_pwa_dir
+
+        pwa_dir = tmp_path / "dist"
+        monkeypatch.setenv("ANIMUS_PWA_DIR", str(pwa_dir))
+        assert _resolve_pwa_dir() == pwa_dir.resolve()
 
 
 # ------------------------------------------------------------------
@@ -183,6 +221,21 @@ class TestWebSocketAuth:
         app.state.config = _config(host="127.0.0.1", required="auto")  # auth off
         client = TestClient(app)
         with client.websocket_connect("/ws/chat") as ws:
+            ws.close()
+
+    def test_ws_always_mode_rejects_loopback_without_token(self, restore_config: None) -> None:
+        from starlette.websockets import WebSocketDisconnect
+
+        app.state.config = _config(host="127.0.0.1", required="always", token="t0ken")
+        client = TestClient(app, client=("127.0.0.1", 12345))
+        with pytest.raises(WebSocketDisconnect):
+            with client.websocket_connect("/ws/chat"):
+                pass
+
+    def test_ws_always_mode_accepts_loopback_with_token(self, restore_config: None) -> None:
+        app.state.config = _config(host="127.0.0.1", required="always", token="t0ken")
+        client = TestClient(app, client=("127.0.0.1", 12345))
+        with client.websocket_connect("/ws/chat?token=t0ken") as ws:
             ws.close()
 
 
