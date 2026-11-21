@@ -55,6 +55,11 @@
   color: var(--warning);
 }
 
+.status-badge--warning {
+  background: rgba(251, 191, 36, 0.15);
+  color: var(--warning);
+}
+
 .status-components {
   margin-top: 16px;
 }
