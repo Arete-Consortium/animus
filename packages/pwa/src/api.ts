@@ -60,6 +60,21 @@ export async function getHealth(): Promise<HealthResponse> {
   return request("/health");
 }
 
+export type RelayStatus =
+  | "responding"
+  | "unavailable"
+  | "unsafe"
+  | "not_configured";
+
+export interface OperationsStatusResponse {
+  checked_at: string;
+  forgehand_relay: { status: RelayStatus };
+}
+
+export async function getOperationsStatus(): Promise<OperationsStatusResponse> {
+  return request("/operations/status");
+}
+
 // Citizens
 export interface CitizenSummary {
   citizens_total: number;
