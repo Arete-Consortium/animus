@@ -1,5 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
-import { getHealth, sendTestPush, type HealthResponse } from "../api";
+import {
+  getHealth,
+  getOperationsStatus,
+  sendTestPush,
+  type HealthResponse,
+  type OperationsStatusResponse,
+} from "../api";
 import { disablePush, enablePush, isPushEnabled, pushSupported } from "../push";
 import "./Status.css";
 
@@ -14,6 +20,9 @@ const COMPONENT_LABELS: Record<string, string> = {
 
 export function StatusView() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [operations, setOperations] =
+    useState<OperationsStatusResponse | null>(null);
+  const [operationsError, setOperationsError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
   const [pushOn, setPushOn] = useState(false);
@@ -33,6 +42,17 @@ export function StatusView() {
         setError(err instanceof Error ? err.message : "Connection failed");
         setHealth(null);
         setLastChecked(new Date());
+      });
+    getOperationsStatus()
+      .then((data) => {
+        setOperations(data);
+        setOperationsError(null);
+      })
+      .catch((err: unknown) => {
+        setOperations(null);
+        setOperationsError(
+          err instanceof Error ? err.message : "Status unavailable",
+        );
       });
   }, []);
 
@@ -144,6 +164,36 @@ export function StatusView() {
         </div>
       )}
 
+      <div className="status-card status-components">
+        <h2 className="status-section-title">Engineering Workflow</h2>
+        <div className="status-row">
+          <span className="status-label">Forgehand relay</span>
+          {operationsError ? (
+            <span className="status-badge status-badge--error">
+              Unavailable
+            </span>
+          ) : operations ? (
+            <RelayStatusBadge status={operations.forgehand_relay.status} />
+          ) : (
+            <span className="status-badge status-badge--loading">
+              Checking...
+            </span>
+          )}
+        </div>
+        <p className="status-value">
+          Listener response only. This does not validate Ollama, worker
+          activation, or job execution.
+        </p>
+        {operations && (
+          <div className="status-row">
+            <span className="status-label">Relay checked</span>
+            <span className="status-value">
+              {new Date(operations.checked_at).toLocaleTimeString()}
+            </span>
+          </div>
+        )}
+      </div>
+
       {pushSupported() && (
         <div className="status-card">
           <div className="status-row">
@@ -179,4 +229,20 @@ export function StatusView() {
       )}
     </div>
   );
+}
+
+function RelayStatusBadge({
+  status,
+}: {
+  status: OperationsStatusResponse["forgehand_relay"]["status"];
+}) {
+  const tone =
+    status === "responding"
+      ? "ok"
+      : status === "not_configured"
+        ? "warning"
+        : "error";
+  const label = status.replace(/_/g, " ");
+
+  return <span className={`status-badge status-badge--${tone}`}>{label}</span>;
 }

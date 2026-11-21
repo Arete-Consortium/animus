@@ -25,5 +25,10 @@
     "vite": "^6.0.0",
     "vite-plugin-pwa": "^0.21.0",
     "workbox-precaching": "^7.1.0"
+  },
+  "overrides": {
+    "workbox-build": {
+      "glob": "^14.0.2"
+    }
   }
 }
