@@ -262,13 +262,22 @@ describe("api", () => {
         onmessage: null as unknown as ((e: { data: string }) => void) | null,
       };
       const OriginalWebSocket = globalThis.WebSocket;
-      const mockWebSocket = function () { return mockWs; } as unknown as typeof WebSocket & { OPEN: number };
+      let wsUrl = "";
+      let wsProtocols: string[] = [];
+      const mockWebSocket = function (url: string, protocols: string[]) {
+        wsUrl = url;
+        wsProtocols = protocols;
+        return mockWs;
+      } as unknown as typeof WebSocket & { OPEN: number };
       mockWebSocket.OPEN = 1;
       globalThis.WebSocket = mockWebSocket;
 
+      localStorage.setItem("animus_token", "test-token-123");
       const onMsg = vi.fn();
       const chat = connectChat(onMsg);
 
+      expect(wsUrl).not.toContain("test-token-123");
+      expect(wsProtocols).toEqual(["animus-chat", "animus-auth.test-token-123"]);
       expect(chat.getState()).toBe(1);
       expect(chat.getPendingCount()).toBe(0);
 

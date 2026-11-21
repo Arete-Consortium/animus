@@ -12,8 +12,8 @@ encrypted WireGuard mesh, and a bearer token adds defense in depth.
   codebase across iOS / Android / desktop.
 - **Tailscale, not port-forwarding.** Nothing is exposed to the public
   internet. Only devices on your tailnet can reach the dashboard.
-- **Bearer token** on the `/api/*` surface and the chat WebSocket, so access
-  isn't purely network-trust.
+- **Bearer token** on the PWA's API and chat WebSocket, with `auth_required =
+  "always"` also protecting other dashboard routes.
 
 ## 1. Install Tailscale
 
@@ -55,21 +55,18 @@ tls_cert = "/path/to/mybox.tailnet-name.ts.net.crt"
 tls_key  = "/path/to/mybox.tailnet-name.ts.net.key"
 ```
 
-> **Why not `tailscale serve`?** `tailscale serve https / http://127.0.0.1:7700`
-> is simpler and also gives a valid `*.ts.net` cert, but it proxies from
-> loopback — every request then appears local, so the bearer token cannot be
-> enforced and you rely entirely on Tailscale ACLs. Use it only if you accept
-> Tailscale as your sole auth boundary.
+> **Using `tailscale serve`:** the proxy connects to loopback, so configure
+> `auth_required = "always"`. In this mode the bearer token is enforced even
+> for loopback clients. With `"auto"`, loopback requests bypass bearer auth;
+> do not use that mode behind a proxy unless its forwarded client identity is
+> securely configured and verified.
 
 Restart the dashboard. On first run with `auth_required` active it generates a
-token and logs it once:
-
-```
-Generated Animus remote-access token (store it on your phone to log in): <TOKEN>
-```
-
-Copy that token. To rotate it, clear `services.auth_token` in the config and
-restart.
+token and stores it in the protected `~/.config/animus/config.toml` file. The
+token is never written to logs. Retrieve `services.auth_token` privately on
+Stheno, then enter it on the phone's PWA login screen. Do not paste the token
+into chat or include it in shell commands that are saved to history. To rotate
+it, clear `services.auth_token` in the config and restart.
 
 ## 3. Build and serve the PWA
 
@@ -79,14 +76,17 @@ npm install
 npm run build      # outputs dist/
 ```
 
-Serve `dist/` from the same origin as the dashboard (so `/api` and `/ws` are
-same-origin). The static host must do **SPA fallback** (serve `index.html` for
-unknown routes). Any static server behind the same Tailscale HTTPS name works.
+Set `ANIMUS_PWA_DIR` to the built `dist/` directory in the Animus service
+environment. The app serves it at `/pwa/` on the dashboard origin; API and
+WebSocket calls stay same-origin. The WebSocket token is sent in an offered
+subprotocol header rather than the URL, avoiding exposure in ordinary access logs.
+The PWA shell and assets are public so the login screen can load. Data and
+mutation routes still require the bearer token.
 
 ## 4. Install on your phone
 
 1. On your phone (with Tailscale connected), open
-   `https://mybox.tailnet-name.ts.net`.
+   `https://mybox.tailnet-name.ts.net/pwa/`.
 2. Paste the token on the login screen.
 3. **Add to Home Screen** (iOS Safari: Share → Add to Home Screen). This is
    required for push notifications on iOS.
@@ -105,10 +105,12 @@ unknown routes). Any static server behind the same Tailscale HTTPS name works.
 
 ## Security notes
 
-- `auth_required = "auto"` (default) enforces the token only when bound to a
-  non-local host; `"always"` enforces everywhere; `"never"` disables it.
-- The local HTMX dashboard (bare paths) is never token-gated; only the PWA
-  surface (`/api/*`, `/ws/chat`) is.
+- `auth_required = "auto"` (default) enforces the token only for non-local
+  clients; `"always"` enforces it for every non-public route, including
+  loopback; `"never"` disables it.
+- The PWA shell and static assets are public so the login page can load.
+  Dashboard data, APIs, WebSocket, and other non-public routes require the
+  bearer token when auth is enabled.
 - The config file is stored `chmod 600` — it holds the token and VAPID private
   key.
 - Tailscale ACLs remain your first line of defense: only enroll devices you

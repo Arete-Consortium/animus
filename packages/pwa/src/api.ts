@@ -146,11 +146,12 @@ export function connectChat(onMessage: OnWSMessage): {
 } {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
   const token = getToken();
-  const query = token ? `?token=${encodeURIComponent(token)}` : "";
   const wsPath = WS_BASE_URL.startsWith("/")
-    ? `${proto}//${location.host}${WS_BASE_URL}/chat${query}`
-    : `${WS_BASE_URL}/chat${query}`;
-  const ws = new WebSocket(wsPath);
+    ? `${proto}//${location.host}${WS_BASE_URL}/chat`
+    : `${WS_BASE_URL}/chat`;
+  const protocols = ["animus-chat"];
+  if (token) protocols.push(`animus-auth.${token}`);
+  const ws = new WebSocket(wsPath, protocols);
   const pending: string[] = [];
 
   ws.onopen = () => {

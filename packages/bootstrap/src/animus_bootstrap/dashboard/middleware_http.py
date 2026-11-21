@@ -34,11 +34,11 @@ from animus_bootstrap.dashboard.auth import (
 )
 
 # The ONLY routes a not-yet-authenticated remote client may reach: static
-# assets (the PWA shell) and the bare, non-sensitive liveness probe. Anything
+# assets, the PWA shell, and the bare, non-sensitive liveness probe. Anything
 # carrying data, secrets, or a mutation requires the token. Keep this list
 # minimal — every addition widens the unauthenticated remote surface.
-_PUBLIC_PREFIXES: tuple[str, ...] = ("/static",)
-_PUBLIC_PATHS: frozenset[str] = frozenset({"/health"})
+_PUBLIC_PREFIXES: tuple[str, ...] = ("/static/", "/pwa/")
+_PUBLIC_PATHS: frozenset[str] = frozenset({"/health", "/static", "/pwa", "/pwa/"})
 
 
 def _is_public(path: str) -> bool:
@@ -47,7 +47,7 @@ def _is_public(path: str) -> bool:
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
-    """Require a bearer token from non-local clients for all non-public routes."""
+    """Require bearer auth according to mode for every non-public route."""
 
     async def dispatch(
         self,
@@ -58,7 +58,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if (
             config is not None
             and auth_required_for(config)
-            and not is_local_client(request)
+            and (config.services.auth_required == "always" or not is_local_client(request))
             and not _is_public(request.url.path)
         ):
             header = request.headers.get("Authorization")
