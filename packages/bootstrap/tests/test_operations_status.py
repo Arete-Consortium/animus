@@ -72,9 +72,17 @@ async def test_probe_rejects_unprotected_runtime_directory(
 ) -> None:
     """A runtime directory with broader permissions is never probed."""
     runtime_dir = tmp_path / "runtime"
-    runtime_dir.mkdir(mode=0o750)
+    runtime_dir.mkdir(mode=0o700)
     (runtime_dir / "forgehand-action-relay.sock").touch(mode=0o600)
-    os.chmod(runtime_dir, 0o750)
+
+    original_lstat = Path.lstat
+
+    def fake_lstat(path: Path) -> object:
+        if path == runtime_dir:
+            return SimpleNamespace(st_mode=stat.S_IFDIR | 0o750, st_uid=os.getuid())
+        return original_lstat(path)
+
+    monkeypatch.setattr(Path, "lstat", fake_lstat)
     monkeypatch.setenv("XDG_RUNTIME_DIR", str(runtime_dir))
 
     assert await operations_status._probe_relay() == "unsafe"
