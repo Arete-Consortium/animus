@@ -63,9 +63,7 @@ async def test_probe_reports_responding_when_local_http_listener_answers(
 
     assert await operations_status._probe_relay() == "responding"
 
-    assert received and received[0].startswith(
-        b"GET /__forgehand_preflight__ HTTP/1.0\r\n"
-    )
+    assert received and received[0].startswith(b"GET /__forgehand_preflight__ HTTP/1.0\r\n")
 
 
 @pytest.mark.asyncio()
@@ -74,9 +72,9 @@ async def test_probe_rejects_unprotected_runtime_directory(
 ) -> None:
     """A runtime directory with broader permissions is never probed."""
     runtime_dir = tmp_path / "runtime"
-    runtime_dir.mkdir(mode=0o755)
+    runtime_dir.mkdir(mode=0o750)
     (runtime_dir / "forgehand-action-relay.sock").touch(mode=0o600)
-    os.chmod(runtime_dir, 0o755)
+    os.chmod(runtime_dir, 0o750)
     monkeypatch.setenv("XDG_RUNTIME_DIR", str(runtime_dir))
 
     assert await operations_status._probe_relay() == "unsafe"
@@ -99,8 +97,7 @@ async def test_api_response_contains_only_coarse_relay_state(
         return "responding"
 
     monkeypatch.setattr(operations_status, "_probe_relay", responding)
-    monkeypatch.setattr(operations_status, "_cached_at", 0.0)
-    monkeypatch.setattr(operations_status, "_cached_payload", None)
+    monkeypatch.setattr(operations_status, "_status_cache", operations_status._StatusCache())
 
     payload = await operations_status.operations_status()
 
