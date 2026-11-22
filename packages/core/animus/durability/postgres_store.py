@@ -960,22 +960,24 @@ class DurableObjectStore:
     # Typed knowledge edges
     # ------------------------------------------------------------------
 
-    def _edge_scope_conditions(self, *, historical: bool = False) -> list[Any]:
-        if self.scope is None:
-            return []
-        return [
-            _KnowledgeEdgeRow.owner_id == self.scope.owner_id,
-            _KnowledgeEdgeRow.workspace_id == self.scope.workspace_id,
-            _KnowledgeEdgeRow.subject_domain == self.scope.subject_domain,
-            _KnowledgeEdgeRow.security_class == self.scope.security_class,
-            _KnowledgeEdgeRow.schema_id == self.scope.schema_id,
-            _KnowledgeEdgeRow.artifact_type.in_(self.scope.artifact_types),
-            _KnowledgeEdgeRow.lifecycle_status.in_(
-                (LifecycleStatus.ACTIVE.value, LifecycleStatus.SUPERSEDED.value)
-                if historical
-                else (LifecycleStatus.ACTIVE.value,)
-            ),
-        ]
+    def _edges(self, *, historical: bool = False) -> Any:
+        if self.scope is not None and not self._schema_checked:
+            self.preflight()
+        stmt = select(_KnowledgeEdgeRow).where(
+            *self._scope_conditions(_KnowledgeEdgeRow, historical=historical)
+        )
+        if self.scope is not None and historical:
+            current = aliased(_KnowledgeEdgeRow)
+            stmt = stmt.where(
+                select(current.id)
+                .where(
+                    current.edge_id == _KnowledgeEdgeRow.edge_id,
+                    current.superseded_at.is_(None),
+                    *self._scope_conditions(current),
+                )
+                .exists()
+            )
+        return stmt
 
     def _guard_edge(self, edge: KnowledgeEdgeRecord) -> None:
         if self.scope is None:
@@ -1161,9 +1163,8 @@ class DurableObjectStore:
     def retrieve_edge(self, edge_id: str, version: int | None = None) -> KnowledgeEdgeRecord | None:
         """Retrieve the current edge or a specific historical version."""
         with self._session_factory() as session:
-            stmt = select(_KnowledgeEdgeRow).where(
-                _KnowledgeEdgeRow.edge_id == edge_id,
-                *self._edge_scope_conditions(historical=version is not None),
+            stmt = self._edges(historical=version is not None).where(
+                _KnowledgeEdgeRow.edge_id == edge_id
             )
             if version is None:
                 stmt = stmt.where(_KnowledgeEdgeRow.superseded_at.is_(None))
@@ -1176,9 +1177,8 @@ class DurableObjectStore:
         """Retire the current edge without erasing its historical evidence."""
         with self._session_factory.begin() as session:
             row = session.execute(
-                select(_KnowledgeEdgeRow).where(
+                self._edges().where(
                     _KnowledgeEdgeRow.edge_id == edge_id,
-                    *self._edge_scope_conditions(),
                     _KnowledgeEdgeRow.superseded_at.is_(None),
                 )
             ).scalar_one_or_none()
@@ -1189,18 +1189,21 @@ class DurableObjectStore:
             now = _now_utc()
             edge.lifecycle_status = LifecycleStatus.SUPERSEDED.value
             edge.superseded_at = now
-            edge.valid_to = now
+            if (edge.valid_from is None or edge.valid_from < now) and (
+                edge.valid_to is None or now < edge.valid_to
+            ):
+                edge.valid_to = now
             changed = session.execute(
                 sql_update(_KnowledgeEdgeRow)
                 .where(
                     _KnowledgeEdgeRow.id == row.id,
                     _KnowledgeEdgeRow.superseded_at.is_(None),
-                    *self._edge_scope_conditions(),
+                    *self._scope_conditions(_KnowledgeEdgeRow),
                 )
                 .values(
                     superseded_at=now,
                     lifecycle_status=LifecycleStatus.SUPERSEDED.value,
-                    valid_to=now,
+                    valid_to=edge.valid_to,
                 ),
                 execution_options={"synchronize_session": False},
             )
@@ -1227,9 +1230,7 @@ class DurableObjectStore:
         if type(limit) is not int or not 1 <= limit <= 1000:
             raise ValueError("limit must be between 1 and 1000")
         with self._session_factory() as session:
-            stmt = select(_KnowledgeEdgeRow).where(
-                *self._edge_scope_conditions(historical=include_superseded)
-            )
+            stmt = self._edges(historical=include_superseded)
             if not include_superseded:
                 stmt = stmt.where(_KnowledgeEdgeRow.superseded_at.is_(None))
             if subject_id is not None:
@@ -1260,17 +1261,18 @@ class DurableObjectStore:
         """Return bounded immediate neighbors without graph-wide traversal."""
         if direction not in {"outgoing", "incoming", "both"}:
             raise ValueError("direction must be outgoing, incoming, or both")
+        if type(limit) is not int or not 1 <= limit <= 1000:
+            raise ValueError("limit must be between 1 and 1000")
         if direction == "outgoing":
             return self.list_edges(subject_id=entity_id, predicate=predicate, limit=limit)
         if direction == "incoming":
             return self.list_edges(object_id=entity_id, predicate=predicate, limit=limit)
         with self._session_factory() as session:
-            stmt = select(_KnowledgeEdgeRow).where(
+            stmt = self._edges().where(
                 or_(
                     _KnowledgeEdgeRow.subject_id == entity_id,
                     _KnowledgeEdgeRow.object_id == entity_id,
                 ),
-                *self._edge_scope_conditions(),
                 _KnowledgeEdgeRow.superseded_at.is_(None),
             )
             if predicate is not None:
@@ -1360,42 +1362,55 @@ class DurableObjectStore:
             )
             return [dict(row.event_data) for row in rows]
 
+    def _edge_ledger_query(self) -> Any:
+        stmt = select(_LedgerEventRow).where(_LedgerEventRow.event_kind.like("knowledge_edge.%"))
+        if self.scope is not None:
+            stmt = stmt.where(
+                self._edges(historical=True)
+                .where(
+                    _KnowledgeEdgeRow.edge_id == _LedgerEventRow.event_data["edge_id"].as_string(),
+                    _KnowledgeEdgeRow.edge_version
+                    == _LedgerEventRow.event_data["edge_version"].as_integer(),
+                )
+                .exists()
+            )
+        return stmt
+
     def get_edge_ledger_events(self, edge_id: str) -> list[dict[str, Any]]:
         """Return ledger events for one visible knowledge edge."""
         with self._session_factory() as session:
-            stmt = select(_LedgerEventRow).where(
-                _LedgerEventRow.event_kind.like("knowledge_edge.%"),
-                _LedgerEventRow.event_data["edge_id"].as_string() == edge_id,
-            )
-            if self.scope is not None:
-                stmt = stmt.where(
-                    select(_KnowledgeEdgeRow.id)
-                    .where(
-                        _KnowledgeEdgeRow.edge_id == edge_id,
-                        *self._edge_scope_conditions(historical=True),
-                    )
-                    .exists()
+            rows = (
+                session.execute(
+                    self._edge_ledger_query()
+                    .where(_LedgerEventRow.event_data["edge_id"].as_string() == edge_id)
+                    .order_by(_LedgerEventRow.id)
                 )
-            rows = session.execute(stmt.order_by(_LedgerEventRow.id)).scalars().all()
+                .scalars()
+                .all()
+            )
             return [dict(row.event_data) for row in rows]
 
     def verify_integrity(self, event_id: str) -> bool:
         """Verify a visible Core event; out-of-scope events return False."""
         with self._session_factory() as session:
-            row = session.execute(
-                self._ledger_query().where(
-                    _LedgerEventRow.idempotency_key == event_id,
-                )
-            ).scalar_one_or_none()
+            event_key = _LedgerEventRow.idempotency_key == event_id
+            row = session.execute(self._ledger_query().where(event_key)).scalar_one_or_none()
+            identity = "object"
+            if row is None:
+                row = session.execute(
+                    self._edge_ledger_query().where(event_key)
+                ).scalar_one_or_none()
+                identity = "edge"
             if row is None:
                 return False
             event = row.event_data
+            identity_key = f"{identity}_id"
             expected = _sha256(
                 {
                     "event_id": event["event_id"],
                     "event_type": event["event_type"],
-                    "object_id": event["object_id"],
-                    "version": event["object_version"],
+                    identity_key: event[identity_key],
+                    "version": event[f"{identity}_version"],
                     "payload": event["payload"],
                 }
             )

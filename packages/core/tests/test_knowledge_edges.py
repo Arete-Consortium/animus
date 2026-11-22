@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -121,3 +122,26 @@ def test_scoped_store_cannot_read_or_write_foreign_edges(tmp_path: Path) -> None
 def test_edge_confidence_is_bounded() -> None:
     with pytest.raises(ValueError, match="confidence"):
         make_edge(confidence=1.1)
+
+
+@pytest.mark.parametrize("direction", ["outgoing", "incoming", "both"])
+@pytest.mark.parametrize("limit", [-1, 0, 1001, 1.5, True])
+def test_neighbors_rejects_invalid_limits(tmp_path: Path, direction: str, limit: object) -> None:
+    store = make_store(tmp_path)
+    with pytest.raises(ValueError, match="limit must be between 1 and 1000"):
+        store.neighbors("repo-animus", direction=direction, limit=limit)
+
+
+@pytest.mark.parametrize("days_from_now", [-3, 1])
+def test_supersession_preserves_inactive_valid_time(tmp_path: Path, days_from_now: int) -> None:
+    store = make_store(tmp_path)
+    valid_from = datetime.now(timezone.utc) + timedelta(days=days_from_now)
+    valid_to = valid_from + timedelta(days=1)
+    edge = make_edge(valid_from=valid_from, valid_to=valid_to)
+    store.store_edge(edge)
+    assert store.supersede_edge(edge.edge_id)[0]
+    historical = store.retrieve_edge(edge.edge_id, version=1)
+    assert historical is not None
+    assert historical.valid_from == valid_from
+    assert historical.valid_to == valid_to
+    assert historical.superseded_at is not None

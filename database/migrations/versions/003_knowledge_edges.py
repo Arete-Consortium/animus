@@ -35,7 +35,9 @@ def upgrade() -> None:
     bind = op.get_bind()
     inspector = sa.inspect(bind)
     if "knowledge_edges" in inspector.get_table_names():
-        return
+        raise RuntimeError(
+            "Unexpected existing knowledge_edges table. Back up and reconcile before migration 003."
+        )
 
     op.create_table(
         "knowledge_edges",
