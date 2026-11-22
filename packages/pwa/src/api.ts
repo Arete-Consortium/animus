@@ -14,7 +14,11 @@ async function request<T>(path: string, options?: RequestInit, attempt = 0): Pro
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
   try {
-    const res = await fetch(`${BASE}${path}`, { ...options, headers });
+    // API_BASE_URL already contains the dashboard mount point (normally /api).
+    // Keep endpoint declarations relative to that mount so callers cannot
+    // accidentally request /api/api/… when adding a newer API surface.
+    const endpoint = path.startsWith(`${BASE}/`) ? path.slice(BASE.length) : path;
+    const res = await fetch(`${BASE}${endpoint}`, { ...options, headers });
     if (res.status === 401) {
       clearToken();
       window.dispatchEvent(new Event("animus:unauthorized"));
@@ -56,6 +60,21 @@ export async function getHealth(): Promise<HealthResponse> {
   return request("/health");
 }
 
+export type RelayStatus =
+  | "responding"
+  | "unavailable"
+  | "unsafe"
+  | "not_configured";
+
+export interface OperationsStatusResponse {
+  checked_at: string;
+  forgehand_relay: { status: RelayStatus };
+}
+
+export async function getOperationsStatus(): Promise<OperationsStatusResponse> {
+  return request("/operations/status");
+}
+
 // Citizens
 export interface CitizenSummary {
   citizens_total: number;
@@ -83,7 +102,7 @@ export interface CitizenProposal {
 }
 
 export async function getCitizensSummary(): Promise<CitizenSummary> {
-  return request("/api/citizens/summary");
+  return request("/citizens/summary");
 }
 
 export async function getCitizenProposals(
@@ -94,15 +113,15 @@ export async function getCitizenProposals(
   if (status) params.set("status", status);
   if (citizen) params.set("citizen", citizen);
   const qs = params.toString();
-  return request(`/api/citizens/proposals${qs ? "?" + qs : ""}`);
+  return request(`/citizens/proposals${qs ? "?" + qs : ""}`);
 }
 
 export async function approveProposal(proposalId: string): Promise<{ success: boolean }> {
-  return request(`/api/citizens/proposals/${proposalId}/approve`, { method: "POST" });
+  return request(`/citizens/proposals/${proposalId}/approve`, { method: "POST" });
 }
 
 export async function rejectProposal(proposalId: string): Promise<{ success: boolean }> {
-  return request(`/api/citizens/proposals/${proposalId}/reject`, { method: "POST" });
+  return request(`/citizens/proposals/${proposalId}/reject`, { method: "POST" });
 }
 
 export async function commissionProposal(proposalId: string): Promise<{
@@ -110,7 +129,7 @@ export async function commissionProposal(proposalId: string): Promise<{
   error?: string;
   stage_reached?: string;
 }> {
-  return request(`/api/citizens/proposals/${proposalId}/commission`, { method: "POST" });
+  return request(`/citizens/proposals/${proposalId}/commission`, { method: "POST" });
 }
 
 // Chat (REST fallback)
@@ -142,11 +161,12 @@ export function connectChat(onMessage: OnWSMessage): {
 } {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
   const token = getToken();
-  const query = token ? `?token=${encodeURIComponent(token)}` : "";
   const wsPath = WS_BASE_URL.startsWith("/")
-    ? `${proto}//${location.host}${WS_BASE_URL}/chat${query}`
-    : `${WS_BASE_URL}/chat${query}`;
-  const ws = new WebSocket(wsPath);
+    ? `${proto}//${location.host}${WS_BASE_URL}/chat`
+    : `${WS_BASE_URL}/chat`;
+  const protocols = ["animus-chat"];
+  if (token) protocols.push(`animus-auth.${token}`);
+  const ws = new WebSocket(wsPath, protocols);
   const pending: string[] = [];
 
   ws.onopen = () => {

@@ -4,12 +4,13 @@ import { StatusView } from "./views/Status";
 import { PersonasView } from "./views/Personas";
 import { CaptureView } from "./views/Capture";
 import { CitizensView } from "./views/Citizens";
+import { ToolsView } from "./views/Tools";
 import { LoginView } from "./views/Login";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { getToken } from "./auth";
 import "./App.css";
 
-type View = "chat" | "capture" | "status" | "personas" | "citizens";
+type View = "chat" | "capture" | "status" | "personas" | "citizens" | "tools";
 
 /** Read text shared into the app via the manifest share_target (?title/text/url). */
 function readSharedText(): string {
@@ -65,6 +66,7 @@ export function App() {
           {view === "status" && <StatusView />}
           {view === "personas" && <PersonasView />}
           {view === "citizens" && <CitizensView />}
+          {view === "tools" && <ToolsView />}
         </ErrorBoundary>
       </main>
 
@@ -98,6 +100,12 @@ export function App() {
           label="Citizens"
           active={view === "citizens"}
           onClick={() => setView("citizens")}
+        />
+        <NavButton
+          icon="🧰"
+          label="Tools"
+          active={view === "tools"}
+          onClick={() => setView("tools")}
         />
       </nav>
     </div>

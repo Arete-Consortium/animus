@@ -83,6 +83,14 @@ animus-bootstrap = "animus_bootstrap.cli:app"
 where = ["src"]
 include = ["animus_bootstrap*"]
 
+[tool.setuptools.package-data]
+"animus_bootstrap.dashboard" = [
+    "static/css/*.css",
+    "static/js/*.js",
+    "templates/*.html",
+    "templates/fragments/*.html",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]

@@ -102,14 +102,16 @@ class WebChatAdapter:
     # WebSocket handler (called by the dashboard router)
     # ------------------------------------------------------------------
 
-    async def handle_websocket(self, websocket: WebSocket) -> None:
+    async def handle_websocket(
+        self, websocket: WebSocket, *, subprotocol: str | None = None
+    ) -> None:
         """Accept and manage a single WebSocket connection lifecycle.
 
         This method is called from the dashboard's ``/ws/chat`` endpoint.
         It loops receiving text frames, converts them to
         :class:`GatewayMessage`, and forwards to the registered callback.
         """
-        await websocket.accept()
+        await websocket.accept(subprotocol=subprotocol)
         self._connections.add(websocket)
         logger.debug("WebChat: new connection (total=%d)", len(self._connections))
 

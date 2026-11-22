@@ -52,7 +52,8 @@ class TestCitizensOverviewPage:
     def test_citizens_page_shows_core_warning_when_unavailable(self, client: TestClient) -> None:
         """Degraded mode banner appears when core is absent."""
         app.state.runtime = None
-        resp = client.get("/citizens")
+        with patch.object(CitizenBridge, "_check_core", return_value=False):
+            resp = client.get("/citizens")
         assert "not available" in resp.text.lower() or "unavailable" in resp.text.lower()
 
 

@@ -103,6 +103,7 @@ packages/forge/src/animus_forge/workflows/no-op-*.json
 # Node
 node_modules/
 package-lock.json
+!packages/pwa/package-lock.json
 packages/forge/forge/forge_audit.jsonl
 .claude/
 
