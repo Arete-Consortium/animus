@@ -1121,7 +1121,8 @@ class DurableObjectStore:
         edge.valid_from = edge.valid_from or now
         with self._session_factory.begin() as session:
             latest = session.execute(
-                select(_KnowledgeEdgeRow).where(
+                select(_KnowledgeEdgeRow)
+                .where(
                     _KnowledgeEdgeRow.edge_id == edge.edge_id,
                 )
                 .order_by(_KnowledgeEdgeRow.edge_version.desc())
@@ -1139,9 +1140,7 @@ class DurableObjectStore:
                 if any(getattr(latest, field) != getattr(edge, field) for field in identity_fields):
                     raise PermissionError("Knowledge edge identity belongs to another scope.")
                 if latest.superseded_at is None:
-                    raise ConcurrencyError(
-                        "Knowledge edge identity already has a current version."
-                    )
+                    raise ConcurrencyError("Knowledge edge identity already has a current version.")
                 edge.edge_version = latest.edge_version + 1
             else:
                 edge.edge_version = 1

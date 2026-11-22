@@ -257,6 +257,7 @@ def _schema_name_to_class_name(name: str) -> str | None:
         "event": "AnimusEventObject",
         "forecast": "AnimusForecastObject",
         "hypothesis": "AnimusHypothesisObject",
+        "knowledge_edge": "AnimusKnowledgeEdge",
         "ledger_event": "LedgerEvent",
         "lesson": "AnimusLessonObject",
         "memory_candidate": "AnimusMemoryCandidate",
