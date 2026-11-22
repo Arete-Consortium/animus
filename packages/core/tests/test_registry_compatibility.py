@@ -386,7 +386,7 @@ def test_migration_preserves_existing_evidence_or_refuses_duplicates(database_ur
             }
             assert connection.execute(
                 text("SELECT version_num FROM alembic_version")
-            ).scalar_one() == ("001" if duplicate else "002")
+            ).scalar_one() == ("001" if duplicate else "003")
     finally:
         engine.dispose()
 

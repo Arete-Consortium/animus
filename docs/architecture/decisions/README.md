@@ -18,6 +18,7 @@ An **Arete Decision Log (ADL)** entry is a higher-level commitment scoped to a p
 |---|---|---|---|---|
 | [ADR-001](ADR-001.md) | Adopt v2.1 Mind-class Architecture | 2026-06-18 | Accepted | ARCH |
 | [ADL-20260618-001](ADL-20260618-001.md) | Commit to v2.1 as canonical executable baseline | 2026-06-18 | Committed | ARCH |
+| [ADR-002](ADR-002.md) | Store typed knowledge edges in Core durable storage | 2026-11-21 | Accepted for pilot | ARCH |
 
 ---
 

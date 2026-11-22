@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://animus.local/schemas/knowledge_edge.schema.json",
+  "title": "Animus Knowledge Edge",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "edge_id",
+    "edge_version",
+    "schema_id",
+    "schema_version",
+    "owner_id",
+    "workspace_id",
+    "subject_domain",
+    "artifact_type",
+    "subject_id",
+    "predicate",
+    "object_id",
+    "source_ref",
+    "provenance",
+    "evidence_grade",
+    "confidence",
+    "epistemic_status",
+    "lifecycle_status",
+    "security_class",
+    "valid_from",
+    "valid_to",
+    "recorded_at",
+    "created_by",
+    "metadata"
+  ],
+  "properties": {
+    "edge_id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128
+    },
+    "edge_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "schema_id": {
+      "const": "knowledge_edge"
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "owner_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "workspace_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "subject_domain": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "artifact_type": {
+      "const": "knowledge_edge"
+    },
+    "subject_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "predicate": {
+      "enum": [
+        "DEPENDS_ON",
+        "IMPLEMENTS",
+        "MODIFIES",
+        "CAUSED_BY",
+        "RESOLVES",
+        "VERIFIED_BY",
+        "SUPERSEDES",
+        "CONTRADICTS",
+        "OWNED_BY",
+        "RELATED_TO",
+        "DERIVED_FROM"
+      ]
+    },
+    "object_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "source_ref": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 512
+    },
+    "provenance": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "evidence_grade": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "confidence": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 1
+    },
+    "epistemic_status": {
+      "enum": [
+        "unverified",
+        "supported",
+        "disputed",
+        "refuted"
+      ]
+    },
+    "lifecycle_status": {
+      "enum": [
+        "active",
+        "superseded",
+        "deprecated",
+        "archived",
+        "deleted"
+      ]
+    },
+    "security_class": {
+      "enum": [
+        "public",
+        "internal",
+        "confidential",
+        "restricted"
+      ]
+    },
+    "valid_from": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "valid_to": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "recorded_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "created_by": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "metadata": {
+      "type": "object"
+    }
+  }
+}
