@@ -114,6 +114,12 @@ def test_scoped_store_cannot_read_or_write_foreign_edges(tmp_path: Path) -> None
         owner_id="owner-test",
         workspace_id="ws-test",
     )
+    with pytest.raises(PermissionError, match="must be unverified"):
+        scoped.store_edge(owned)
+    assert admin.retrieve_edge(owned.edge_id) is None
+    assert admin.get_edge_ledger_events(owned.edge_id) == []
+
+    owned.epistemic_status = "unverified"
     scoped.store_edge(owned)
     assert scoped.retrieve_edge(owned.edge_id) is not None
     assert admin.retrieve_edge(owned.edge_id) is not None
