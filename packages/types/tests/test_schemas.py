@@ -127,6 +127,7 @@ def test_event_round_trip():
         "event",
         "forecast",
         "hypothesis",
+        "knowledge_edge",
         "ledger_event",
         "lesson",
         "memory_candidate",

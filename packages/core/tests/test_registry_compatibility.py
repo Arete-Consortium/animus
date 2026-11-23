@@ -386,7 +386,7 @@ def test_migration_preserves_existing_evidence_or_refuses_duplicates(database_ur
             }
             assert connection.execute(
                 text("SELECT version_num FROM alembic_version")
-            ).scalar_one() == ("001" if duplicate else "002")
+            ).scalar_one() == ("001" if duplicate else "003")
     finally:
         engine.dispose()
 
@@ -443,3 +443,87 @@ def test_hunter_envelope_contract_and_generated_model():
     validate(payload, "object_version")
     parsed = ObjectVersion.model_validate(payload)
     assert parsed.workspace_id == "hunter-os"
+
+
+@pytest.mark.parametrize("hidden_status", ["archived", "deleted"])
+def test_scoped_edge_history_and_integrity_require_visible_current_edge(
+    database_url, hidden_status
+):
+    command.upgrade(config(database_url), "head")
+    admin = db.DurableObjectStore(database_url)
+    scope = ObjectScope(
+        owner_id="owner-test",
+        workspace_id="ws-test",
+        subject_domain="project",
+        security_class="internal",
+        schema_id="knowledge_edge",
+        artifact_types=frozenset({"knowledge_edge"}),
+    )
+    scoped = db.DurableObjectStore(database_url, scope=scope)
+    edge = db.KnowledgeEdgeRecord(
+        edge_id="edge-history",
+        subject_id="subject",
+        predicate=db.KnowledgeEdgeType.RELATED_TO,
+        object_id="object",
+        owner_id=scope.owner_id,
+        workspace_id=scope.workspace_id,
+    )
+    try:
+        edge_id, created = scoped.store_edge(edge)
+        retired, superseded = scoped.supersede_edge(edge_id)
+        assert retired
+        assert scoped.retrieve_edge(edge_id, version=1) is None
+        assert scoped.get_edge_ledger_events(edge_id) == []
+        assert scoped.verify_integrity(created) is False
+
+        _, replacement = scoped.store_edge(replace(edge))
+        assert scoped.retrieve_edge(edge_id, version=1) is not None
+        assert len(scoped.list_edges(include_superseded=True)) == 2
+        assert {event["event_id"] for event in scoped.get_edge_ledger_events(edge_id)} == {
+            created,
+            superseded,
+            replacement,
+        }
+        assert all(
+            scoped.verify_integrity(event_id) for event_id in (created, superseded, replacement)
+        )
+
+        admin.supersede_edge(edge_id)
+        _, hidden = admin.store_edge(replace(edge, lifecycle_status=hidden_status))
+        assert scoped.retrieve_edge(edge_id) is None
+        assert scoped.retrieve_edge(edge_id, version=1) is None
+        assert scoped.list_edges(include_superseded=True) == []
+        assert scoped.get_edge_ledger_events(edge_id) == []
+        assert all(
+            not scoped.verify_integrity(event_id)
+            for event_id in (created, superseded, replacement, hidden)
+        )
+        assert admin.verify_integrity(hidden)
+        ledger = Table("event_ledger", MetaData(), autoload_with=admin._engine)
+        with admin._engine.begin() as connection:
+            event_filter = ledger.c.idempotency_key == hidden
+            data = connection.execute(select(ledger.c.event_data).where(event_filter)).scalar_one()
+            data["payload"]["metadata"] = {"tampered": True}
+            connection.execute(ledger.update().where(event_filter).values(event_data=data))
+        assert admin.verify_integrity(hidden) is False
+    finally:
+        scoped._engine.dispose()
+        admin._engine.dispose()
+
+
+def test_migration_003_refuses_unexpected_edge_table(database_url):
+    cfg = config(database_url)
+    command.upgrade(cfg, "002")
+    engine = create_engine(database_url, hide_parameters=True)
+    try:
+        with engine.begin() as connection:
+            connection.execute(text("CREATE TABLE knowledge_edges (id INTEGER PRIMARY KEY)"))
+        with pytest.raises(RuntimeError, match="Unexpected existing knowledge_edges table"):
+            command.upgrade(cfg, "003")
+        with engine.connect() as connection:
+            assert (
+                connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+                == "002"
+            )
+    finally:
+        engine.dispose()

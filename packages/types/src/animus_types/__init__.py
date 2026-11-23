@@ -41,6 +41,7 @@ from animus_types.event import AnimusEventObject
 from animus_types.exceptions import ValidationError
 from animus_types.forecast import AnimusForecastObject
 from animus_types.hypothesis import AnimusHypothesisObject
+from animus_types.knowledge_edge import AnimusKnowledgeEdge
 from animus_types.lesson import AnimusLessonObject
 from animus_types.observation import AnimusObservationObject
 from animus_types.outcome import AnimusOutcomeObject
@@ -82,6 +83,7 @@ __all__ = [
     "AnimusEventObject",
     "AnimusForecastObject",
     "AnimusHypothesisObject",
+    "AnimusKnowledgeEdge",
     "AnimusLessonObject",
     "AnimusObservationObject",
     "AnimusOutcomeObject",

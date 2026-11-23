@@ -51,11 +51,13 @@ try:
         BigInteger,
         Column,
         DateTime,
+        Float,
         Index,
         Integer,
         String,
         create_engine,
         func,
+        or_,
         select,
     )
     from sqlalchemy import (
@@ -130,6 +132,22 @@ class EventType(str, Enum):
     IMPORTED = "imported"
 
 
+class KnowledgeEdgeType(str, Enum):
+    """Controlled relationship labels for the shared knowledge graph."""
+
+    DEPENDS_ON = "DEPENDS_ON"
+    IMPLEMENTS = "IMPLEMENTS"
+    MODIFIES = "MODIFIES"
+    CAUSED_BY = "CAUSED_BY"
+    RESOLVES = "RESOLVES"
+    VERIFIED_BY = "VERIFIED_BY"
+    SUPERSEDES = "SUPERSEDES"
+    CONTRADICTS = "CONTRADICTS"
+    OWNED_BY = "OWNED_BY"
+    RELATED_TO = "RELATED_TO"
+    DERIVED_FROM = "DERIVED_FROM"
+
+
 # ------------------------------------------------------------------
 # Domain dataclass
 # ------------------------------------------------------------------
@@ -162,6 +180,45 @@ class ObjectRecord:
     valid_to: datetime | None = None
     recorded_at: datetime | None = None
     superseded_at: datetime | None = None
+
+
+@dataclass
+class KnowledgeEdgeRecord:
+    """A versioned, evidence-bearing relationship between two stable IDs."""
+
+    edge_id: str
+    subject_id: str
+    predicate: KnowledgeEdgeType
+    object_id: str
+    owner_id: str = "owner-default"
+    workspace_id: str = "ws-default"
+    subject_domain: str = "project"
+    artifact_type: str = "knowledge_edge"
+    schema_id: str = "knowledge_edge"
+    schema_version: str = "1.0.0"
+    source_ref: str | None = None
+    provenance: str = "direct"
+    evidence_grade: str = "UNASSESSED"
+    confidence: float | None = None
+    epistemic_status: str = EpistemicStatus.UNVERIFIED.value
+    lifecycle_status: str = LifecycleStatus.ACTIVE.value
+    security_class: str = SecurityClass.INTERNAL.value
+    metadata: dict[str, Any] = field(default_factory=dict)
+    created_by: str = "animus"
+    edge_version: int = 1
+    valid_from: datetime | None = None
+    valid_to: datetime | None = None
+    recorded_at: datetime | None = None
+    superseded_at: datetime | None = None
+
+    def __post_init__(self) -> None:
+        self.predicate = KnowledgeEdgeType(self.predicate)
+        if not self.edge_id.strip() or not self.subject_id.strip() or not self.object_id.strip():
+            raise ValueError("edge_id, subject_id, and object_id are required")
+        if self.confidence is not None and not 0.0 <= self.confidence <= 1.0:
+            raise ValueError("confidence must be between 0.0 and 1.0")
+        if self.edge_version < 1:
+            raise ValueError("edge_version must be at least 1")
 
 
 # ------------------------------------------------------------------
@@ -225,6 +282,67 @@ if _HAS_SQLALCHEMY:
         unique=True,
         sqlite_where=_ObjectRegistryRow.superseded_at.is_(None),
         postgresql_where=_ObjectRegistryRow.superseded_at.is_(None),
+    )
+
+    class _KnowledgeEdgeRow(Base):  # type: ignore[valid-type,misc]
+        """Versioned typed edges kept beside the canonical object registry."""
+
+        __tablename__ = "knowledge_edges"
+
+        id: Any = Column(
+            BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True
+        )
+        edge_id: Any = Column(String(128), nullable=False, index=True)
+        edge_version: Any = Column(Integer, nullable=False, default=1)
+        subject_id: Any = Column(String(256), nullable=False)
+        predicate: Any = Column(String(64), nullable=False)
+        object_id: Any = Column(String(256), nullable=False)
+        owner_id: Any = Column(String(128), nullable=False)
+        workspace_id: Any = Column(String(128), nullable=False, index=True)
+        subject_domain: Any = Column(String(32), nullable=False)
+        artifact_type: Any = Column(String(64), nullable=False)
+        schema_id: Any = Column(String(256), nullable=False)
+        schema_version: Any = Column(String(32), nullable=False)
+        source_ref: Any = Column(String(512), nullable=True)
+        provenance: Any = Column(String(64), nullable=False)
+        evidence_grade: Any = Column(String(32), nullable=False)
+        confidence: Any = Column(Float, nullable=True)
+        epistemic_status: Any = Column(String(32), nullable=False)
+        lifecycle_status: Any = Column(String(32), nullable=False)
+        security_class: Any = Column(String(32), nullable=False)
+        valid_from: Any = Column(DateTime(timezone=True), nullable=True)
+        valid_to: Any = Column(DateTime(timezone=True), nullable=True)
+        recorded_at: Any = Column(
+            DateTime(timezone=True), nullable=False, server_default=func.now()
+        )
+        superseded_at: Any = Column(DateTime(timezone=True), nullable=True)
+        created_by: Any = Column(String(256), nullable=False)
+        metadata_json: Any = Column(JSON, nullable=False, server_default="{}")
+
+    Index(
+        "idx_edge_id_version",
+        _KnowledgeEdgeRow.edge_id,
+        _KnowledgeEdgeRow.edge_version,
+        unique=True,
+    )
+    Index(
+        "idx_edge_current",
+        _KnowledgeEdgeRow.edge_id,
+        unique=True,
+        sqlite_where=_KnowledgeEdgeRow.superseded_at.is_(None),
+        postgresql_where=_KnowledgeEdgeRow.superseded_at.is_(None),
+    )
+    Index(
+        "idx_edge_subject_predicate",
+        _KnowledgeEdgeRow.subject_id,
+        _KnowledgeEdgeRow.predicate,
+        _KnowledgeEdgeRow.superseded_at,
+    )
+    Index(
+        "idx_edge_object_predicate",
+        _KnowledgeEdgeRow.object_id,
+        _KnowledgeEdgeRow.predicate,
+        _KnowledgeEdgeRow.superseded_at,
     )
 
     class _LedgerEventRow(Base):  # type: ignore[valid-type,misc]
@@ -331,6 +449,36 @@ def _row_to_record(row: Any) -> ObjectRecord:
         created_by=row.created_by,
         trace_id=row.trace_id,
         version=row.object_version,
+        valid_from=_utc(row.valid_from),
+        valid_to=_utc(row.valid_to),
+        recorded_at=_utc(row.recorded_at),
+        superseded_at=_utc(row.superseded_at),
+    )
+
+
+def _row_to_edge(row: Any) -> KnowledgeEdgeRecord:
+    """Convert a knowledge-edge row to its public record."""
+    return KnowledgeEdgeRecord(
+        edge_id=row.edge_id,
+        subject_id=row.subject_id,
+        predicate=KnowledgeEdgeType(row.predicate),
+        object_id=row.object_id,
+        owner_id=row.owner_id,
+        workspace_id=row.workspace_id,
+        subject_domain=row.subject_domain,
+        artifact_type=row.artifact_type,
+        schema_id=row.schema_id,
+        schema_version=row.schema_version,
+        source_ref=row.source_ref,
+        provenance=row.provenance,
+        evidence_grade=row.evidence_grade,
+        confidence=row.confidence,
+        epistemic_status=row.epistemic_status,
+        lifecycle_status=row.lifecycle_status,
+        security_class=row.security_class,
+        metadata=row.metadata_json or {},
+        created_by=row.created_by,
+        edge_version=row.edge_version,
         valid_from=_utc(row.valid_from),
         valid_to=_utc(row.valid_to),
         recorded_at=_utc(row.recorded_at),
@@ -809,6 +957,334 @@ class DurableObjectStore:
             return [_row_to_record(r) for r in rows]
 
     # ------------------------------------------------------------------
+    # Typed knowledge edges
+    # ------------------------------------------------------------------
+
+    def _edges(self, *, historical: bool = False) -> Any:
+        if self.scope is not None and not self._schema_checked:
+            self.preflight()
+        stmt = select(_KnowledgeEdgeRow).where(
+            *self._scope_conditions(_KnowledgeEdgeRow, historical=historical)
+        )
+        if self.scope is not None and historical:
+            current = aliased(_KnowledgeEdgeRow)
+            stmt = stmt.where(
+                select(current.id)
+                .where(
+                    current.edge_id == _KnowledgeEdgeRow.edge_id,
+                    current.superseded_at.is_(None),
+                    *self._scope_conditions(current),
+                )
+                .exists()
+            )
+        return stmt
+
+    def _guard_edge(self, edge: KnowledgeEdgeRecord) -> None:
+        if self.scope is None:
+            return
+        if not (
+            edge.owner_id == self.scope.owner_id
+            and edge.workspace_id == self.scope.workspace_id
+            and edge.subject_domain == self.scope.subject_domain
+            and edge.security_class == self.scope.security_class
+            and edge.schema_id == self.scope.schema_id
+            and edge.artifact_type in self.scope.artifact_types
+            and edge.lifecycle_status == LifecycleStatus.ACTIVE.value
+        ):
+            raise PermissionError("Record is outside this store's write scope.")
+        if not self._schema_checked:
+            self.preflight()
+
+    @staticmethod
+    def _edge_payload(edge: KnowledgeEdgeRecord) -> dict[str, Any]:
+        return {
+            "edge_id": edge.edge_id,
+            "edge_version": edge.edge_version,
+            "subject_id": edge.subject_id,
+            "predicate": edge.predicate.value,
+            "object_id": edge.object_id,
+            "source_ref": edge.source_ref,
+            "provenance": edge.provenance,
+            "evidence_grade": edge.evidence_grade,
+            "confidence": edge.confidence,
+            "epistemic_status": edge.epistemic_status,
+            "lifecycle_status": edge.lifecycle_status,
+            "metadata": edge.metadata,
+        }
+
+    @staticmethod
+    def _new_edge_row(edge: KnowledgeEdgeRecord, now: datetime) -> Any:
+        return _KnowledgeEdgeRow(
+            edge_id=edge.edge_id,
+            edge_version=edge.edge_version,
+            subject_id=edge.subject_id,
+            predicate=edge.predicate.value,
+            object_id=edge.object_id,
+            owner_id=edge.owner_id,
+            workspace_id=edge.workspace_id,
+            subject_domain=edge.subject_domain,
+            artifact_type=edge.artifact_type,
+            schema_id=edge.schema_id,
+            schema_version=edge.schema_version,
+            source_ref=edge.source_ref,
+            provenance=edge.provenance,
+            evidence_grade=edge.evidence_grade,
+            confidence=edge.confidence,
+            epistemic_status=edge.epistemic_status,
+            lifecycle_status=edge.lifecycle_status,
+            security_class=edge.security_class,
+            valid_from=_utc(edge.valid_from),
+            valid_to=_utc(edge.valid_to),
+            recorded_at=now,
+            created_by=edge.created_by,
+            metadata_json=edge.metadata,
+        )
+
+    def _validate_edge(self, edge: KnowledgeEdgeRecord, recorded_at: datetime) -> None:
+        if edge.valid_from is not None and edge.valid_from.utcoffset() is None:
+            raise LedgerValidationError("valid_from must be timezone-aware.")
+        if edge.valid_to is not None and edge.valid_to.utcoffset() is None:
+            raise LedgerValidationError("valid_to must be timezone-aware.")
+        if edge.valid_from and edge.valid_to and edge.valid_to <= edge.valid_from:
+            raise LedgerValidationError("valid_to must be later than valid_from.")
+        if not _HAS_CONTRACTS:
+            if self.scope is not None:
+                raise LedgerValidationError("Scoped writes require contract validation.")
+            return
+        payload = self._edge_payload(edge)
+        payload.update(
+            {
+                "schema_id": edge.schema_id,
+                "schema_version": edge.schema_version,
+                "owner_id": edge.owner_id,
+                "workspace_id": edge.workspace_id,
+                "subject_domain": edge.subject_domain,
+                "artifact_type": edge.artifact_type,
+                "security_class": edge.security_class,
+                "valid_from": edge.valid_from.isoformat() if edge.valid_from else None,
+                "valid_to": edge.valid_to.isoformat() if edge.valid_to else None,
+                "recorded_at": recorded_at.isoformat(),
+                "created_by": edge.created_by,
+            }
+        )
+        try:
+            _validate_contract(payload, "knowledge_edge")
+        except _ContractValidationError as exc:
+            raise LedgerValidationError(
+                f"Knowledge edge failed schema validation: {exc.errors}"
+            ) from exc
+
+    def _write_edge_ledger_event(
+        self,
+        session: Session,
+        event_type: str,
+        edge: KnowledgeEdgeRecord,
+    ) -> str:
+        event_id = _generate_id("evt")
+        payload = self._edge_payload(edge)
+        now = _now_utc()
+        integrity = _sha256(
+            {
+                "event_id": event_id,
+                "event_type": event_type,
+                "edge_id": edge.edge_id,
+                "version": edge.edge_version,
+                "payload": payload,
+            }
+        )
+        event = {
+            "event_id": event_id,
+            "event_type": event_type,
+            "edge_id": edge.edge_id,
+            "edge_version": edge.edge_version,
+            "principal": edge.created_by,
+            "workspace_id": edge.workspace_id,
+            "payload": payload,
+            "integrity_hash": integrity,
+            "tx_time": now.isoformat(),
+        }
+        session.add(
+            _LedgerEventRow(
+                event_kind=f"knowledge_edge.{event_type}",
+                occurred_at=now,
+                recorded_at=now,
+                actor_refs=[edge.created_by],
+                object_refs=[edge.edge_id, edge.subject_id, edge.object_id],
+                event_data=event,
+                idempotency_key=event_id,
+                valid_from=edge.valid_from,
+            )
+        )
+        session.flush()
+        return event_id
+
+    def store_edge(self, edge: KnowledgeEdgeRecord) -> tuple[str, str]:
+        """Store a typed edge and ledger event atomically."""
+        self._guard_edge(edge)
+        now = _now_utc()
+        edge.valid_from = edge.valid_from or now
+        with self._session_factory.begin() as session:
+            latest = session.execute(
+                select(_KnowledgeEdgeRow)
+                .where(
+                    _KnowledgeEdgeRow.edge_id == edge.edge_id,
+                )
+                .order_by(_KnowledgeEdgeRow.edge_version.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+            if latest is not None:
+                identity_fields = (
+                    "owner_id",
+                    "workspace_id",
+                    "subject_domain",
+                    "security_class",
+                    "schema_id",
+                    "artifact_type",
+                )
+                if any(getattr(latest, field) != getattr(edge, field) for field in identity_fields):
+                    raise PermissionError("Knowledge edge identity belongs to another scope.")
+                if latest.superseded_at is None:
+                    raise ConcurrencyError("Knowledge edge identity already has a current version.")
+                edge.edge_version = latest.edge_version + 1
+            else:
+                edge.edge_version = 1
+            self._validate_edge(edge, now)
+            session.add(self._new_edge_row(edge, now))
+            session.flush()
+            event_id = self._write_edge_ledger_event(session, "created", edge)
+            self._enqueue_outbox(
+                session,
+                "knowledge_edge.created",
+                {"edge_id": edge.edge_id, "version": edge.edge_version, "event_id": event_id},
+            )
+        edge.recorded_at = now
+        return edge.edge_id, event_id
+
+    def retrieve_edge(self, edge_id: str, version: int | None = None) -> KnowledgeEdgeRecord | None:
+        """Retrieve the current edge or a specific historical version."""
+        with self._session_factory() as session:
+            stmt = self._edges(historical=version is not None).where(
+                _KnowledgeEdgeRow.edge_id == edge_id
+            )
+            if version is None:
+                stmt = stmt.where(_KnowledgeEdgeRow.superseded_at.is_(None))
+            else:
+                stmt = stmt.where(_KnowledgeEdgeRow.edge_version == version)
+            row = session.execute(stmt).scalar_one_or_none()
+            return _row_to_edge(row) if row else None
+
+    def supersede_edge(self, edge_id: str, *, principal: str = "animus") -> tuple[bool, str]:
+        """Retire the current edge without erasing its historical evidence."""
+        with self._session_factory.begin() as session:
+            row = session.execute(
+                self._edges().where(
+                    _KnowledgeEdgeRow.edge_id == edge_id,
+                    _KnowledgeEdgeRow.superseded_at.is_(None),
+                )
+            ).scalar_one_or_none()
+            if row is None:
+                return False, ""
+            edge = _row_to_edge(row)
+            edge.created_by = principal
+            now = _now_utc()
+            edge.lifecycle_status = LifecycleStatus.SUPERSEDED.value
+            edge.superseded_at = now
+            if (edge.valid_from is None or edge.valid_from < now) and (
+                edge.valid_to is None or now < edge.valid_to
+            ):
+                edge.valid_to = now
+            changed = session.execute(
+                sql_update(_KnowledgeEdgeRow)
+                .where(
+                    _KnowledgeEdgeRow.id == row.id,
+                    _KnowledgeEdgeRow.superseded_at.is_(None),
+                    *self._scope_conditions(_KnowledgeEdgeRow),
+                )
+                .values(
+                    superseded_at=now,
+                    lifecycle_status=LifecycleStatus.SUPERSEDED.value,
+                    valid_to=edge.valid_to,
+                ),
+                execution_options={"synchronize_session": False},
+            )
+            if cast(CursorResult, changed).rowcount != 1:
+                raise ConcurrencyError("Knowledge edge changed during supersession.")
+            event_id = self._write_edge_ledger_event(session, "superseded", edge)
+            self._enqueue_outbox(
+                session,
+                "knowledge_edge.superseded",
+                {"edge_id": edge_id, "version": edge.edge_version, "event_id": event_id},
+            )
+            return True, event_id
+
+    def list_edges(
+        self,
+        *,
+        subject_id: str | None = None,
+        predicate: KnowledgeEdgeType | None = None,
+        object_id: str | None = None,
+        include_superseded: bool = False,
+        limit: int = 100,
+    ) -> list[KnowledgeEdgeRecord]:
+        """List bounded current edges matching stable endpoint references."""
+        if type(limit) is not int or not 1 <= limit <= 1000:
+            raise ValueError("limit must be between 1 and 1000")
+        with self._session_factory() as session:
+            stmt = self._edges(historical=include_superseded)
+            if not include_superseded:
+                stmt = stmt.where(_KnowledgeEdgeRow.superseded_at.is_(None))
+            if subject_id is not None:
+                stmt = stmt.where(_KnowledgeEdgeRow.subject_id == subject_id)
+            if predicate is not None:
+                stmt = stmt.where(_KnowledgeEdgeRow.predicate == KnowledgeEdgeType(predicate).value)
+            if object_id is not None:
+                stmt = stmt.where(_KnowledgeEdgeRow.object_id == object_id)
+            rows = (
+                session.execute(
+                    stmt.order_by(_KnowledgeEdgeRow.edge_id, _KnowledgeEdgeRow.edge_version).limit(
+                        limit
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            return [_row_to_edge(row) for row in rows]
+
+    def neighbors(
+        self,
+        entity_id: str,
+        *,
+        predicate: KnowledgeEdgeType | None = None,
+        direction: str = "outgoing",
+        limit: int = 100,
+    ) -> list[KnowledgeEdgeRecord]:
+        """Return bounded immediate neighbors without graph-wide traversal."""
+        if direction not in {"outgoing", "incoming", "both"}:
+            raise ValueError("direction must be outgoing, incoming, or both")
+        if type(limit) is not int or not 1 <= limit <= 1000:
+            raise ValueError("limit must be between 1 and 1000")
+        if direction == "outgoing":
+            return self.list_edges(subject_id=entity_id, predicate=predicate, limit=limit)
+        if direction == "incoming":
+            return self.list_edges(object_id=entity_id, predicate=predicate, limit=limit)
+        with self._session_factory() as session:
+            stmt = self._edges().where(
+                or_(
+                    _KnowledgeEdgeRow.subject_id == entity_id,
+                    _KnowledgeEdgeRow.object_id == entity_id,
+                ),
+                _KnowledgeEdgeRow.superseded_at.is_(None),
+            )
+            if predicate is not None:
+                stmt = stmt.where(_KnowledgeEdgeRow.predicate == KnowledgeEdgeType(predicate).value)
+            rows = (
+                session.execute(stmt.order_by(_KnowledgeEdgeRow.edge_id).limit(limit))
+                .scalars()
+                .all()
+            )
+            return [_row_to_edge(row) for row in rows]
+
+    # ------------------------------------------------------------------
     # Bitemporal queries
     # ------------------------------------------------------------------
 
@@ -886,23 +1362,55 @@ class DurableObjectStore:
             )
             return [dict(row.event_data) for row in rows]
 
+    def _edge_ledger_query(self) -> Any:
+        stmt = select(_LedgerEventRow).where(_LedgerEventRow.event_kind.like("knowledge_edge.%"))
+        if self.scope is not None:
+            stmt = stmt.where(
+                self._edges(historical=True)
+                .where(
+                    _KnowledgeEdgeRow.edge_id == _LedgerEventRow.event_data["edge_id"].as_string(),
+                    _KnowledgeEdgeRow.edge_version
+                    == _LedgerEventRow.event_data["edge_version"].as_integer(),
+                )
+                .exists()
+            )
+        return stmt
+
+    def get_edge_ledger_events(self, edge_id: str) -> list[dict[str, Any]]:
+        """Return ledger events for one visible knowledge edge."""
+        with self._session_factory() as session:
+            rows = (
+                session.execute(
+                    self._edge_ledger_query()
+                    .where(_LedgerEventRow.event_data["edge_id"].as_string() == edge_id)
+                    .order_by(_LedgerEventRow.id)
+                )
+                .scalars()
+                .all()
+            )
+            return [dict(row.event_data) for row in rows]
+
     def verify_integrity(self, event_id: str) -> bool:
         """Verify a visible Core event; out-of-scope events return False."""
         with self._session_factory() as session:
-            row = session.execute(
-                self._ledger_query().where(
-                    _LedgerEventRow.idempotency_key == event_id,
-                )
-            ).scalar_one_or_none()
+            event_key = _LedgerEventRow.idempotency_key == event_id
+            row = session.execute(self._ledger_query().where(event_key)).scalar_one_or_none()
+            identity = "object"
+            if row is None:
+                row = session.execute(
+                    self._edge_ledger_query().where(event_key)
+                ).scalar_one_or_none()
+                identity = "edge"
             if row is None:
                 return False
             event = row.event_data
+            identity_key = f"{identity}_id"
             expected = _sha256(
                 {
                     "event_id": event["event_id"],
                     "event_type": event["event_type"],
-                    "object_id": event["object_id"],
-                    "version": event["object_version"],
+                    identity_key: event[identity_key],
+                    "version": event[f"{identity}_version"],
                     "payload": event["payload"],
                 }
             )
