@@ -468,6 +468,18 @@ jobs:
           HUNTER_TEST_DATABASE_URL: postgresql://postgres:testpass@localhost/animus_test
         run: pytest packages/core/tests/test_registry_compatibility.py packages/core/tests/test_hunter_os.py -v --tb=short
 
+      - name: Test registry backup and restore on PostgreSQL 16
+        if: matrix.postgres-version == '16'
+        env:
+          ANIMUS_TEST_REGISTRY_BACKUP_URL: postgresql+psycopg://postgres:testpass@127.0.0.1/animus_test
+        run: |
+          if [ ! -x /usr/lib/postgresql/16/bin/pg_dump ]; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client-16
+          fi
+          export PATH="/usr/lib/postgresql/16/bin:$PATH"
+          pytest packages/core/tests/test_registry_compatibility.py -v --tb=short -k registry_cli_backup
+
   test-pwa:
     name: Test PWA
     runs-on: ubuntu-latest
