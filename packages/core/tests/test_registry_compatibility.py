@@ -588,3 +588,73 @@ def test_edge_promotion_requires_exact_approval_and_is_idempotent(database_url):
         assert scoped.verify_integrity(promoted)
     finally:
         scoped._engine.dispose()
+
+
+def test_registry_cli_backup_restores_edge_history_and_evidence(tmp_path, monkeypatch):
+    """Opt in with a disposable PostgreSQL server and matching client tools."""
+    from animus.durability.cli import main
+
+    url = os.environ.get("ANIMUS_TEST_REGISTRY_BACKUP_URL")
+    if not url:
+        pytest.skip("ANIMUS_TEST_REGISTRY_BACKUP_URL not supplied")
+
+    admin = create_engine(url, isolation_level="AUTOCOMMIT", hide_parameters=True)
+    database_names = []
+    stores = []
+    try:
+        urls = []
+        for _ in range(2):
+            name = f"animus_backup_test_{uuid.uuid4().hex}"
+            with admin.connect() as connection:
+                connection.execute(text(f'CREATE DATABASE "{name}" TEMPLATE template0'))
+            database_names.append(name)
+            urls.append(admin.url.set(database=name).render_as_string(hide_password=False))
+        source_url, target_url = urls
+        command.upgrade(config(source_url), "head")
+        source = db.DurableObjectStore(source_url)
+        target = db.DurableObjectStore(target_url)
+        stores.extend((source, target))
+
+        edge = db.KnowledgeEdgeRecord(
+            edge_id="edge-backup-evidence",
+            subject_id="source",
+            predicate=db.KnowledgeEdgeType.RELATED_TO,
+            object_id="destination",
+            source_ref="synthetic:evidence",
+            metadata={"evidence": "first"},
+        )
+        source.store_edge(edge)
+        assert source.supersede_edge(edge.edge_id)[0]
+        source.store_edge(replace(edge, metadata={"evidence": "second"}))
+        source_events = source.get_edge_ledger_events(edge.edge_id)
+
+        monkeypatch.setenv("ANIMUS_DATABASE_URL", source_url)
+        monkeypatch.setenv("ANIMUS_RESTORE_DATABASE_URL", target_url)
+        archive = tmp_path / "registry.dump"
+        assert main(["export-registry", "-o", str(archive)]) == 0
+        assert archive.stat().st_mode & 0o777 == 0o600
+        assert main(["export-registry", "-o", str(archive)]) == 1
+        damaged = tmp_path / "truncated.dump"
+        contents = archive.read_bytes()
+        damaged.write_bytes(contents[: len(contents) // 2])
+        assert main(["restore-registry", str(damaged)]) == 1
+        assert inspect(target._engine).get_table_names() == []
+        assert main(["restore-registry", str(archive)]) == 0
+        assert main(["restore-registry", str(archive)]) == 1
+
+        target.preflight()
+        assert target.retrieve_edge(edge.edge_id, version=1).metadata == {"evidence": "first"}
+        assert target.retrieve_edge(edge.edge_id).metadata == {"evidence": "second"}
+        assert target.retrieve_edge(edge.edge_id).source_ref == "synthetic:evidence"
+        assert target.get_edge_ledger_events(edge.edge_id) == source_events
+        assert all(target.verify_integrity(event["event_id"]) for event in source_events)
+        assert counts(target) == counts(source) == (0, 3, 3)
+        target.store_edge(replace(edge, edge_id="edge-after-restore"))
+        assert target.retrieve_edge("edge-after-restore") is not None
+    finally:
+        for store in stores:
+            store._engine.dispose()
+        with admin.connect() as connection:
+            for name in database_names:
+                connection.execute(text(f'DROP DATABASE "{name}"'))
+        admin.dispose()

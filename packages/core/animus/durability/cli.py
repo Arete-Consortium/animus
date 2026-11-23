@@ -6,6 +6,8 @@ Run::
     python -m animus.durability.cli verify <archive.zip>
     python -m animus.durability.cli rebuild <archive.zip> --target <dir> [--overwrite]
     python -m animus.durability.cli preflight
+    python -m animus.durability.cli export-registry -o registry.dump
+    python -m animus.durability.cli restore-registry registry.dump
     python -m animus.durability.cli promote-edge EDGE --version N --owner OWNER --workspace WORKSPACE
 
 ``export --all`` captures the whole data dir + a redacted config snapshot.
@@ -179,6 +181,32 @@ def cmd_promote_edge(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_registry_backup(archive: Path, *, restore: bool) -> int:
+    from animus.durability.registry_backup import export_registry, restore_registry
+
+    variable = "ANIMUS_RESTORE_DATABASE_URL" if restore else "ANIMUS_DATABASE_URL"
+    url = os.environ.get(variable)
+    if not url:
+        print(f"Set {variable} to an explicit PostgreSQL database URL.", file=sys.stderr)
+        return 2
+    try:
+        if restore:
+            restore_registry(url, archive)
+        else:
+            export_registry(url, archive)
+    except DurabilityError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    except Exception:
+        print(
+            "Registry backup operation failed. Check configuration and archive path.",
+            file=sys.stderr,
+        )
+        return 2
+    print("Registry restore completed." if restore else f"Registry snapshot written to {archive}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Animus durability export/rebuild.")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -205,7 +233,18 @@ def main(argv: list[str] | None = None) -> int:
     promote.add_argument("--subject-domain", default="project")
     promote.add_argument("--security-class", default="internal")
 
+    export_sql = sub.add_parser("export-registry", help="Back up a dedicated PostgreSQL registry.")
+    export_sql.add_argument("-o", "--out", required=True, type=Path)
+    restore_sql = sub.add_parser(
+        "restore-registry", help="Restore into an empty PostgreSQL database."
+    )
+    restore_sql.add_argument("archive", type=Path)
+
     args = parser.parse_args(argv)
+    if args.cmd == "export-registry":
+        return cmd_registry_backup(args.out, restore=False)
+    if args.cmd == "restore-registry":
+        return cmd_registry_backup(args.archive, restore=True)
     if args.cmd == "promote-edge":
         return cmd_promote_edge(args)
     if args.cmd == "export":
