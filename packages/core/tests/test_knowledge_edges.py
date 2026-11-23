@@ -151,3 +151,56 @@ def test_supersession_preserves_inactive_valid_time(tmp_path: Path, days_from_no
     assert historical.valid_from == valid_from
     assert historical.valid_to == valid_to
     assert historical.superseded_at is not None
+
+
+def test_operator_cli_reviews_edge_before_promoting(tmp_path, monkeypatch, capsys):
+    from animus.durability.cli import main
+
+    store = make_store(tmp_path)
+    edge = make_edge(epistemic_status="unverified")
+    store.store_edge(edge)
+    monkeypatch.setenv("ANIMUS_DATABASE_URL", store.database_url)
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    argv = [
+        "promote-edge",
+        edge.edge_id,
+        "--version",
+        "1",
+        "--owner",
+        edge.owner_id,
+        "--workspace",
+        edge.workspace_id,
+    ]
+    monkeypatch.setattr("builtins.input", lambda prompt: "cancel")
+    assert main(argv) == 1
+    assert store.retrieve_edge(edge.edge_id).epistemic_status == "unverified"
+
+    def confirm(prompt):
+        reviewed = capsys.readouterr().out
+        assert edge.workspace_id in reviewed
+        assert edge.source_ref in reviewed
+        assert f"approve {edge.edge_id} version 1" in prompt
+        return f"approve {edge.edge_id} version 1"
+
+    monkeypatch.setattr("builtins.input", confirm)
+    for name in ("LOGNAME", "USER", "LNAME", "USERNAME"):
+        monkeypatch.setenv(name, "untrusted-environment-user")
+
+    def missing_login():
+        raise OSError("no terminal login")
+
+    monkeypatch.setattr("animus.durability.cli.os.getlogin", missing_login)
+    assert main(argv) == 2
+    assert store.retrieve_edge(edge.edge_id).epistemic_status == "unverified"
+    assert [event["event_type"] for event in store.get_edge_ledger_events(edge.edge_id)] == [
+        "created"
+    ]
+
+    monkeypatch.setattr("animus.durability.cli.os.getlogin", lambda: "test-operator")
+    assert main(argv) == 0
+    assert main(argv) == 1
+    assert store.retrieve_edge(edge.edge_id).epistemic_status == "supported"
+    events = store.get_edge_ledger_events(edge.edge_id)
+    assert [event["event_type"] for event in events] == ["created", "promoted"]
+    assert events[-1]["payload"]["approver"] == "test-operator"
+    assert store.verify_integrity(events[-1]["event_id"])

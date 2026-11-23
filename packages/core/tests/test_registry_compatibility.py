@@ -527,3 +527,64 @@ def test_migration_003_refuses_unexpected_edge_table(database_url):
             )
     finally:
         engine.dispose()
+
+
+def test_edge_promotion_requires_exact_approval_and_is_idempotent(database_url):
+    from animus.tools import ToolRegistry
+
+    command.upgrade(config(database_url), "head")
+    registry = ToolRegistry()
+    scope = ObjectScope(
+        owner_id="owner-test",
+        workspace_id="ws-test",
+        subject_domain="project",
+        security_class="internal",
+        schema_id="knowledge_edge",
+        artifact_types=frozenset({"knowledge_edge"}),
+    )
+    scoped = db.DurableObjectStore(
+        database_url, scope=scope, edge_approval_store=registry.approval_store
+    )
+    try:
+        edge = db.KnowledgeEdgeRecord(
+            edge_id="edge-promotion",
+            subject_id="subject",
+            predicate=db.KnowledgeEdgeType.RELATED_TO,
+            object_id="object",
+            owner_id=scope.owner_id,
+            workspace_id=scope.workspace_id,
+        )
+        edge_id, created = scoped.store_edge(edge)
+        params = {
+            "edge_id": edge_id,
+            "expected_version": 1,
+            "owner_id": scope.owner_id,
+            "workspace_id": scope.workspace_id,
+        }
+        tool = "promote_knowledge_edge"
+        denied = registry.request_approval(tool, params, decision="deny")
+        other_workspace = registry.request_approval(tool, {**params, "workspace_id": "ws-other"})
+        stale = registry.request_approval(tool, {**params, "expected_version": 2})
+        expired = registry.request_approval(tool, params, expiry_seconds=-1)
+        for invalid in ("missing", denied, other_workspace, expired):
+            with pytest.raises(PermissionError):
+                scoped.promote_edge(edge_id, 1, invalid)
+        with pytest.raises(db.ConcurrencyError):
+            scoped.promote_edge(edge_id, 2, stale)
+        assert scoped.retrieve_edge(edge_id).epistemic_status == "unverified"
+        assert [entry["event_id"] for entry in scoped.get_edge_ledger_events(edge_id)] == [created]
+
+        approved = registry.request_approval(tool, params, approver="reviewer")
+        promoted = scoped.promote_edge(edge_id, 1, approved)
+        assert scoped.promote_edge(edge_id, 1, approved) == promoted
+        current = scoped.retrieve_edge(edge_id)
+        assert current.edge_version == 2
+        assert current.epistemic_status == "supported"
+        assert scoped.retrieve_edge(edge_id, version=1).epistemic_status == "unverified"
+        events = scoped.get_edge_ledger_events(edge_id)
+        assert [entry["event_id"] for entry in events] == [created, promoted]
+        assert events[-1]["payload"]["approval_id"] == approved
+        assert events[-1]["payload"]["approver"] == "reviewer"
+        assert scoped.verify_integrity(promoted)
+    finally:
+        scoped._engine.dispose()

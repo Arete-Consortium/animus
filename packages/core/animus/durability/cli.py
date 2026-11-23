@@ -1,4 +1,4 @@
-"""CLI for durability export / rebuild (roadmap A8).
+"""CLI for durability export, rebuild, and operator edge review.
 
 Run::
 
@@ -6,6 +6,7 @@ Run::
     python -m animus.durability.cli verify <archive.zip>
     python -m animus.durability.cli rebuild <archive.zip> --target <dir> [--overwrite]
     python -m animus.durability.cli preflight
+    python -m animus.durability.cli promote-edge EDGE --version N --owner OWNER --workspace WORKSPACE
 
 ``export --all`` captures the whole data dir + a redacted config snapshot.
 ``rebuild`` verifies the manifest checksums before restoring (cold-rebuild).
@@ -14,7 +15,10 @@ Run::
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import sys
+from dataclasses import asdict
 from pathlib import Path
 
 from animus.durability.export import (
@@ -92,6 +96,89 @@ def cmd_preflight() -> int:
     return 0
 
 
+def cmd_promote_edge(args: argparse.Namespace) -> int:
+    """Review and approve an exact edge version from a local operator terminal."""
+    from animus.durability.postgres_store import ConcurrencyError, DurableObjectStore
+    from animus.durability.scope import ObjectScope
+    from animus.tools import ToolRegistry
+
+    if not sys.stdin.isatty():
+        print("Edge promotion requires an interactive operator terminal.", file=sys.stderr)
+        return 2
+
+    registry = ToolRegistry()
+    params = {
+        "edge_id": args.edge_id,
+        "expected_version": args.version,
+        "owner_id": args.owner,
+        "workspace_id": args.workspace,
+    }
+    store = None
+    try:
+        scope = ObjectScope(
+            owner_id=args.owner,
+            workspace_id=args.workspace,
+            subject_domain=args.subject_domain,
+            security_class=args.security_class,
+            schema_id="knowledge_edge",
+            artifact_types=frozenset({"knowledge_edge"}),
+        )
+        store = DurableObjectStore(scope=scope, edge_approval_store=registry.approval_store)
+        edge = store.retrieve_edge(args.edge_id)
+        if (
+            edge is None
+            or edge.edge_version != args.version
+            or edge.epistemic_status != "unverified"
+        ):
+            print(
+                "The requested unverified edge version is not current in this scope.",
+                file=sys.stderr,
+            )
+            return 1
+
+        print(json.dumps(asdict(edge), indent=2, default=str))
+        confirmation = f"approve {edge.edge_id} version {edge.edge_version}"
+        if input(f"Type {confirmation!r} to promote this edge: ") != confirmation:
+            print("Edge promotion cancelled.", file=sys.stderr)
+            return 1
+        try:
+            operator = os.getlogin()
+        except OSError:
+            print("Could not verify the operator's terminal login.", file=sys.stderr)
+            return 2
+        if not operator:
+            print("Could not verify the operator's terminal login.", file=sys.stderr)
+            return 2
+        approval_id = registry.request_approval(
+            "promote_knowledge_edge",
+            params,
+            requesting_actor=operator,
+            approver=operator,
+            reason="Interactive knowledge edge review",
+        )
+        event_id = store.promote_edge(args.edge_id, args.version, approval_id)
+    except (EOFError, KeyboardInterrupt):
+        print("Edge promotion cancelled.", file=sys.stderr)
+        return 1
+    except (ConcurrencyError, PermissionError):
+        print(
+            "The edge changed or approval was denied. Review the current edge again.",
+            file=sys.stderr,
+        )
+        return 1
+    except Exception:
+        print(
+            "Edge promotion unavailable. Check registry configuration and connectivity.",
+            file=sys.stderr,
+        )
+        return 2
+    finally:
+        if store is not None:
+            store._engine.dispose()
+    print(f"Promoted {args.edge_id} to supported. Ledger event: {event_id}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Animus durability export/rebuild.")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -110,7 +197,17 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("preflight", help="Read-only SQL schema compatibility check.")
 
+    promote = sub.add_parser("promote-edge", help="Interactively approve a knowledge edge.")
+    promote.add_argument("edge_id")
+    promote.add_argument("--version", required=True, type=int)
+    promote.add_argument("--owner", required=True)
+    promote.add_argument("--workspace", required=True)
+    promote.add_argument("--subject-domain", default="project")
+    promote.add_argument("--security-class", default="internal")
+
     args = parser.parse_args(argv)
+    if args.cmd == "promote-edge":
+        return cmd_promote_edge(args)
     if args.cmd == "export":
         return cmd_export(args.out, args.all)
     if args.cmd == "verify":

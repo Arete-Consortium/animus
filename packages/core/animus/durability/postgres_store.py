@@ -33,6 +33,7 @@ from animus_types import ValidationError as _ContractValidationError
 from animus.durability.schema import SchemaCompatibilityError, inspect_schema
 from animus.durability.scope import ObjectScope
 from animus.logging import get_logger
+from animus.tools import ApprovalStore, _canonical_params_hash
 
 logger = get_logger("durability.postgres_store")
 
@@ -509,6 +510,7 @@ class DurableObjectStore:
         workspace_id: str = "ws-default",
         *,
         scope: ObjectScope | None = None,
+        edge_approval_store: ApprovalStore | None = None,
     ):
         if not _HAS_SQLALCHEMY:
             raise RuntimeError(
@@ -524,6 +526,7 @@ class DurableObjectStore:
                 "Scoped stores require animus-contracts; install the contracts package."
             )
         self._scope = scope
+        self._edge_approval_store = edge_approval_store
         self._schema_checked = False
         self.owner_id = owner_id
         self.workspace_id = workspace_id
@@ -1081,9 +1084,18 @@ class DurableObjectStore:
         session: Session,
         event_type: str,
         edge: KnowledgeEdgeRecord,
+        *,
+        approval_id: str | None = None,
     ) -> str:
-        event_id = _generate_id("evt")
+        event_id = (
+            f"evt-edge-promotion-{_sha256({'approval_id': approval_id})}"
+            if approval_id is not None
+            else _generate_id("evt")
+        )
         payload = self._edge_payload(edge)
+        if approval_id is not None:
+            payload["approval_id"] = approval_id
+            payload["approver"] = edge.created_by
         now = _now_utc()
         integrity = _sha256(
             {
@@ -1161,6 +1173,87 @@ class DurableObjectStore:
             )
         edge.recorded_at = now
         return edge.edge_id, event_id
+
+    def promote_edge(self, edge_id: str, expected_version: int, approval_id: str) -> str:
+        """Promote an unverified edge with a verified operator approval.
+
+        The approval must authorize `promote_knowledge_edge` with the edge ID,
+        expected version, owner ID and workspace ID as parameters. The approval
+        store is configured by the application when constructing this store.
+        """
+        scope = self.scope
+        approvals = self._edge_approval_store
+        if scope is None or approvals is None or not approval_id:
+            raise PermissionError("Knowledge edge promotion requires scoped operator approval.")
+
+        decision = approvals.lookup(approval_id)
+        if decision is None:
+            raise PermissionError("Knowledge edge promotion approval was not found.")
+        params_hash = _canonical_params_hash(
+            {
+                "edge_id": edge_id,
+                "expected_version": expected_version,
+                "owner_id": scope.owner_id,
+                "workspace_id": scope.workspace_id,
+            }
+        )
+        allowed, reason = approvals.verify(decision, "promote_knowledge_edge", params_hash)
+        if not allowed:
+            raise PermissionError(f"Knowledge edge promotion approval denied: {reason}")
+
+        event_id = f"evt-edge-promotion-{_sha256({'approval_id': approval_id})}"
+        with self._session_factory.begin() as session:
+            current = self._edges().where(
+                _KnowledgeEdgeRow.edge_id == edge_id,
+                _KnowledgeEdgeRow.superseded_at.is_(None),
+            )
+            row = session.execute(current.with_for_update()).scalar_one_or_none()
+            prior_event = session.execute(
+                self._edge_ledger_query().where(
+                    _LedgerEventRow.idempotency_key == event_id,
+                    _LedgerEventRow.event_kind == "knowledge_edge.promoted",
+                    _LedgerEventRow.event_data["edge_id"].as_string() == edge_id,
+                    _LedgerEventRow.event_data["edge_version"].as_integer() == expected_version + 1,
+                )
+            ).scalar_one_or_none()
+            if prior_event is not None:
+                return event_id
+            if (
+                row is None
+                or row.edge_version != expected_version
+                or row.epistemic_status != EpistemicStatus.UNVERIFIED.value
+            ):
+                raise ConcurrencyError("Expected unverified knowledge edge version is not current.")
+            now = _now_utc()
+            promoted = replace(
+                _row_to_edge(row),
+                edge_version=expected_version + 1,
+                epistemic_status=EpistemicStatus.SUPPORTED.value,
+                created_by=decision.approver,
+            )
+            self._validate_edge(promoted, now)
+            changed = session.execute(
+                sql_update(_KnowledgeEdgeRow)
+                .where(
+                    _KnowledgeEdgeRow.id == row.id,
+                    _KnowledgeEdgeRow.superseded_at.is_(None),
+                )
+                .values(superseded_at=now, lifecycle_status=LifecycleStatus.SUPERSEDED.value),
+                execution_options={"synchronize_session": False},
+            )
+            if cast(CursorResult, changed).rowcount != 1:
+                raise ConcurrencyError("Knowledge edge changed during promotion.")
+            session.add(self._new_edge_row(promoted, now))
+            session.flush()
+            event_id = self._write_edge_ledger_event(
+                session, "promoted", promoted, approval_id=approval_id
+            )
+            self._enqueue_outbox(
+                session,
+                "knowledge_edge.promoted",
+                {"edge_id": edge_id, "version": promoted.edge_version, "event_id": event_id},
+            )
+            return event_id
 
     def retrieve_edge(self, edge_id: str, version: int | None = None) -> KnowledgeEdgeRecord | None:
         """Retrieve the current edge or a specific historical version."""
