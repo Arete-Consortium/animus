@@ -15,8 +15,8 @@ Run::
 from __future__ import annotations
 
 import argparse
-import getpass
 import json
+import os
 import sys
 from dataclasses import asdict
 from pathlib import Path
@@ -141,7 +141,14 @@ def cmd_promote_edge(args: argparse.Namespace) -> int:
         if input(f"Type {confirmation!r} to promote this edge: ") != confirmation:
             print("Edge promotion cancelled.", file=sys.stderr)
             return 1
-        operator = getpass.getuser()
+        try:
+            operator = os.getlogin()
+        except OSError:
+            print("Could not verify the operator's terminal login.", file=sys.stderr)
+            return 2
+        if not operator:
+            print("Could not verify the operator's terminal login.", file=sys.stderr)
+            return 2
         approval_id = registry.request_approval(
             "promote_knowledge_edge",
             params,

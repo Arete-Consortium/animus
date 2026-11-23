@@ -183,7 +183,20 @@ def test_operator_cli_reviews_edge_before_promoting(tmp_path, monkeypatch, capsy
         return f"approve {edge.edge_id} version 1"
 
     monkeypatch.setattr("builtins.input", confirm)
-    monkeypatch.setattr("animus.durability.cli.getpass.getuser", lambda: "test-operator")
+    for name in ("LOGNAME", "USER", "LNAME", "USERNAME"):
+        monkeypatch.setenv(name, "untrusted-environment-user")
+
+    def missing_login():
+        raise OSError("no terminal login")
+
+    monkeypatch.setattr("animus.durability.cli.os.getlogin", missing_login)
+    assert main(argv) == 2
+    assert store.retrieve_edge(edge.edge_id).epistemic_status == "unverified"
+    assert [event["event_type"] for event in store.get_edge_ledger_events(edge.edge_id)] == [
+        "created"
+    ]
+
+    monkeypatch.setattr("animus.durability.cli.os.getlogin", lambda: "test-operator")
     assert main(argv) == 0
     assert main(argv) == 1
     assert store.retrieve_edge(edge.edge_id).epistemic_status == "supported"
