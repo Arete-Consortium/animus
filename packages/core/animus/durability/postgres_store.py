@@ -992,6 +992,8 @@ class DurableObjectStore:
             and edge.lifecycle_status == LifecycleStatus.ACTIVE.value
         ):
             raise PermissionError("Record is outside this store's write scope.")
+        if edge.epistemic_status != EpistemicStatus.UNVERIFIED.value:
+            raise PermissionError("Scoped knowledge edge writes must be unverified.")
         if not self._schema_checked:
             self.preflight()
 
