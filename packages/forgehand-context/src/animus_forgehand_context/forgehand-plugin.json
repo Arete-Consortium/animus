@@ -1,0 +1,41 @@
+{
+  "manifest_version": "1.0",
+  "identifier": "animus.knowledge-context",
+  "version": "0.1.0",
+  "forgehand_api": {"minimum": "1.1.0", "maximum_exclusive": "2.0.0"},
+  "name": "Animus Knowledge Context",
+  "description": "Reads bounded advisory edge snapshots prepared by Animus Core.",
+  "capabilities": [{
+    "kind": "context_provider",
+    "identifier": "animus_knowledge_edges",
+    "name": "Animus Knowledge Edges",
+    "description": "Supplies approved edge references for one configured project."
+  }],
+  "configuration_schema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["project", "edges"],
+    "properties": {
+      "project": {"type": "string", "minLength": 1, "maxLength": 200},
+      "edges": {
+        "type": "array",
+        "maxItems": 16,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["edge_id", "edge_version", "subject_id", "predicate", "object_id"],
+          "properties": {
+            "edge_id": {"type": "string", "minLength": 1, "maxLength": 128},
+            "edge_version": {"type": "integer", "minimum": 1},
+            "subject_id": {"type": "string", "minLength": 1, "maxLength": 256},
+            "predicate": {"type": "string", "minLength": 1, "maxLength": 64},
+            "object_id": {"type": "string", "minLength": 1, "maxLength": 256}
+          }
+        }
+      }
+    }
+  },
+  "optional_dependencies": [],
+  "required_external_services": [],
+  "requested_permissions": []
+}

@@ -1352,24 +1352,29 @@ class DurableObjectStore:
         predicate: KnowledgeEdgeType | None = None,
         direction: str = "outgoing",
         limit: int = 100,
+        supported_at: datetime | None = None,
     ) -> list[KnowledgeEdgeRecord]:
-        """Return bounded immediate neighbors without graph-wide traversal."""
+        """Return bounded neighbors, optionally only supported edges valid at a given time."""
         if direction not in {"outgoing", "incoming", "both"}:
             raise ValueError("direction must be outgoing, incoming, or both")
         if type(limit) is not int or not 1 <= limit <= 1000:
             raise ValueError("limit must be between 1 and 1000")
-        if direction == "outgoing":
-            return self.list_edges(subject_id=entity_id, predicate=predicate, limit=limit)
-        if direction == "incoming":
-            return self.list_edges(object_id=entity_id, predicate=predicate, limit=limit)
+        outgoing = _KnowledgeEdgeRow.subject_id == entity_id
+        incoming = _KnowledgeEdgeRow.object_id == entity_id
+        endpoint = {"outgoing": outgoing, "incoming": incoming, "both": or_(outgoing, incoming)}
         with self._session_factory() as session:
             stmt = self._edges().where(
-                or_(
-                    _KnowledgeEdgeRow.subject_id == entity_id,
-                    _KnowledgeEdgeRow.object_id == entity_id,
-                ),
+                endpoint[direction],
                 _KnowledgeEdgeRow.superseded_at.is_(None),
             )
+            if supported_at is not None:
+                valid_at = _utc(supported_at)
+                stmt = stmt.where(
+                    _KnowledgeEdgeRow.epistemic_status == EpistemicStatus.SUPPORTED.value,
+                    _KnowledgeEdgeRow.valid_from.is_(None)
+                    | (_KnowledgeEdgeRow.valid_from <= valid_at),
+                    _KnowledgeEdgeRow.valid_to.is_(None) | (_KnowledgeEdgeRow.valid_to > valid_at),
+                )
             if predicate is not None:
                 stmt = stmt.where(_KnowledgeEdgeRow.predicate == KnowledgeEdgeType(predicate).value)
             rows = (

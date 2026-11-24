@@ -21,6 +21,7 @@ import json
 import os
 import sys
 from dataclasses import asdict
+from datetime import datetime, timezone
 from pathlib import Path
 
 from animus.durability.export import (
@@ -181,6 +182,64 @@ def cmd_promote_edge(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_export_edge_context(args: argparse.Namespace) -> int:
+    """Emit a bounded Forgehand configuration from one scoped Core query."""
+    from animus.durability.postgres_store import DurableObjectStore
+    from animus.durability.scope import ObjectScope
+
+    store = None
+    try:
+        scope = ObjectScope(
+            owner_id=args.owner,
+            workspace_id=args.workspace,
+            subject_domain="project",
+            security_class=args.security_class,
+            schema_id="knowledge_edge",
+            artifact_types=frozenset({"knowledge_edge"}),
+        )
+        store = DurableObjectStore(scope=scope)
+        edges = [
+            {
+                "edge_id": edge.edge_id,
+                "edge_version": edge.edge_version,
+                "subject_id": edge.subject_id,
+                "predicate": edge.predicate.value,
+                "object_id": edge.object_id,
+            }
+            for edge in store.neighbors(
+                args.entity,
+                direction="both",
+                limit=args.limit,
+                supported_at=datetime.now(timezone.utc),
+            )
+        ]
+    except Exception:
+        print(
+            "Edge context unavailable. Check registry configuration and connectivity.",
+            file=sys.stderr,
+        )
+        return 2
+    finally:
+        if store is not None:
+            store._engine.dispose()
+    print(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "plugins": {
+                    "animus.knowledge-context": {
+                        "enabled": True,
+                        "required": True,
+                        "configuration": {"project": args.project, "edges": edges},
+                    }
+                },
+            },
+            indent=2,
+        )
+    )
+    return 0
+
+
 def cmd_registry_backup(archive: Path, *, restore: bool) -> int:
     from animus.durability.registry_backup import export_registry, restore_registry
 
@@ -240,7 +299,21 @@ def main(argv: list[str] | None = None) -> int:
     )
     restore_sql.add_argument("archive", type=Path)
 
+    edge_context = sub.add_parser("export-edge-context", help="Prepare a Forgehand edge snapshot.")
+    edge_context.add_argument("--project", required=True)
+    edge_context.add_argument("--entity", required=True)
+    edge_context.add_argument("--owner", required=True)
+    edge_context.add_argument("--workspace", required=True)
+    edge_context.add_argument(
+        "--security-class", choices=("public", "internal"), default="internal"
+    )
+    edge_context.add_argument("--limit", type=int, choices=range(1, 17), default=16)
+
     args = parser.parse_args(argv)
+    if args.cmd == "export-edge-context":
+        if not args.project.strip() or len(args.project) > 200:
+            edge_context.error("--project must contain 1 to 200 characters.")
+        return cmd_export_edge_context(args)
     if args.cmd == "export-registry":
         return cmd_registry_backup(args.out, restore=False)
     if args.cmd == "restore-registry":

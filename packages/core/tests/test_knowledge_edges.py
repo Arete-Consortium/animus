@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -204,3 +205,50 @@ def test_operator_cli_reviews_edge_before_promoting(tmp_path, monkeypatch, capsy
     assert [event["event_type"] for event in events] == ["created", "promoted"]
     assert events[-1]["payload"]["approver"] == "test-operator"
     assert store.verify_integrity(events[-1]["event_id"])
+
+
+def test_export_edge_context_filters_before_query_limit(tmp_path, monkeypatch, capsys):
+    from animus.durability.cli import main
+
+    store = make_store(tmp_path)
+    store.store_edge(make_edge(edge_id="edge-a-unverified", epistemic_status="unverified"))
+    store.store_edge(make_edge(edge_id="edge-b-foreign", workspace_id="ws-other"))
+    store.store_edge(
+        make_edge(
+            edge_id="edge-c-future", valid_from=datetime.now(timezone.utc) + timedelta(days=1)
+        )
+    )
+    store.store_edge(make_edge(edge_id="edge-d-approved"))
+    store.store_edge(make_edge(edge_id="edge-e-approved"))
+    monkeypatch.setenv("ANIMUS_DATABASE_URL", store.database_url)
+    assert (
+        main(
+            [
+                "export-edge-context",
+                "--project",
+                "animus",
+                "--entity",
+                "repo-animus",
+                "--owner",
+                "owner-default",
+                "--workspace",
+                "ws-default",
+                "--limit",
+                "1",
+            ]
+        )
+        == 0
+    )
+    snapshot = json.loads(capsys.readouterr().out)
+    assert snapshot["plugins"]["animus.knowledge-context"]["configuration"] == {
+        "project": "animus",
+        "edges": [
+            {
+                "edge_id": "edge-d-approved",
+                "edge_version": 1,
+                "subject_id": "repo-animus",
+                "predicate": "DEPENDS_ON",
+                "object_id": "component-forgehand",
+            }
+        ],
+    }
