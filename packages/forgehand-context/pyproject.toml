@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "animus-forgehand-context"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["principal-engineering-harness>=0.3.1,<0.4"]
+
+[project.entry-points."forgehand.plugins"]
+"animus.knowledge-context" = "animus_forgehand_context:KnowledgeContextPlugin"
+
+[tool.setuptools.package-data]
+animus_forgehand_context = ["forgehand-plugin.json"]
