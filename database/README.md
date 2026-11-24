@@ -70,3 +70,24 @@ pytest database/tests/
 ## Owner
 
 AreteDriver
+
+## Registry backup and restore
+
+Use PostgreSQL client tools (`pg_dump`, `pg_restore`, and `psql`) compatible with
+the server version. The registry backup includes the entire dedicated Animus
+database, including edge versions, evidence, ledger, outbox, and migration state.
+Keep backups private and restore only archives from trusted sources.
+
+```bash
+# ANIMUS_DATABASE_URL identifies the dedicated source database.
+python -m animus.durability.cli export-registry -o registry.dump
+
+# ANIMUS_RESTORE_DATABASE_URL identifies a newly created empty database.
+python -m animus.durability.cli restore-registry registry.dump
+```
+
+Keep the restore target offline from application writers and outbox workers
+until verification is complete. The restore runs in one transaction and uses
+the target role's ownership and privileges. Reapply any deployment-specific
+grants before switching application traffic. The file-based `export --all`
+command continues to archive the local data directory.
