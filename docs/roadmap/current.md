@@ -1,7 +1,7 @@
 # Animus Roadmap
 
-**Project:** Animus — An Intelligent Computing Environment You Own  
-**Direction updated:** 2026-11-26  
+**Project:** Animus — An Intelligent Computing Environment You Own
+**Direction updated:** 2026-11-26
 **Status:** Consolidation before expansion; implementation evidence must be refreshed independently.
 
 ## North Star
