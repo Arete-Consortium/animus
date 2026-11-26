@@ -6,7 +6,7 @@
 
 ## Prerequisites
 
-- Python 3.10+ (Core), 3.11+ (Bootstrap), or 3.12+ (Forge)
+- Python 3.12+
 - Git
 - A local LLM via [Ollama](https://ollama.com)
 
@@ -14,7 +14,7 @@
 
 ```bash
 # Clone the repo
-git clone https://github.com/your-org/animus.git
+git clone https://github.com/Arete-Consortium/animus.git
 cd animus
 
 # Install shared types first
