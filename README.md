@@ -1,27 +1,99 @@
-# Animus — AI Operating Environment You Own
+# Animus — An Intelligent Computing Environment You Own
 
-**Multi-agent orchestration framework with budget controls, quality gates, and stage persistence.**
+**Local-first AI infrastructure for modular, governed, and interoperable intelligent systems.**
 
-![CI](https://github.com/AreteDriver/animus/workflows/CI/badge.svg)
-![First-Run](https://github.com/AreteDriver/animus/workflows/First-Run%20Verification/badge.svg)
-![CodeQL](https://github.com/AreteDriver/animus/workflows/CodeQL%20Security%20Scan/badge.svg)
-![Security](https://github.com/AreteDriver/animus/workflows/Security/badge.svg)
+**Version:** v2.3.0 (root and Core; other packages are independently versioned).
+
+![CI](https://github.com/Arete-Consortium/animus/workflows/CI/badge.svg)
+![First-Run](https://github.com/Arete-Consortium/animus/workflows/First-Run%20Verification/badge.svg)
+![CodeQL](https://github.com/Arete-Consortium/animus/workflows/CodeQL%20Security%20Scan/badge.svg)
+![Security](https://github.com/Arete-Consortium/animus/workflows/Security/badge.svg)
 [![PyPI - convergentAI](https://img.shields.io/pypi/v/convergentAI?label=convergentAI&color=blue)](https://pypi.org/project/convergentAI/)
-![License](https://img.shields.io/github/license/AreteDriver/animus)
+![License](https://img.shields.io/github/license/Arete-Consortium/animus)
+![Animus Architect Citizen](docs/assets/animus-architect-demo.gif)
 
-Running AI agents in production creates three predictable failures: **costs spiral** because no one tracks token spend, **pipelines break halfway through** and restart from scratch wasting compute, and **multi-agent systems bottleneck** on a single supervisor that burns tokens just watching. Animus fixes this with manufacturing-line discipline — every agent gets a token budget, every workflow persists stage inputs and outputs to SQLite for manual restart on failure, and agent coordination uses shared intent graphs instead of a central supervisor.
+Animus is an open-source project exploring how intelligence can become a capability of a computing environment rather than a feature confined to an individual application.
 
-Before software I spent 17 years in manufacturing and logistics (IBM, Toyota Production System). The same principles apply here: make cost visible, make waste impossible to ignore, stop and fix before propagating errors.
+Today, Animus provides a personal AI assistant, persistent memory, multi-agent workflow orchestration, coordination, and operational interfaces. These are the foundations of a broader architecture, not a claim that the complete vision has been realized.
 
-**Platform: Linux only** for the public open-source launch. macOS support is on the roadmap; Windows is out of scope.
+**Platform:** Linux is the current implementation and supported public deployment target. Broader operating-system and hardware independence are long-term objectives, not current compatibility guarantees.
 
-Eight packages (four installable via PyPI). Test corpus: ~13,500 unit/integration tests across packages, plus ~1,800 internal coverage-ratchet tests. Proactive engine with 6 self-healing checks and an autonomous improvement loop verified end-to-end against local inference.
+[Architecture](docs/architecture/overview.md) | [Roadmap](docs/roadmap/current.md) | [Getting Started](docs/getting-started/quickstart.md) | [Tools Reference](docs/reference/tools.md)
 
-> **Development method:** Built with Claude Code (human-reviewed, human-verified). See [profile](https://github.com/AreteDriver) for the full transparency note.
+## North Star
 
-**[Architecture](docs/architecture/overview.md)** | **[Roadmap](docs/roadmap/current.md)** | **[Whitepaper](docs/whitepaper.pdf)** | **[Tools Reference](docs/reference/tools.md)**
+Animus aims to enable a personal, local-first intelligent computing environment in which awareness, memory, reasoning, orchestration, governance, and execution are modular, interoperable capabilities.
 
----
+Drawing from ambient intelligence, edge AI, distributed computing, and agent systems, the project explores how these capabilities can cooperate across heterogeneous hardware and software while preserving human authority.
+
+The objective is not to build another operating system, replace existing tools, or maximize autonomous behavior. It is to make existing and emerging capabilities work together within an environment that individuals can own, understand, customize, and control.
+
+An intelligent environment should be able to recognize when intelligence is needed, select appropriate resources, and operate within explicit permissions. Conventional monitoring, deterministic automation, local inference, and hosted models can all have a place in that environment.
+
+Linux is the current foundation. Model, hardware, device, operating system, and framework independence are architectural objectives.
+
+## Architectural principles
+
+| Principle | Meaning |
+|---|---|
+| Local-first | Prefer locally controlled resources where practical; external services remain an explicit choice. |
+| Model agnostic | Treat models as interchangeable capabilities through defined interfaces. |
+| OS and hardware agnostic | Minimize platform coupling and accommodate heterogeneous resources over time. |
+| Device agnostic | Aim for continuity across interaction surfaces. |
+| Tool agnostic | Integrate existing tools before building replacements. |
+| Modular | Keep components independently useful and replaceable. |
+| Deterministic first | Use conventional software when inference is unnecessary. |
+| Human authority | Capability does not imply permission; preserve approval, escalation, and intervention. |
+| Observable | Make actions, decisions, failures, and resource consumption inspectable. |
+| Recoverable | Preserve state and enable controlled recovery. |
+| Resource aware | Operate within computational and financial constraints. |
+| Consolidate before expanding | Prove existing workflows before adding infrastructure or capabilities. |
+
+## Target architecture
+
+The following diagram describes the **North Star**, not a deployed topology or a replacement for the current package architecture.
+
+```mermaid
+flowchart TD
+    H[Human authority: identity, preferences, permissions] --> I[Interaction: CLI, dashboard, mobile, API]
+    I --> A
+    subgraph A[Animus coordination environment]
+        W[Awareness and resource discovery]
+        M[Memory and context]
+        R[Reasoning: local and hosted models]
+        O[Orchestration and coordination]
+        W --> O
+        M <--> O
+        R <--> O
+    end
+    O --> G[Governance and evidence: authorization, verification, escalation]
+    G --> E[Execution: ForgeHand, tools, automation, plugins]
+    E --> L[Local compute]
+    E --> D[Edge devices]
+    E --> C[Remote compute and cloud]
+    E -->|Results and evidence| G
+```
+
+Animus coordinates capabilities rather than requiring that every capability be implemented inside Animus. Governance and execution are distinct responsibilities: an executor cannot grant itself authority or decide unilaterally that its work is acceptable.
+
+Environmental awareness, automatic resource discovery, portable distributed execution, and cross-device continuity are target capabilities. The diagram does not imply that they are available end to end today.
+
+## Current implementation
+
+The repository contains the following packages. Their maturity varies; see the linked package documentation and release evidence for details.
+
+| Package | Responsibility |
+|---|---|
+| [core](packages/core/) | Personal AI assistant, identity, memory, CLI, integrations, MCP server, inference dispatch |
+| [forge](packages/forge/) | Workflow orchestration, agent budgets, quality gates, stage persistence |
+| [quorum](packages/quorum/) | Intent-graph coordination and voting, with optional Rust backend |
+| [kernel](packages/kernel/) | Builder engine and memory/storage abstractions |
+| [bootstrap](packages/bootstrap/) | Daemon, onboarding, dashboard, operational interfaces |
+| [pwa](packages/pwa/) | React/Vite interface; functional but early |
+| [contracts](packages/contracts/) | Canonical schemas and validation |
+| [types](packages/types/) | Shared cross-package types |
+
+The current conceptual architecture and package architecture describe different views of the system. See [Architecture Overview](docs/architecture/overview.md) for the documented six-layer model and [Package Architecture](docs/architecture/packages.md) for component boundaries.
 
 ## Citizens in Action
 
@@ -31,144 +103,13 @@ Autonomous improvement proposals generated from codebase observation:
 
 ---
 
-## The Architecture
-
-Four-layer stack. Each layer solves exactly one problem and is independently useful.
-
-```mermaid
-graph TD
-    subgraph Interface["INTERFACE LAYER"]
-        Dashboard[Bootstrap Dashboard]
-        PWA[React PWA]
-        API[FastAPI]
-    end
-
-    subgraph Cognitive["COGNITIVE LAYER"]
-        Forge[Forge Workflow Engine]
-        Quorum[Quorum Agent Coordination]
-        Contracts[Schema Contracts]
-    end
-
-    subgraph Memory["MEMORY LAYER"]
-        Kernel[Builder Engine]
-        Episodic[(Episodic SQLite)]
-        Semantic[(Kernel Semantic ChromaDB)]
-        Procedural[(Procedural Memory)]
-    end
-
-    subgraph Core["CORE LAYER"]
-        Identity[Identity]
-        Security[Security]
-        Ethics[Ethics]
-    end
-
-    Interface --> Cognitive
-    Cognitive --> Memory
-    Memory --> Core
-```
-
-**Package map**:
-- `bootstrap` → FastAPI dashboard + HTMX UI + PWA static host
-- `pwa` → React 19 + Vite PWA calling `/api/*` endpoints
-- `forge` → Workflow orchestration engine
-- `quorum` → Decentralized agent coordination (`convergent` on PyPI)
-- `contracts` → Canonical JSON schemas with runtime `jsonschema` validation
-- `kernel` → Autonomous builder engine + `MemoryLayer` with PostgreSQL/SQLite/ChromaDB backends
-- `core` → Personal AI assistant + CLI + MCP server
-- `types` → Shared cross-package type definitions
-
----
-
-## Ecosystem
-
-Animus does not exist in isolation. These are the tools that feed it, manage it, or extend it — each independently installable.
-
-```mermaid
-flowchart TB
-    subgraph Animus["ANIMUS"]
-        direction TB
-        Core[Core<br/>CLI + MCP]
-        Forge[Forge<br/>Workflow Engine]
-        Kernel[Kernel<br/>Memory Layer]
-        Quorum[Quorum<br/>Agent Coordination]
-        Bootstrap[Bootstrap<br/>Ops Dashboard]
-    end
-
-    subgraph Satellites["SATELLITE TOOLS"]
-        direction LR
-        AISPEND[ai-spend<br/>Cost Tracking]
-        MCPMGR[mcp-manager<br/>Server Registry]
-        EVALS[arete-evals<br/>Benchmarks]
-        LINT[agent-lint<br/>Workflow Checks]
-        HYGIENE[context-hygiene<br/>Context Audit]
-        SKILLS[ai-skills<br/>Capability Library]
-    end
-
-    subgraph Methodology["METHODOLOGY"]
-        direction LR
-        THS[the-human-stack<br/>Evidence Framework]
-        NOTES[notes<br/>Decision Logs]
-    end
-
-    AISPEND -->|"spend data"| Core
-    MCPMGR -->|"MCP servers"| Core
-    EVALS -->|"eval results"| Forge
-    LINT -->|"gate checks"| Forge
-    SKILLS -->|"capabilities"| Core
-    THS -.->|"E0–E5 grading"| Animus
-    THS -.->|"ADL governance"| NOTES
-```
-
----
-
-## Further Reading
-
-The philosophy behind Animus is documented in essays, not just code:
-
-- **[From 700 Pints to 4,800 Per Hour](https://aretedriver.substack.com)** — How manufacturing discipline (Toyota Production System, Kaizen, error-proofing) maps to AI operations. This is the origin story of checkpoint/resume, token budgets, and quality gates.
-- **[The Eval Is the Product](https://aretedriver.substack.com)** — Why Animus treats evaluation infrastructure as a first-class subsystem (Forge + arete-evals) rather than an afterthought.
-- **[The Human Stack](https://github.com/AreteDriver/the-human-stack)** — The full methodology reference: evidence grading (E0–E5), ADL governance, failure taxonomy, and benchmark standards.
-
----
-
-## Subsystems
-
-### Forge — Workflow Orchestration Engine
-
-Production orchestration for AI agent pipelines. Define workflows in YAML, assign token budgets per agent, set quality gates, and persist stage state to SQLite for manual restart at any step. Automatic context-restoring crash recovery is under completion. Supports 10 agent archetypes, streaming execution logs, MCP tool execution, and consensus voting.
-
-[`packages/forge/`](packages/forge/) | `import animus_forge`
-
-### Quorum — Agent Coordination Protocol
-
-Decentralized multi-agent coordination without a supervisor bottleneck. Agents read a shared intent graph and self-adjust based on stability scores — no inter-agent messaging required. Includes triumvirate voting, emergent coordination patterns, and optional Rust PyO3 backend for performance.
-
-[`packages/quorum/`](packages/quorum/) | `import convergent` | [PyPI: convergentAI](https://pypi.org/project/convergentAI/)
-
-### Core — Personal AI Assistant
-
-Persistent episodic, semantic, and procedural memory through local JSON or a
-configured durable SQL store, 40+ CLI commands, integrations (Google Calendar,
-Todoist, filesystem, webhooks), and an inference layer supporting Anthropic,
-OpenAI, and Ollama with native tool use.
-
-[`packages/core/`](packages/core/) | `import animus`
-
-### Bootstrap — System Daemon
-
-One-command install, Rich-based onboarding wizard, FastAPI+HTMX ops dashboard at localhost:7700, systemd/launchd service management. Serves the built PWA at `/pwa/`. Deploys Animus on new machines with zero manual configuration.
-
-[`packages/bootstrap/`](packages/bootstrap/) | `import animus_bootstrap`
-
----
-
 ## Core Design Decisions
 
 These are visible in the code, not aspirational:
 
 - **Stage persistence by default** — Every Forge workflow records stage inputs, outputs, and status to SQLite. You can manually restart execution at any prior step index. Automatic crash recovery that rehydrates full context from a prior run is implemented in the checkpoint store but not yet wired end-to-end in the executor. The state machine is in `packages/forge/src/animus_forge/executor.py`.
-- **Token budgets per agent** — Every agent declaration includes a `budget` field. The executor enforces it. No surprise API bills. See `packages/forge/workflows/*.yml` for examples.
-- **Quality gates before merge** — Deterministic scoring (tool/completeness/structure) with adversarial test harness. A feature doesn't ship unless the gate passes. Implemented in `packages/forge/src/animus_forge/gates/`.
+- **Token budgets per agent** — Every agent declaration includes a `budget` field. The executor enforces it. Budgets help bound token consumption; actual provider costs depend on configuration and usage. See `packages/forge/workflows/*.yml` for examples.
+- **Quality gates before merge** — Deterministic scoring (tool/completeness/structure) with adversarial test harness. Configured gates evaluate workflow outputs against defined criteria. Implemented in `packages/forge/src/animus_forge/gates/`.
 - **Provider-agnostic dispatch** — LLM calls go through a shared interface. Swap Claude for OpenAI or Ollama without touching agent code. Native tool use dispatches by provider. See `packages/core/animus/inference/`.
 - **Local-first memory** — Core stores episodic, semantic, and procedural memory
   in local JSON by default. Deployments can configure the durable SQL backend
@@ -179,7 +120,7 @@ These are visible in the code, not aspirational:
 
 ## Prerequisites
 
-- Python 3.11+
+- Python 3.12+ (all seven primary Python packages)
 - Node.js 18+ (for PWA build)
 - Docker (optional, for PostgreSQL)
 - Ollama (optional, for local LLM inference)
@@ -191,7 +132,7 @@ These are visible in the code, not aspirational:
 The fastest way to verify Animus works on your machine:
 
 ```bash
-git clone https://github.com/AreteDriver/animus && cd animus
+git clone https://github.com/Arete-Consortium/animus && cd animus
 pip install -e packages/types/ -e "packages/core/[dev]" -e packages/kernel/ -e packages/contracts/
 python -c "import animus; print('OK — version', animus.__version__)"
 export ANIMUS_CITIZENS_CODEBASE_PATH="$(pwd)"
@@ -205,11 +146,11 @@ You should see a scan of the repository and a generated improvement proposal wit
 ### Full Stack (dashboard + PWA)
 
 ```bash
-git clone https://github.com/AreteDriver/animus && cd animus
+git clone https://github.com/Arete-Consortium/animus && cd animus
 pip install -e packages/bootstrap/ -e packages/kernel/ -e packages/core/ -e packages/contracts/
 cd packages/pwa && npm install && npm run build && cd ../..
 animus-bootstrap serve
-# Open http://localhost:7700/pwa/ on your phone (same Wi-Fi)
+# Open http://localhost:7700/pwa/ on the host; configure authorized remote access separately.
 ```
 
 ### PostgreSQL (optional, recommended for production)
@@ -336,100 +277,59 @@ The self-improve pipeline: analyze → plan → safety check → sandbox test �
 
 ---
 
-## Repository Structure
+## Ecosystem
 
-```
-animus/
-├── packages/
-│   ├── bootstrap/               # import animus_bootstrap
-│   │   ├── src/animus_bootstrap/ # Daemon, wizard, dashboard, PWA static host
-│   │   └── tests/               # ~2,000 tests
-│   ├── contracts/               # Canonical JSON schemas (20+) + runtime validator
-│   │   ├── src/animus_contracts/
-│   │   └── *.schema.json
-│   ├── core/                    # import animus
-│   │   ├── animus/              # Identity, memory, cognitive, CLI, integrations
-│   │   └── tests/               # ~2,800 tests
-│   ├── forge/                   # import animus_forge
-│   │   ├── src/animus_forge/    # Executor, agents, API, CLI, TUI, dashboard
-│   │   ├── migrations/          # SQL migrations
-│   │   ├── workflows/           # YAML workflow definitions
-│   │   └── tests/               # ~10,300 tests
-│   ├── kernel/                  # import animus_kernel — Autonomous builder engine
-│   │   ├── src/animus_kernel/   # Memory layer, stores, executor
-│   │   └── tests/
-│   ├── pwa/                     # React 19 + Vite progressive web app
-│   │   ├── src/                 # Components, API client, auth, service worker
-│   │   └── dist/                # Build output mounted at /pwa/
-│   ├── quorum/                  # import convergent (PyPI: convergentAI)
-│   │   ├── python/convergent/   # Intent graph, voting, stigmergy, bridge
-│   │   ├── src/                 # Rust PyO3 (optional performance layer)
-│   │   └── tests/               # ~960 tests
-│   └── types/                   # import animus_types — Shared cross-package schemas
-├── database/                    # Alembic migrations, PostgreSQL DDL
-├── infra/                       # docker-compose.yml, .env.example
-├── scripts/                     # setup_postgres.py, automation scripts
-├── docs/                        # Audience-based docs tree
-│   ├── getting-started/         # Install, quickstart, concepts
-│   ├── architecture/            # Overview, packages, decisions, standards
-│   ├── packages/                # Per-package docs
-│   ├── contributing/            # Setup, workflow, debugging
-│   ├── operators/               # Deployment, config, monitoring
-│   ├── reference/               # Glossary, FAQ, security, whitepapers
-│   └── roadmap/                 # Current priorities and plans
-└── .github/workflows/           # CI: lint, test (per-package), security, CodeQL
-```
+These projects are complementary, independently useful capabilities. Listing a project here does not imply that its integration into Animus is complete.
 
----
+- **[ForgeHand](https://github.com/AreteDriver/Forgehand-public)** — Governed software-engineering execution environment; public architectural overview, private implementation.
+- **Loop Governor** — Standalone governance boundary for task authority, scope, evidence, budgets, escalation, and completion decisions.
+- **[Memboot](https://github.com/AreteDriver/memboot)** — Earlier exploration of persistent local AI memory; archived repository.
+- **[mcp-manager](https://github.com/AreteDriver/mcp-manager)** — MCP server management.
+- **[ai-spend](https://github.com/AreteDriver/ai-spend)** — Cross-provider AI cost aggregation.
+- **[The Human Stack](https://github.com/AreteDriver/the-human-stack)** — Evidence and governance methodology.
 
-## Status
+## Development priorities
 
-Active development. Architecture stable. v2.3.0 (migrating to v2.1 baseline) released.
+### Near term — Consolidation
 
-| Component | Version | Tests | Stage | Notes |
-|-----------|---------|------:|-------|-------|
-| Core | 2.3.0 | ~2,900 | Stable | [Live on PyPI](https://pypi.org/project/animus-core/) — CLI, memory, MCP server |
-| Forge | 1.9.0 | ~8,500 | Active dev | Self-improve pipeline, workflow orchestration |
-| Quorum | 1.2.0 | ~960 | Stable | [Live on PyPI](https://pypi.org/project/convergentAI/) |
-| Bootstrap | 0.8.0 | ~2,000 | Stable | Daemon + wizard + dashboard + reflection |
-| Kernel | 0.1.0 | ~490 | Stable | Autonomous builder engine |
-| PWA | 0.1.0 | — | **Functional but early** | React + Vite, mounted at `/pwa/` |
-| Contracts | 0.1.0 | — | Stable | 20+ JSON schemas with runtime validation |
-| Types | 0.1.0 | — | Stable | Shared cross-package schemas |
+- Stabilize existing runtime services and validate end-to-end workflows.
+- Clarify governance and execution ownership; integrate existing tools where appropriate.
+- Improve operational observability, local inference reliability, and delegated execution.
+- Reuse existing infrastructure and establish evidence of reliable operation before expanding.
 
-**Test breakdown:**
-- **Unit + integration tests:** ~14,850 across Core, Forge, Bootstrap, Quorum, Kernel
-- **Internal coverage ratchets:** ~1,800 (development-only, moved to `tests/_internal_ratchets/`) |
+### Medium term — Interoperability
 
-### What's Ready vs Experimental
+- Explore capability registration, resource discovery, and distributed workload routing.
+- Improve context continuity and lightweight environmental monitoring.
+- Define narrow interfaces for independently developed modules and tools.
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Dashboard (HTMX) | ✅ Stable | localhost:7700, full CRUD for personas, tasks, memory |
-| PWA | ⚠️ Functional but early | React 19 + Vite, calls `/api/*`, offline via service worker |
-| Web Push | ✅ Stable | VAPID key endpoints + test-push trigger + e2e HTTP-mock test verified |
-| Contracts validation | ✅ Stable | 20+ JSON schemas, runtime `jsonschema` gating via FastAPI dependency |
-| PostgreSQL backend | ✅ Stable | `DurableMemoryStore` with bitemporal event ledger, auto-selected when `ANIMUS_DATABASE_URL` is set |
-| Forge self-improve | 🔄 Active dev | Analyze → plan → sandbox → apply → PR pipeline |
-| Local LLM (Ollama) | ✅ Stable | Verified against llama3.2, qwen2.5-coder, phi4 |
-| MCP server | ✅ Stable | 10 tools exposed to Claude Code |
-| Multi-agent Quorum | ✅ Stable | Intent-graph coordination, triumvirate voting |
+### Long term — Intelligent environments
 
----
+- Explore heterogeneous edge computing and hardware-independent deployment.
+- Investigate context-aware assistance and governed adaptation.
+- Enable highly customizable AI-native computing environments across devices and platforms.
 
-## Design Principles
+These are directional priorities rather than release commitments. The [roadmap](docs/roadmap/current.md) documents earlier milestones and should be read with its dated build baseline in mind.
 
-**Budget-first execution.** Every agent has a token budget. Every workflow has a cost ceiling. Inspired by Toyota Production System — make cost visible, make waste impossible to ignore.
+## Development and verification
 
-**No supervisor bottleneck.** The industry default for multi-agent coordination is a supervisor that watches everything. This burns tokens on monitoring and creates a single point of failure. Quorum replaces this with environmental awareness — agents read a shared intent graph and self-adjust based on stability scores. No inter-agent messaging required.
+Animus is actively developed using AI-assisted engineering with human oversight and review. Automated tests, linting, schema checks, security checks, and evidence requirements support verification. Exact test totals and package versions should be sourced from current CI and package metadata rather than static README estimates.
 
-**Stage persistence.** All Forge workflows record stage inputs, outputs, and status to SQLite. You can manually restart at any prior step. Automatic context-restoring recovery is under completion.
+## Research and collaboration
 
-**Provider-agnostic.** LLM calls go through a shared interface. Swap Claude for OpenAI or Ollama without touching agent code. Native tool use dispatches by provider.
+Animus explores the intersection of ambient intelligence, edge AI, distributed systems, persistent memory, and governed agent infrastructure.
 
-**Local-first.** Your memory, your identity, your hardware. Nothing leaves unless you configure it to.
+Questions motivating this work include:
 
----
+- What is the minimum amount of inference needed for a useful intelligent environment?
+- How should awareness, reasoning, memory, execution, and authority be separated?
+- How can independent capabilities cooperate across devices without compromising privacy or human control?
+- How can an environment evolve without requiring its owner to rebuild it around each new model or platform?
+
+Technical feedback, research discussions, and contributions are welcome.
+
+- [Writing and research](https://aretedriver.substack.com)
+- [Discord community](https://discord.gg/fdzQkrt8)
 
 ## Documentation
 
@@ -444,21 +344,6 @@ Active development. Architecture stable. v2.3.0 (migrating to v2.1 baseline) rel
 - [Whitepapers (Markdown)](docs/whitepapers/)
 
 ---
-
-## Community
-
-[Discord](https://discord.gg/fdzQkrt8) — Join the community
-
----
-
-
-## Related Projects
-
-These tools are built to work together as the Arete Stack:
-
-- **[mcp-manager](https://github.com/AreteDriver/mcp-manager)** — Manage MCP servers across your IDEs (`pip install arete-mcp`)
-- **[ai-spend](https://github.com/AreteDriver/ai-spend)** — Cross-provider AI cost aggregation with provider retry and config encryption (`pip install ai-spend`)
-- **[the-human-stack](https://github.com/AreteDriver/the-human-stack)** — The methodology reference behind the evidence framework and maturity model
 
 ## License
 

@@ -1,8 +1,58 @@
 # Architecture Overview
 
-> Animus is a sovereign AI operating environment — a local-first, self-improving intelligence system with executive function, governed autonomous engineering, and hardware-independent execution.
->
-> Evolved from v2.1 (8-plane exocortex) to v2.3 Mind Foundation (six-layer sovereign OS). Verified 2026-07-05.
+> Animus is a local-first intelligent computing environment: a modular coordination layer for awareness, memory, reasoning, governance, and execution under human authority.
+
+Linux is the supported public deployment target. Hardware, device, model, framework and OS independence are architectural objectives, not verified compatibility guarantees. Animus is not an operating system replacement.
+
+## North Star and architectural boundaries
+
+Ambient intelligence informs context-aware assistance and environmental awareness; edge AI informs where inference can run. Distributed systems inform resource coordination. None requires continuous inference or unrestricted autonomy.
+
+The following is a target responsibility model, not a deployed topology or a replacement for existing package contracts.
+
+| Responsibility | Current foundation | Target direction |
+|---|---|---|
+| Interaction | CLI, dashboard, early PWA, API | Consistent access and context across devices |
+| Awareness | Health checks, citizen observations | Bounded event-driven observation and capability discovery |
+| Memory | Core local JSON and configured durable SQL; package-specific stores | Portable context and continuity through explicit contracts |
+| Reasoning | Provider dispatch, local and hosted inference | Resource-aware selection of deterministic or model-based capabilities |
+| Coordination | Forge workflows and Quorum intent graphs | Interoperable routing across independently useful capabilities |
+| Governance | Approval workflows, policy checks, evidence framework | Explicit authority, budgets, escalation and completion contracts |
+| Execution | Existing Forge and Kernel mechanisms | Governed delegation to ForgeHand and other external executors |
+| Infrastructure | Linux-first local deployment and optional hosted services | Authenticated heterogeneous edge and remote compute |
+
+### Target responsibility flow
+
+```mermaid
+flowchart TD
+    H[Human authority] --> I[Interaction surfaces]
+    I --> O[Animus coordination]
+    A[Bounded awareness] --> O
+    M[Memory and context] <--> O
+    R[Reasoning and deterministic capabilities] <--> O
+    O --> G[Governance and authorization]
+    G --> E[Execution capabilities]
+    E --> N[Local, edge and remote resources]
+    E -->|Evidence and outcomes| G
+    G -->|Escalation and review| H
+```
+
+Observation, interpretation and action are separate responsibilities. Monitoring should use conventional event-driven mechanisms when sufficient; inference is invoked only when useful. External actions must be authorized within explicit scope. An executor must not grant itself permissions or unilaterally accept its own completion claims.
+
+The standalone Loop Governor defines the intended authority boundary for delegated engineering work. [ForgeHand](https://github.com/AreteDriver/Forgehand-public) provides a complementary execution environment. Their integration into Animus must be verified before it is represented as operational. Forge (the existing workflow package) and ForgeHand are distinct components.
+
+### Architectural constraints
+
+- Consolidate existing capabilities before expanding the system.
+- Reuse existing infrastructure and tools before creating replacements.
+- Prefer narrow, versioned contracts over shared implementation assumptions.
+- Local-first does not mean cloud-free; external processing requires explicit configuration and appropriate data-handling policy.
+- Resource discovery must not imply trust: authenticate nodes and authorize capabilities before use.
+- Preserve human authority, observability, recoverability and revocable permissions.
+- Treat environmental awareness, portable deployment and distributed routing as research directions until validated.
+- Existing accepted ADRs and package contracts remain authoritative; this overview does not supersede them.
+
+The six-layer v2.3 Mind Foundation model below is retained as an existing conceptual view. It describes responsibilities, not proof that every named capability is implemented.
 
 ---
 
@@ -35,7 +85,7 @@
 └─────────────────────────────────────────────────────────────┘
 ```
 
-*Verified 2026-07-05. See [Package Architecture](packages.md) for dependency graph and version matrix.*
+*Historical architecture baseline dated 2026-07-05; not a fresh runtime verification. See [Package Architecture](packages.md) for dependency graph and version matrix.*
 
 ---
 
@@ -129,11 +179,11 @@ The autonomous builder engine. Evaluation, orchestration, and quality gates.
 
 ### Forge
 
-Multi-agent workflow orchestration (`animus_forge`). Define pipelines in YAML, assign per-agent token budgets, set quality gates, and checkpoint state to SQLite for automatic resume on failure.
+Multi-agent workflow orchestration (`animus_forge`). Define pipelines in YAML, assign per-agent token budgets, set quality gates, and persist stage state to SQLite for manual restart; automatic context-restoring recovery remains incomplete.
 
 - **10 agent archetypes**: researcher, reviewer, writer, tester, security, etc.
 - **Budget controls**: Every agent has a token ceiling. Every workflow has a cost cap.
-- **Checkpoint/resume**: If a pipeline fails at step 4 of 6, it restarts at step 4.
+- **Checkpoint/resume**: Persisted stages support manual restart at a selected step; automatic recovery requires separate validation.
 - **Quality gates**: Threshold checks after each stage. Failures trigger rollback or retry.
 
 ### Evaluation
@@ -160,19 +210,19 @@ The Kernel was extracted from Forge for standalone use (`packages/kernel/`).
 
 ## Infrastructure Layer
 
-Where Animus runs. Hardware-agnostic, local-first.
+Where Animus runs. Linux-first today; hardware independence is a target.
 
 | Integration | Purpose | Status |
 |---|---|---|
 | **CLI** | Interactive agent with memory, streaming, tool use | Active |
 | **Bootstrap Dashboard** | FastAPI+HTMX ops UI (`localhost:7700`) | Active |
-| **MCP Server** | 34 tools exposed to Claude Code | Active |
+| **MCP Server** | Tools exposed through MCP; consult current server registration for inventory | Active |
 | **Ollama** | Local LLM inference | Active |
 | **Anthropic / OpenAI** | Cloud LLM APIs | Optional |
 | **Filesystem** | Local file access | Active |
 | **Calendar / Tasks** | Google Calendar, Todoist | Active |
 
-**Local-first by default.** Your memory, your identity, your hardware. Nothing leaves unless you configure it to.
+**Local-first by default.** Prefer locally controlled memory and computation; review configured integrations and data egress.
 
 ---
 
@@ -281,16 +331,16 @@ Feedback / Citizen Proposal
 | Malicious self-modification | Approval gate for >20% file changes |
 | Data exfiltration | Local-first by default; no telemetry |
 | Model prompt injection | Guardrails, input sanitization |
-| API key leakage | Stored in config, never transmitted |
+| API key leakage | Restrict credential access; provider authentication transmits credentials to configured endpoints as required |
 | Citizen override | Citizen Contract forbids direct modification |
 
-### Privacy Guarantees
+### Privacy design objectives
 
-1. **No telemetry without consent** — Nothing phones home by default
+1. **No telemetry without consent** — Verify telemetry behavior for the deployed configuration
 2. **Local memory** — Core local JSON on your machine, or durable SQL when
    explicitly configured
-3. **Explicit sharing only** — Data leaves device only when you choose
-4. **Audit trail** — You can see everything that happened
+3. **Explicit sharing only** — External processing and integrations require explicit configuration and appropriate egress controls
+4. **Audit trail** — Record inspectable events and outcomes; validate coverage
 
 See [Reference → Security](../reference/security.md) for full threat model.
 
@@ -315,7 +365,7 @@ RESTful API on port 8000 (Forge service):
 - Task and feedback management
 - MCP tool execution
 
-All API access subject to Identity Plane authentication and guardrails.
+API exposure must be configured with appropriate authentication and guardrails; verify enforcement before remote deployment.
 
 ---
 
@@ -327,13 +377,13 @@ All API access subject to Identity Plane authentication and guardrails.
 
 **Budget-first execution.** Every agent has a token budget. Every workflow has a cost ceiling. Inspired by Toyota Production System — make cost visible, make waste impossible to ignore.
 
-**Compounding intelligence.** Every improvement increases the rate of future improvements. Mind improves before citizens expand.
+**Consolidation before expansion.** Validate improvements against evidence before increasing autonomy or expanding citizen capabilities.
 
-**Checkpoint/resume.** All Forge workflows persist state to SQLite. If a pipeline fails at step 4 of 6, it restarts at step 4. No wasted compute.
+**Checkpoint/resume.** All Forge workflows persist state to SQLite. If a pipeline fails at step 4 of 6, it restarts at step 4. Recovery reduces unnecessary repeated work but does not eliminate it.
 
 **Provider-agnostic.** LLM calls go through a shared interface. Swap Claude for OpenAI or Ollama without touching agent code.
 
-**Local-first.** Your memory, your identity, your hardware. Nothing leaves unless you configure it to.
+**Local-first.** Prefer locally controlled memory and computation; review configured integrations and data egress.
 
 ---
 

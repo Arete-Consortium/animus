@@ -8,12 +8,13 @@
 
 | Package | Python | Notes |
 |---|---|---|
-| Core | ≥3.10 | Exocortex engine |
+| Core | ≥3.12 | Exocortex engine |
 | Forge | ≥3.12 | Orchestration (heavier deps) |
-| Bootstrap | ≥3.11 | Daemon + dashboard |
-| Quorum | ≥3.10 | Coordination protocol |
-| Kernel | ≥3.11 | Standalone builder engine |
-| Types | ≥3.10 | Shared schemas (install first) |
+| Bootstrap | ≥3.12 | Daemon + dashboard |
+| Quorum | ≥3.12 | Coordination protocol |
+| Kernel | ≥3.12 | Standalone builder engine |
+| Types | ≥3.12 | Shared schemas (install first) |
+| Contracts | ≥3.12 | Canonical schemas and validation |
 
 ## Install All Packages
 
@@ -23,7 +24,7 @@ pip install -e packages/types/
 
 # Then install any combination
 pip install -e packages/core/
-pip install -e packages/forge/
+pip install -e packages/quorum/ -e packages/kernel/ -e packages/forge/
 pip install -e packages/quorum/
 pip install -e packages/bootstrap/
 pip install -e packages/kernel/

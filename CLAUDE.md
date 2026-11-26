@@ -2,13 +2,12 @@
 
 ## Project Overview
 
-Personal AI exocortex with multi-agent orchestration and coordination protocol.
+Local-first intelligent computing environment with personal AI, memory, workflow orchestration and coordination. Linux is the current supported deployment target; wider OS, device and hardware independence are architectural objectives, not verified compatibility. See `README.md`, `docs/architecture/overview.md` and `docs/roadmap/current.md` for direction. Accepted ADRs and implementation evidence constrain all changes. Consolidate before expanding; prefer deterministic mechanisms and preserve human authority. Forge is the in-repository workflow engine, not Forgehand; external execution and Governor integration require verified contracts.
 
-- **Version**: 2.3.0
-- **Python**: >=3.10 (Core), >=3.11 (Bootstrap), >=3.12 (Forge)
-- **Layout**: Multi-package monorepo — `packages/core`, `packages/forge`, `packages/quorum`, `packages/bootstrap`, `packages/pwa`
-- **Tests**: 14,712+ across 5 packages (Core 2109, Forge 9720, Quorum 926, Bootstrap 1841+, Contracts 116)
-- **Coverage**: 97% per package
+- **Version**: Core 2.3.0; other packages independently versioned (see `COMPATIBILITY_MATRIX.md`)
+- **Python**: >=3.12 for Core, Forge, Bootstrap, Quorum, Kernel, Types and Contracts (declared package metadata)
+- **Layout**: Core, Forge, Quorum, Bootstrap, Kernel, Types, Contracts and PWA; optional Forgehand context-provider pilot in `packages/forgehand-context/`
+- **Tests and coverage**: Use current package test configuration and CI evidence; do not treat historical totals or coverage targets as measured results.
 - **License**: MIT
 
 ## Non-Negotiables
@@ -22,7 +21,7 @@ Read these before every session. No exceptions.
 5. **Quorum IntentNodes require signed writes.** Use `convergent.intent` APIs — don't write intent state directly.
 6. **No unregistered background threads.** If Forge spawns workers, they must be trackable and cleanly terminable.
 7. **Self-improve targets YAML workflows by default.** Python code changes require the full sandbox + approval + rollback pipeline in `packages/forge/src/animus_forge/self_improve/orchestrator.py`. YAML evolution is the safe fast path.
-8. **Constitutional principles (P1-P9) constrain all agent behavior.** See `docs/CONSTITUTIONAL_PRINCIPLES.md`. Forge reads these to bound its actions.
+8. **Constitutional principles (P1-P9) constrain all agent behavior.** See `docs/architecture/constitutional-principles.md`. Forge reads these to bound its actions.
 
 ## Monorepo Structure
 
@@ -31,11 +30,11 @@ animus/
 ├── packages/
 │   ├── core/                    # Animus Core — exocortex, identity, memory, CLI
 │   │   ├── animus/              # Python package: import animus
-│   │   ├── tests/               # 2109 tests, 97% coverage
+│   │   ├── tests/               # Package tests
 │   │   └── pyproject.toml
 │   ├── forge/                   # Animus Forge — multi-agent orchestration (was: Gorgon)
 │   │   ├── src/animus_forge/    # Python package: import animus_forge
-│   │   ├── tests/               # 9720 tests, 97% coverage
+│   │   ├── tests/               # Package tests
 │   │   ├── skills/              # Skill definitions (YAML + docs)
 │   │   ├── migrations/          # 14 SQL migrations
 │   │   ├── workflows/           # YAML workflow definitions
@@ -43,11 +42,11 @@ animus/
 │   ├── quorum/                  # Animus Quorum — coordination protocol (was: Convergent)
 │   │   ├── python/convergent/   # Python package: import convergent
 │   │   ├── src/                 # Rust PyO3 (optional)
-│   │   ├── tests/               # 926 tests, 97% coverage
+│   │   ├── tests/               # Package tests
 │   │   └── pyproject.toml
 │   └── bootstrap/               # Animus Bootstrap — install daemon, wizard, dashboard + gateway + intelligence
 │       ├── src/animus_bootstrap/ # Python package: import animus_bootstrap
-│       ├── tests/               # 1841 tests, 97% coverage
+│       ├── tests/               # Package tests
 │       └── pyproject.toml
 ├── docs/
 │   └── whitepapers/             # Architecture whitepapers (all 3 layers)
@@ -129,14 +128,14 @@ python scripts/mypy-ratchet.py --init
 | Package | PyPI Name | Import | Dependencies |
 |---------|-----------|--------|--------------|
 | Core | animus-core | `import animus` | ollama, pyyaml, pydantic, rich, prompt-toolkit, cryptography, animus-types |
-| Forge | animus-forge | `import animus_forge` | openai, anthropic, convergentai, typer, rich |
-| Quorum | convergentAI | `import convergent` | zero production deps |
+| Forge | animus-forge | `import animus_forge` | openai, anthropic, animus-quorum, typer, rich |
+| Quorum | animus-quorum | `import convergent` | zero production deps |
 | Bootstrap | animus-bootstrap | `import animus_bootstrap` | typer, rich, httpx, pydantic |
 
 ## Cross-Package Dependencies
 
 - **Quorum** has zero deps — pure library
-- **Forge** depends on Quorum (`convergentai ^1.1.0`)
+- **Forge** depends on Quorum (`animus-quorum ^1.1.0`)
 - **Core** optionally depends on Forge for orchestration features
 - **Bootstrap** is standalone — connects to Forge via HTTP (optional)
 
@@ -176,11 +175,11 @@ python scripts/mypy-ratchet.py --init
 
 | File | Purpose |
 |------|---------|
-| `docs/CONSTITUTIONAL_PRINCIPLES.md` | P1-P9 principles that constrain all agent behavior |
-| `docs/CONSCIOUSNESS_QUORUM_BRIDGE.md` | Reflection loop -> Quorum intent graph integration |
-| `docs/WORKFLOW_EVOLUTION_CONSTRAINTS.md` | YAML-only fast path + evolution notes pattern |
-| `docs/ARCHITECTURE.md` | System architecture overview |
-| `docs/SAFETY.md` | Security layer design |
+| `docs/architecture/constitutional-principles.md` | P1-P9 principles that constrain all agent behavior |
+| `docs/architecture/consciousness-quorum-bridge.md` | Reflection loop -> Quorum intent graph integration |
+| `docs/architecture/workflow-constraints.md` | YAML-only fast path + evolution notes pattern |
+| `docs/architecture/overview.md` | System architecture overview |
+| `docs/reference/safety.md` | Security layer design |
 
 ## Common Commands
 
@@ -209,7 +208,7 @@ pip install -e "packages/types/[dev]" -e "packages/quorum/[dev]" -e "packages/fo
 - Type hints on all functions
 - Dataclasses in Core, Pydantic in Forge, dataclasses in Quorum
 - Ruff for linting/formatting (per-package configs in pyproject.toml)
-- pytest for testing (97% coverage target per package)
+- pytest for testing (consult package-specific coverage gates and ratchets)
 - `lru_cache` pollution: use `get_settings.cache_clear()` in both setup AND teardown
 - `sys.executable` for subprocess calls (never bare `python`)
 - Forge `Provider.complete()` takes `CompletionRequest`, not raw messages
@@ -229,7 +228,7 @@ pip install -e "packages/types/[dev]" -e "packages/quorum/[dev]" -e "packages/fo
 ollama, pyyaml, pydantic, rich, prompt-toolkit, cryptography, animus-types
 
 ### Forge
-openai, anthropic, convergentai, typer, rich, pydantic
+openai, anthropic, animus-quorum, typer, rich, pydantic
 
 ### Quorum
 Zero production dependencies (pure library)
@@ -245,7 +244,7 @@ typer, rich, httpx, pydantic
 
 ## Domain Context
 
-Animus is a personal AI exocortex — a system for augmenting human cognition with persistent memory, multi-agent orchestration, and self-improvement capabilities. Key concepts:
+Animus builds on the personal AI exocortex foundation toward a modular intelligent computing environment. Do not represent target distributed capabilities as deployed. Key concepts:
 
 - **Exocortex**: External cognitive system (memory + reasoning + tools)
 - **Forge**: Multi-agent orchestration with budget-managed LLM calls
