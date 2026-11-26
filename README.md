@@ -120,7 +120,7 @@ These are visible in the code, not aspirational:
 
 ## Prerequisites
 
-- Python 3.11+
+- Python 3.12+ (all seven primary Python packages)
 - Node.js 18+ (for PWA build)
 - Docker (optional, for PostgreSQL)
 - Ollama (optional, for local LLM inference)
