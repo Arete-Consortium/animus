@@ -1,6 +1,16 @@
 # Memory Layer Architecture
 
-The Animus memory layer is a pluggable, multi-tiered storage system that coordinates between different memory types, backends, and retention policies. It is the canonical store for everything Animus knows.
+The Animus memory layer is a pluggable, multi-tiered storage system that coordinates between different memory types, backends, and retention policies. It provides Core memory abstractions; other packages may own separate stores and authority boundaries.
+
+## Scoped knowledge-edge registry and context pilot
+
+The durable registry supports scoped knowledge edges, including explicit operator-approved promotion bound to edge version, owner and workspace. Promotion records the operator and approval in the ledger. These changes were merged in [PR #159](https://github.com/Arete-Consortium/animus/pull/159).
+
+PostgreSQL registry backup and restore commands (`export-registry`, `restore-registry`) were added in [PR #161](https://github.com/Arete-Consortium/animus/pull/161). Restore requires an explicit empty target, trusted archives and the documented PostgreSQL tooling; keep outbox workers offline during recovery. These are registry-specific operations, not a general backup guarantee for every Animus store.
+
+[PR #162](https://github.com/Arete-Consortium/animus/pull/162) adds a bounded Core export and an optional [Forgehand context-provider pilot](../../packages/forgehand-context/README.md). Core retains registry credentials; Forgehand receives advisory snapshots subject to project and item/byte checks. Snapshots retain their export-time visibility, do not authenticate workspace membership and cannot revoke previously exported data. Keep them private and refresh before a run.
+
+Merged PR evidence demonstrates scoped context delivery and selected registry recovery cases. Model outcome improvements, production activation, distributed memory synchronization and general cross-device operation remain unverified. The existing Core local JSON and configured durable SQL memory contracts are unchanged by this pilot.
 
 ## Overview
 
