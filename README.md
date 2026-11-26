@@ -2,6 +2,8 @@
 
 **Local-first AI infrastructure for modular, governed, and interoperable intelligent systems.**
 
+**Version:** v2.3.0 (root and Core; other packages are independently versioned).
+
 ![CI](https://github.com/Arete-Consortium/animus/workflows/CI/badge.svg)
 ![First-Run](https://github.com/Arete-Consortium/animus/workflows/First-Run%20Verification/badge.svg)
 ![CodeQL](https://github.com/Arete-Consortium/animus/workflows/CodeQL%20Security%20Scan/badge.svg)
