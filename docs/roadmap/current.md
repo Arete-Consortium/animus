@@ -1,14 +1,78 @@
 # Animus Roadmap
 
-**Project**: Animus — Personal AI exocortex / Mind-class system
-**Classification**: Flagship
-**Version**: 2.3.0 (core), mixed across packages (see [Build Truth](#build-truth))
-**Last updated**: 2026-06-29
-**Next review**: 2026-07-27
+**Project:** Animus — An Intelligent Computing Environment You Own  
+**Direction updated:** 2026-11-26  
+**Status:** Consolidation before expansion; implementation evidence must be refreshed independently.
 
----
+## North Star
 
-## Build Truth
+Build a personal, local-first intelligent computing environment in which awareness, memory, reasoning, orchestration, governance, and execution are modular and interoperable.
+
+Linux is the current supported public deployment target. Model, framework, operating system, device and hardware independence are architectural objectives. Ambient intelligence, edge AI and distributed computing inform the research direction; they are not claims of completed platform functionality.
+
+See the [README](../../README.md) and [Architecture Overview](../architecture/overview.md).
+
+## Delivery rules
+
+- Consolidate before expanding; reuse before implementing.
+- Prefer deterministic mechanisms over unnecessary inference.
+- Assign one accountable owner to each capability and avoid overlapping control planes.
+- Preserve human authority, explicit authorization, inspectable evidence, and recoverability.
+- Validate current functionality before promoting maturity claims.
+- Treat phases below as dependency-ordered priorities, not calendar promises.
+
+## Phase A — Consolidation (current priority)
+
+| Workstream | Deliverable | Acceptance evidence |
+|---|---|---|
+| Runtime reliability | Minimal repeatable Linux deployment; healthy services and local inference | Recorded first-run and restart checks; actionable failure diagnostics |
+| End-to-end operation | One useful workflow from request to authorized execution and inspected result | Reproducible run with inputs, outputs, status and evidence |
+| Governance boundaries | Explicit ownership of authority, budgets, scope, escalation and completion | Contract review and tests for denial, escalation and unauthorized completion |
+| Delegated engineering | Evaluate ForgeHand and standalone Loop Governor integration without duplicating existing Forge capabilities | Demonstrated bounded handoff, evidence return and interruption behavior |
+| Operational visibility | Lightweight health and resource reporting using existing infrastructure where possible | Observable service state, failures and resource consumption; measured overhead |
+| Memory and recovery | Confirm supported persistence and restart behavior | Restart/recovery tests and documented limitations |
+| Documentation truth | Reconcile public claims, package versions, platform support and current evidence | Current CI/release references and verified operator instructions |
+
+**Exit gate:** A repeatable, minimally useful environment on supported hardware; clear authority boundaries; evidence-backed operation and recovery. Do not treat this gate as passed until validated.
+
+## Phase B — Interoperability (after consolidation)
+
+- Inventory existing tools and protocols before creating new infrastructure.
+- Define narrow contracts for capability registration, identity, authentication, resource inventory, and workload requests.
+- Prototype lightweight event-driven environmental monitoring.
+- Evaluate routing across authenticated local and remote nodes, including unavailable-node and insufficient-resource cases.
+- Investigate persistent context across interaction devices with explicit access and retention policy.
+- Establish extension compatibility and rollback expectations for community modules.
+
+**Exit gate:** Demonstrate at least one bounded cross-node workflow with authenticated capability discovery, explicit authorization, traceable results, and tested failure behavior. Measure overhead and document supported platforms rather than claiming universal compatibility.
+
+## Phase C — Intelligent environments (research direction)
+
+- Explore heterogeneous edge inference and portable deployment across hardware and operating systems.
+- Investigate context-aware assistance that does not require continuous inference or pervasive surveillance.
+- Evaluate governed adaptation and self-optimization with reversible changes and human authority.
+- Explore modular, highly customizable computing environments assembled from independently useful capabilities.
+
+**Research gate:** Each proposed capability must establish a useful problem, reuse analysis, threat model, measurable benefit, resource cost, and acceptance evidence before entering implementation scope.
+
+## Non-goals for the current phase
+
+- Building a new operating system or replacing existing tools without demonstrated need.
+- Expanding citizen populations or adding new standalone projects simply to increase capability count.
+- Treating distributed execution, automatic discovery, universal portability or ambient assistance as production-ready.
+- Unrestricted self-modification or autonomous approval of completion claims.
+
+## Evidence and status reporting
+
+Use current package metadata, CI runs, release evidence, and reproducible operator checks as the source of implementation status. Static test counts and historical checklists are not current verification. Existing accepted ADRs remain authoritative; changes to their decisions require the appropriate review process.
+
+Outstanding earlier roadmap items should be re-evaluated against Phase A rather than automatically discarded or carried forward. In particular, verify schema documentation, version compatibility, recovery behavior, and deployment configuration before declaring them complete.
+
+## Historical baseline
+
+The following material preserves the prior roadmap's reported build state and milestone decisions (June/July 2026, with later edits). It is retained for traceability, not as current acceptance evidence. Historical dates and completion labels are not new commitments or a fresh verification.
+
+## Build Truth (historical baseline)
 
 > ⚠️ **The previous roadmap overstated completion. This version is grounded in filesystem reality.**
 
@@ -26,18 +90,18 @@
 
 **Version alignment**: ⚠️ Documented mismatch. Core 2.3.0, Forge 1.9.0, Bootstrap 0.8.0, others 0.1.0–1.2.0. See `COMPATIBILITY_MATRIX.md` for dependency graph and compatibility ranges. Unified versioning deferred to Phase 2.
 
-**Truth baseline**: ✅ Honest. **25/26 PASS**, 1 FAIL (`version_alignment` — expected and documented). Previously: 21/22 with 1 FAIL. Test infrastructure fixed: root `pyproject.toml` now sets `pythonpath` for all sibling packages.
+**Reported truth baseline:** **25/26 PASS**, 1 FAIL (`version_alignment` — expected and documented). Previously: 21/22 with 1 FAIL. Test infrastructure fixed: root `pyproject.toml` now sets `pythonpath` for all sibling packages.
 
 ---
 
-## Current State (Real)
+## Historical current-state snapshot
 
 ### What Works
 
 - **Core exocortex**: CLI (`python -m animus`), memory tiers over local JSON or
   configured durable SQL, identity, proactive tasks
 - **Bootstrap**: Install daemon, onboarding wizard, FastAPI+HTMX dashboard (`localhost:7700`), Ollama health checks
-- **Forge**: Multi-agent YAML workflows, 10 archetypes, token budgets, checkpoint/resume, SQLite state, adversarial test harness, governance plane
+- **Forge**: Multi-agent YAML workflows, 10 archetypes, token budgets, stage persistence and manual restart, SQLite state, adversarial test harness, governance plane
 - **Quorum**: Rust intent graph + Python bindings, stigmergy coordination, signal bus, triumvirate voting
 - **Kernel**: Extracted 172 files / 55K LOC from Forge, budget/executor/sandbox/resume all present, durable core wired
 - **PWA**: TypeScript frontend scaffolded with Vite, login/chat/personas/status views, service worker
@@ -58,7 +122,7 @@
 
 ---
 
-## Milestones (Revised)
+## Historical milestones
 
 ### Phase 0: Foundation — MOSTLY COMPLETE
 
@@ -113,49 +177,13 @@
 
 ---
 
-## Prioritized Next Actions (Post-Phase 0)
+## Historical blockers and deployment notes
 
-1. **Schema validation layer** — JSON Schema → Pydantic gate in CI for `packages/contracts/`
-2. **Kernel durable core wiring** — connect `packages/kernel/` memory backends to `database/` registry/ledger
-3. **Traceability linter** — requirement-to-test mapping from ADRs to test modules
-4. **Evidence bundle release** — generate first official bundle in `evidence/releases/`
-5. **Quorum naming alignment** — document or rename `convergentAI` → `animus-quorum`
-
----
-
-## Blockers
-
-| Blocker | Impact | Resolution |
-|---|---|---|
-| Version misalignment | Low | Documented in `COMPATIBILITY_MATRIX.md`; unified versioning deferred |
-| Kernel under-tested (99 tests for 189 files) | Medium | Add coverage before durable core integration |
-| GitHub CI billing blocked | Medium | All CI jobs fail; local-first validation only |
-| MkDocs deployment blocked | Low | Repo is private; Pages requires Pro or public repo |
-| Alembic `sqlalchemy.url` configuration | Low | Default `driver://user:pass@...` in `alembic.ini` — set via env var or local config |
-
----
-
-## Definition of Done (Phase 0 Completion)
-
-- [x] Truth baseline fails on broken checks, not silently passes
-- [x] All 8 packages have version metadata and alignment is documented (`COMPATIBILITY_MATRIX.md`)
-- [x] `packages/types/` imports at least 10 of the 20 contract schemas as Python
-- [x] Every root architecture directory has a `README.md` explaining its purpose or is removed
-- [x] `scripts/assemble_evidence_bundle.py` exists and produces a manifest
-
----
-
-## MkDocs Deployment
-
-- **Status**: Site builds clean (0 warnings). Deployment blocked because repo is private.
-- **Options**: Make repo public (fastest), upgrade GitHub Pro, or deploy to Netlify/Cloudflare Pages
-- **Files**: `mkdocs.yml`, `docs/requirements-docs.txt`, `.github/workflows/docs-deploy.yml` all ready
-
----
+Earlier documentation reported CI billing restrictions, private-repository Pages limitations, kernel coverage concerns, and local database configuration requirements. These are historical observations, not asserted current blockers. Recheck each against current CI, repository visibility, package coverage and deployment configuration as relevant.
 
 ## See Also
 
-- [Architecture Overview](../architecture/overview.md) — 8-plane model
-- [Package Architecture](../architecture/packages.md) — Dependency graph and version matrix
-- [Decisions](../architecture/decisions/README.md) — ADRs
-- [Truth Baseline](https://github.com/your-org/animus/blob/main/truth-baseline.toml) — Source of truth config (needs fix)
+- [Architecture Overview](../architecture/overview.md)
+- [Package Architecture](../architecture/packages.md)
+- [Decisions](../architecture/decisions/README.md)
+- [Getting Started](../getting-started/quickstart.md)
