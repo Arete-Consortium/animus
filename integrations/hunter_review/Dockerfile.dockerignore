@@ -1,0 +1,12 @@
+**
+!integrations
+!integrations/hunter_review
+!integrations/hunter_review/__init__.py
+!integrations/hunter_review/review.py
+!integrations/hunter_review/server.py
+!packages
+!packages/core
+!packages/core/animus
+!packages/core/animus/hunter_os
+!packages/core/animus/hunter_os/models.py
+!packages/core/animus/hunter_os/audit.py
